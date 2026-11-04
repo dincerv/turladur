@@ -20,9 +20,10 @@ import {
 } from 'lucide-react';
 
 import { BrandLogo } from '@/components/brand/brand-logo';
+import { COMPANY_EMAILS } from '@/config/company';
+import { isSellerPanelRole } from '@/lib/partner-permissions';
 import { useAuth } from '@/providers/auth-provider';
 import { ApiError } from '@/services/api-client';
-import { isSellerPanelRole } from '@/lib/partner-permissions';
 
 const PARTNER_LOGIN_VISUAL =
   'https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80';
@@ -437,7 +438,7 @@ export default function PartnerLoginPage() {
               <p className="text-xs text-neutral-500">
                 Sorun mu yaşıyorsunuz?{' '}
                 <a
-                  href="mailto:partners@turta.com"
+                  href={`mailto:${COMPANY_EMAILS.partners}`}
                   className="font-medium text-neutral-950 underline-offset-2 transition-colors duration-150 hover:text-neutral-800 hover:underline"
                 >
                   Destek ile iletişime geçin

@@ -60,6 +60,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local Neon CLI project link (org/project ids)
+.neon
+
 # kullanıcı tarafından yüklenen görseller (örn. aktivite fotoğrafları)
 apps/web/public/uploads/
 

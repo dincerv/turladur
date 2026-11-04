@@ -37,7 +37,7 @@ IYZICO_SECRET_KEY=live-...
 IYZICO_BASE_URL=https://api.iyzipay.com
 IYZICO_CALLBACK_URL=https://api.turta.com/api/v1/payment/3ds/callback
 API_PUBLIC_URL=https://api.turta.com
-FRONTEND_URL=https://turta.com
+FRONTEND_URL=https://www.turta.com.tr
 ```
 
 4. API’yi restart et — **kod değişmez**.

@@ -1,0 +1,36 @@
+# fly.toml app configuration file generated for turladur-api on 2026-10-21T21:33:21+03:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'turladur-api'
+primary_region = 'fra'
+
+[build]
+  dockerfile = 'apps/api/Dockerfile'
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+  [http_service.concurrency]
+    type = 'requests'
+    hard_limit = 50
+    soft_limit = 40
+
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '10s'
+    grace_period = '30s'
+    method = 'GET'
+    path = '/api/v1/health'
+
+[[vm]]
+  memory = '512mb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 512

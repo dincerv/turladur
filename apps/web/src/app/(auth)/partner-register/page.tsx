@@ -19,6 +19,7 @@ import {
 
 import { BrandLogo } from '@/components/brand/brand-logo';
 import { formatFullPhone, PhoneInput } from '@/components/ui/phone-input';
+import { COMPANY_EMAILS } from '@/config/company';
 import { PHONE_COUNTRIES, isValidFullPhone } from '@/lib/phone-rules';
 import { TURKEY_CITIES } from '@/lib/turkey-cities';
 import { ApiError } from '@/services/api-client';
@@ -672,7 +673,7 @@ export default function PartnerRegisterPage() {
             <p className="text-xs text-neutral-500">
               Sorularınız mı var?{' '}
               <a
-                href="mailto:partners@turta.com"
+                href={`mailto:${COMPANY_EMAILS.partners}`}
                 className="font-medium text-neutral-950 underline-offset-2 transition-colors duration-150 hover:text-neutral-800 hover:underline"
               >
                 Destek ile iletişime geçin

@@ -171,11 +171,15 @@ Preview için aynı API’yi kullanabilirsin (veya ayrı staging API).
 
 ---
 
-## 6) Custom domain gelince (sonra)
+## 6) Custom domain (`turta.com.tr`)
 
-1. R2 → Custom Domains → `media.turta.com`
-2. API: `CDN_URL=https://media.turta.com`
-3. Web: `NEXT_PUBLIC_CDN_URL=https://media.turta.com`
+Web + şirket maili: [COMPANY_DOMAIN_AND_EMAIL.md](./COMPANY_DOMAIN_AND_EMAIL.md).
+
+Medya CDN (şimdi değil — API proxy duruyor):
+
+1. R2 → Custom Domains → `media.turta.com.tr`
+2. API: `CDN_URL=https://media.turta.com.tr`
+3. Web: `NEXT_PUBLIC_CDN_URL=https://media.turta.com.tr`
 4. Eski proxy URL’leri API `resolveMediaUrl` ile path rewrite eder (dosya R2’deyse)
 
 ---
@@ -184,7 +188,7 @@ Preview için aynı API’yi kullanabilirsin (veya ayrı staging API).
 
 - SMS / push (23.17 askıda)
 - İyzico canlı (şirket + key)
-- `turta.com` / `api.turta.com` DNS
+- `api.turta.com.tr` DNS (web `www.turta.com.tr` ayrı — COMPANY_DOMAIN_AND_EMAIL.md)
 - Production seed temizliği
 
 ---

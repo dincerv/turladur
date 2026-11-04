@@ -51,6 +51,7 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'images.pexels.com' },
       // Sprint 23.19 — Cloudflare CDN / R2 custom domain
       { protocol: 'https', hostname: 'media.turta.com' },
+      { protocol: 'https', hostname: 'media.turta.com.tr' },
       { protocol: 'https', hostname: '**.r2.dev' },
       { protocol: 'https', hostname: '**.r2.cloudflarestorage.com' },
       {

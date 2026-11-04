@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { LegalPageShell } from '@/components/features/legal/legal-page-shell';
+import { COMPANY_EMAILS } from '@/config/company';
 
 export const metadata: Metadata = {
   title: 'Erişilebilirlik | turta',
@@ -28,8 +29,8 @@ export default function AccessibilityPage() {
         </h2>
         <p>
           Erişim engeli yaşarsanız lütfen{' '}
-          <a href="mailto:support@turta.com" className="underline">
-            support@turta.com
+          <a href={`mailto:${COMPANY_EMAILS.support}`} className="underline">
+            {COMPANY_EMAILS.support}
           </a>{' '}
           üzerinden bildirin; mümkün olan en kısa sürede yardımcı oluruz.
         </p>

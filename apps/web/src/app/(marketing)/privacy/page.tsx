@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { LegalPageShell } from '@/components/features/legal/legal-page-shell';
+import { COMPANY_EMAILS } from '@/config/company';
 
 export const metadata: Metadata = {
   title: 'Gizlilik Politikası | turta',
@@ -22,8 +23,8 @@ export default function PrivacyPage() {
           turta platformu üzerinden sunulan hizmetlerde kişisel verileriniz,
           yürürlükteki mevzuata (KVKK ve ilgili düzenlemeler) uygun şekilde
           işlenir. Bu sayfa bilgilendirme amaçlıdır; detaylı talepler için{' '}
-          <a href="mailto:privacy@turta.com" className="underline">
-            privacy@turta.com
+          <a href={`mailto:${COMPANY_EMAILS.privacy}`} className="underline">
+            {COMPANY_EMAILS.privacy}
           </a>{' '}
           adresine yazabilirsiniz.
         </p>
