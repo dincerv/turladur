@@ -19,9 +19,10 @@ export async function Destinations() {
       return (b.avgRating ?? 0) - (a.avgRating ?? 0);
     });
     const withTours = sortedByReviews.filter((route) => route.tourCount > 0);
-    featuredRoutes = (
-      withTours.length >= HOMEPAGE_ROUTE_LIMIT ? withTours : sortedByReviews
-    ).slice(0, HOMEPAGE_ROUTE_LIMIT);
+    featuredRoutes = (withTours.length > 0 ? withTours : sortedByReviews).slice(
+      0,
+      HOMEPAGE_ROUTE_LIMIT,
+    );
   } catch {
     return null;
   }
@@ -51,30 +52,30 @@ export async function Destinations() {
             <Link
               key={route.id}
               href={`/routes/${route.id}`}
-              className="group block overflow-hidden rounded-xl border border-neutral-200/80 bg-white transition-all duration-300 ease-out hover:shadow-lg"
+              className="group block overflow-hidden rounded-xl border border-neutral-200/80 bg-white transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
             >
               <div className="relative aspect-[4/3] overflow-hidden">
                 <Image
                   src={route.image}
-                  alt={route.name}
+                  alt=""
                   fill
-                  priority={index < 4}
+                  priority={index < 2}
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                   className="object-cover transition duration-500 group-hover:scale-105"
                 />
-                <div className="absolute right-3 top-3 flex items-center rounded-md bg-white/80 px-2 py-0.5 text-xs font-medium text-neutral-700 shadow-sm backdrop-blur-sm">
-                  <MapPin className="mr-1 h-3 w-3 text-neutral-500" />
-                  {route.location}
+                <div className="absolute right-3 top-3 flex max-w-[70%] items-center rounded-md bg-white/80 px-2 py-0.5 text-xs font-medium text-neutral-700 shadow-sm backdrop-blur-sm">
+                  <MapPin className="mr-1 h-3 w-3 shrink-0 text-neutral-500" />
+                  <span className="truncate">{route.location}</span>
                 </div>
               </div>
               <div className="p-5">
                 <h3
-                  className="mb-1.5 line-clamp-1 text-base font-semibold text-neutral-800 transition-colors duration-200"
+                  className="mb-1.5 line-clamp-1 text-base font-semibold break-words text-neutral-800 transition-colors duration-200"
                   title={route.name}
                 >
                   {route.name}
                 </h3>
-                <p className="mb-3 line-clamp-2 h-8 text-xs leading-relaxed text-neutral-600">
+                <p className="mb-3 line-clamp-2 min-h-8 text-xs leading-relaxed break-words text-neutral-600">
                   {route.description}
                 </p>
                 <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-3 text-xs text-neutral-500">

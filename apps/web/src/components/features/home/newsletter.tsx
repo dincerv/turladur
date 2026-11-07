@@ -5,26 +5,33 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { CheckCircle, Mail } from 'lucide-react';
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function Newsletter() {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+    const trimmed = email.trim().toLowerCase();
+    if (!EMAIL_RE.test(trimmed)) {
       setError('Lütfen geçerli bir e-posta adresi giriniz');
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      // Bülten API henüz bağlanmadı; kayıt niyetini yerel olarak kabul ediyoruz.
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      setEmail(trimmed);
       setSubmitted(true);
-    }, 1500);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -34,8 +41,9 @@ export function Newsletter() {
           <div className="relative order-last h-80 w-full overflow-hidden rounded-xl border border-neutral-200/50 shadow-lg md:h-[450px] lg:order-first">
             <Image
               src="https://images.unsplash.com/photo-1568992687947-868a62a9f521?q=80&w=1932&auto=format&fit=crop"
-              alt="E-bülten Kayıt"
+              alt=""
               fill
+              sizes="(max-width: 1024px) 100vw, 50vw"
               className="object-cover"
             />
           </div>
@@ -44,15 +52,13 @@ export function Newsletter() {
             {submitted ? (
               <div className="py-6 text-center lg:text-left">
                 <CheckCircle className="mx-auto mb-4 h-10 w-10 text-emerald-500 lg:mx-0" />
-                <h3 className="mb-2 text-2xl font-semibold text-neutral-900">
+                <h3 className="mb-2 text-2xl font-semibold break-words text-neutral-900">
                   Teşekkürler!
                 </h3>
-                <p className="mb-4 text-sm text-neutral-600">
+                <p className="mb-4 text-sm break-words text-neutral-600">
                   <span className="font-medium text-neutral-800">{email}</span>{' '}
-                  adresine özel fırsatları göndereceğiz.
-                </p>
-                <p className="mb-6 text-sm text-neutral-600">
-                  E-bültenimize başarıyla kaydoldunuz.
+                  için ilginizi kaydettik. Bülten yayına alındığında
+                  bilgilendirileceksiniz.
                 </p>
                 <button
                   type="button"
@@ -61,7 +67,7 @@ export function Newsletter() {
                     setEmail('');
                     setError('');
                   }}
-                  className="text-sm font-medium text-neutral-950 underline underline-offset-2 transition-colors hover:text-neutral-800"
+                  className="text-sm font-medium text-neutral-950 underline underline-offset-2 transition-colors hover:text-neutral-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
                 >
                   Farklı bir e-posta ile kaydol
                 </button>
@@ -72,15 +78,15 @@ export function Newsletter() {
                   <Mail className="mr-1.5 h-4 w-4" />
                   Özel Fırsatlar
                 </div>
-                <h2 className="mb-4 text-3xl font-bold text-neutral-900 md:text-4xl">
+                <h2 className="mb-4 text-3xl font-bold break-words text-neutral-900 md:text-4xl">
                   İndirimleri ve Haberleri Kaçırmayın
                 </h2>
                 <p className="mb-8 text-lg text-neutral-600">
-                  E-posta listemize katılarak en yeni turlar, özel indirimler ve
-                  seyahat ipuçlarından ilk siz haberdar olun.
+                  Yeni turlar ve kampanyalardan haberdar olmak için e-posta
+                  listenize katılın.
                 </p>
 
-                <form onSubmit={handleSubmit} className="space-y-5">
+                <form onSubmit={handleSubmit} className="space-y-5" noValidate>
                   <div>
                     <label htmlFor="email-newsletter" className="sr-only">
                       E-posta adresi
@@ -88,16 +94,28 @@ export function Newsletter() {
                     <input
                       id="email-newsletter"
                       type="email"
+                      name="email"
+                      autoComplete="email"
+                      inputMode="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className={`block w-full rounded-lg border bg-white px-4 py-2.5 text-neutral-900 placeholder-neutral-400 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 sm:text-sm ${error ? 'border-red-400 focus:border-red-500 focus:ring-red-300' : 'border-neutral-300 focus:border-neutral-950 focus:ring-neutral-300'}`}
+                      maxLength={254}
+                      className={`block w-full rounded-lg border bg-white px-4 py-2.5 text-neutral-900 placeholder-neutral-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 sm:text-sm ${error ? 'border-red-400 focus:border-red-500 focus-visible:ring-red-300' : 'border-neutral-300 focus:border-neutral-950 focus-visible:ring-neutral-300'}`}
                       placeholder="E-posta adresiniz"
                       required
+                      aria-invalid={Boolean(error)}
+                      aria-describedby={error ? 'newsletter-error' : undefined}
                     />
                   </div>
 
                   {error ? (
-                    <p className="mt-1 text-xs text-red-600">{error}</p>
+                    <p
+                      id="newsletter-error"
+                      className="mt-1 text-xs text-red-600"
+                      role="alert"
+                    >
+                      {error}
+                    </p>
                   ) : null}
 
                   <div className="flex items-start pt-1">
@@ -130,11 +148,14 @@ export function Newsletter() {
 
                   <button
                     type="submit"
-                    className="flex w-full items-center justify-center rounded-lg bg-neutral-950 px-6 py-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-neutral-950 focus:ring-offset-2 disabled:opacity-60"
+                    className="flex w-full items-center justify-center rounded-lg bg-neutral-950 px-6 py-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-neutral-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={loading}
                   >
                     {loading ? (
-                      <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      <span
+                        className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"
+                        aria-label="Gönderiliyor"
+                      />
                     ) : (
                       'Bültene Kaydol'
                     )}

@@ -1,6 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef, type ComponentType } from 'react';
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  type ComponentType,
+} from 'react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -68,9 +74,8 @@ const routesHeroImage =
 
 const HOME_HERO_SLOGANS = [
   "Aradığın deneyim Turta'da.",
-  "Rotan Turta'da",
-  "Aradığın Tatil Turta'da",
-  'Aradığın Turtada',
+  "Rotan Turta'da.",
+  'Türkiye turlarını keşfet.',
 ] as const;
 
 const HOME_HERO_SLOGAN_INTERVAL_MS = 10_000;
@@ -90,7 +95,10 @@ export function Hero({ variant = 'default' }: HeroProps) {
     string | null
   >(null);
   const [departureCityOptions] = useState<DepartureCityOption[]>(
-    DEFAULT_DEPARTURE_CITIES.map((city) => ({ city, count: 0 })),
+    (DEFAULT_DEPARTURE_CITIES as readonly string[]).map((city) => ({
+      city,
+      count: 0,
+    })),
   );
   const [departureCitySearch, setDepartureCitySearch] = useState('');
   const [selectedStartDate, setSelectedStartDate] = useState<Date | null>(null);
@@ -133,24 +141,31 @@ export function Hero({ variant = 'default' }: HeroProps) {
 
   // Nest’te facet endpoint yok; kalkış şehirleri DEFAULT_DEPARTURE_CITIES ile init.
 
-  // Dışarı tıklanınca modal kapatma
+  // Dışarı tıklama + Escape ile modal kapatma; scroll kilidi
   useEffect(() => {
+    if (!isSearchModalOpen) return;
+
     const handleClickOutside = (event: MouseEvent) => {
       if (
-        isSearchModalOpen &&
         modalRef.current &&
         !modalRef.current.contains(event.target as Node)
       ) {
         setIsSearchModalOpen(false);
       }
     };
-    if (isSearchModalOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    } else {
-      document.removeEventListener('mousedown', handleClickOutside);
-    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsSearchModalOpen(false);
+    };
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+
     return () => {
+      document.body.style.overflow = prevOverflow;
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isSearchModalOpen]);
 
@@ -224,7 +239,7 @@ export function Hero({ variant = 'default' }: HeroProps) {
 
   const formatDestinationDisplay = () => {
     return (
-      selectedLocation || searchQuery.trim() || 'Şehir, bölge veya otel adı'
+      selectedLocation || searchQuery.trim() || 'Şehir, bölge veya tur adı'
     );
   };
 
@@ -233,9 +248,9 @@ export function Hero({ variant = 'default' }: HeroProps) {
   };
 
   const formatDateRangeDisplay = () => {
-    if (!selectedStartDate) return 'Giriş - Çıkış tarihi';
+    if (!selectedStartDate) return 'Başlangıç - Bitiş tarihi';
     const start = formatDate(selectedStartDate);
-    const end = selectedEndDate ? formatDate(selectedEndDate) : 'Çıkış';
+    const end = selectedEndDate ? formatDate(selectedEndDate) : 'Bitiş';
     return `${start} - ${end}`;
   };
 
@@ -320,6 +335,15 @@ export function Hero({ variant = 'default' }: HeroProps) {
     }
     return { month, year, weeks };
   };
+
+  const calendarCurrent = useMemo(
+    () => generateCalendar(currentMonth),
+    [currentMonth],
+  );
+  const calendarNext = useMemo(
+    () => generateCalendar(currentMonth + 1),
+    [currentMonth],
+  );
   // --- End Yardımcı Fonksiyonlar ---
 
   // --- Modal Render Fonksiyonu ---
@@ -327,38 +351,40 @@ export function Hero({ variant = 'default' }: HeroProps) {
     if (!isSearchModalOpen || !isBrowser) return null;
 
     return createPortal(
-      <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/60 backdrop-blur-sm flex items-start justify-center pt-16 sm:pt-24 p-4 animate-fadeInBg">
+      <div
+        className="fixed inset-0 z-[100] overflow-y-auto bg-black/60 backdrop-blur-sm flex items-start justify-center pt-16 sm:pt-24 p-4 animate-fadeInBg"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Tur arama"
+      >
         <div
           ref={modalRef}
-          // Modal stili: daha modern, neutral renkler
           className="bg-white rounded-xl shadow-xl w-full max-w-3xl animate-slideDownEnter overflow-hidden border border-neutral-200/70"
         >
           {/* Modal Tabs */}
-          <div className="flex border-b border-neutral-200 bg-neutral-50/50 overflow-x-auto">
-            <button
-              onClick={() => setActiveModalTab('location')}
-              className={`flex-1 min-w-[72px] py-3 px-2 text-center text-sm font-medium transition-all duration-200 border-b-2 whitespace-nowrap ${activeModalTab === 'location' ? 'border-neutral-950 text-neutral-950 font-semibold' : 'border-transparent text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100'}`}
-            >
-              Konum
-            </button>
-            <button
-              onClick={() => setActiveModalTab('departure')}
-              className={`flex-1 min-w-[72px] py-3 px-2 text-center text-sm font-medium transition-all duration-200 border-b-2 whitespace-nowrap ${activeModalTab === 'departure' ? 'border-neutral-950 text-neutral-950 font-semibold' : 'border-transparent text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100'}`}
-            >
-              Kalkış
-            </button>
-            <button
-              onClick={() => setActiveModalTab('dates')}
-              className={`flex-1 min-w-[72px] py-3 px-2 text-center text-sm font-medium transition-all duration-200 border-b-2 whitespace-nowrap ${activeModalTab === 'dates' ? 'border-neutral-950 text-neutral-950 font-semibold' : 'border-transparent text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100'}`}
-            >
-              Tarihler
-            </button>
-            <button
-              onClick={() => setActiveModalTab('guests')}
-              className={`flex-1 min-w-[72px] py-3 px-2 text-center text-sm font-medium transition-all duration-200 border-b-2 whitespace-nowrap ${activeModalTab === 'guests' ? 'border-neutral-950 text-neutral-950 font-semibold' : 'border-transparent text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100'}`}
-            >
-              Misafirler
-            </button>
+          <div
+            className="flex border-b border-neutral-200 bg-neutral-50/50 overflow-x-auto"
+            role="tablist"
+          >
+            {(
+              [
+                { id: 'location', label: 'Konum' },
+                { id: 'departure', label: 'Kalkış' },
+                { id: 'dates', label: 'Tarihler' },
+                { id: 'guests', label: 'Misafirler' },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={activeModalTab === tab.id}
+                onClick={() => setActiveModalTab(tab.id)}
+                className={`flex-1 min-w-[72px] py-3 px-2 text-center text-sm font-medium transition-all duration-200 border-b-2 whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-neutral-950 ${activeModalTab === tab.id ? 'border-neutral-950 text-neutral-950 font-semibold' : 'border-transparent text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100'}`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
           {/* Modal Content */}
@@ -375,9 +401,11 @@ export function Hero({ variant = 'default' }: HeroProps) {
                   <input
                     type="text"
                     className="w-full pl-10 pr-4 py-2.5 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-400 focus:border-neutral-950 text-neutral-800 placeholder-neutral-400 text-sm"
-                    placeholder="Şehir, otel veya bölge adı..."
+                    placeholder="Şehir, bölge veya tur adı..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    maxLength={120}
+                    autoFocus
                   />
                 </div>
                 <h4 className="text-xs font-medium text-neutral-500 mb-3 uppercase tracking-wider">
@@ -387,24 +415,24 @@ export function Hero({ variant = 'default' }: HeroProps) {
                   {locations.map((location) => (
                     <button
                       key={location.name}
+                      type="button"
                       onClick={() => {
                         setSelectedLocation(location.name);
                         setSearchQuery(location.name);
                         setActiveModalTab('departure');
                       }}
-                      // Lokasyon kart stili güncellendi
-                      className="text-left group transition-transform duration-200 ease-out hover:scale-[1.03]"
+                      className="text-left group transition-transform duration-200 ease-out hover:scale-[1.03] focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 rounded-lg"
                     >
                       <div className="aspect-[4/3] rounded-lg overflow-hidden mb-2 relative shadow-sm border border-neutral-100">
                         <Image
                           src={location.image}
-                          alt={location.name}
+                          alt=""
                           fill
                           className="object-cover group-hover:brightness-105 transition-all duration-300"
                           sizes="(max-width: 640px) 50vw, 25vw"
                         />
                       </div>
-                      <p className="text-sm font-medium text-neutral-800 group-hover:text-neutral-950 transition-colors">
+                      <p className="text-sm font-medium text-neutral-800 group-hover:text-neutral-950 transition-colors truncate">
                         {location.name}
                       </p>
                     </button>
@@ -480,27 +508,22 @@ export function Hero({ variant = 'default' }: HeroProps) {
                   {/* Ay gösterimi */}
                   <div className="flex-grow text-center">
                     <div className="font-semibold text-neutral-800 text-sm">
-                      {monthNames[generateCalendar(currentMonth).month]}{' '}
-                      {generateCalendar(currentMonth).year}
+                      {monthNames[calendarCurrent.month]} {calendarCurrent.year}
                     </div>
                     <div className="font-semibold text-neutral-800 text-sm ml-12 hidden sm:inline-block">
-                      {monthNames[generateCalendar(currentMonth + 1).month]}{' '}
-                      {generateCalendar(currentMonth + 1).year}
+                      {monthNames[calendarNext.month]} {calendarNext.year}
                     </div>
                   </div>
                   <button
                     type="button"
-                    className="p-1.5 rounded-full hover:bg-neutral-100 text-neutral-500 transition-colors"
+                    className="p-1.5 rounded-full hover:bg-neutral-100 text-neutral-500 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
                     onClick={() => setCurrentMonth(currentMonth + 1)}
                   >
                     <ChevronRightIcon className="w-5 h-5" />
                   </button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
-                  {[
-                    generateCalendar(currentMonth),
-                    generateCalendar(currentMonth + 1),
-                  ].map((cal, calIndex) => (
+                  {[calendarCurrent, calendarNext].map((cal, calIndex) => (
                     <div
                       key={calIndex}
                       className={`${calIndex === 0 ? 'mb-4 sm:mb-0' : 'hidden sm:block'} ${calIndex === 1 ? 'sm:border-l sm:pl-6 sm:border-neutral-200' : ''}`}
@@ -678,10 +701,10 @@ export function Hero({ variant = 'default' }: HeroProps) {
               type="button"
               onClick={handleFinalSearch}
               // Arama butonu stili güncellendi
-              className="px-6 py-2.5 bg-neutral-950 hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-950 text-white font-semibold rounded-lg transition-colors text-sm shadow-sm flex items-center gap-2"
+              className="px-6 py-2.5 bg-neutral-950 hover:bg-neutral-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-neutral-950 text-white font-semibold rounded-lg transition-colors text-sm shadow-sm flex items-center gap-2"
             >
               <MagnifyingGlassIcon className="w-4 h-4" />
-              Tatil Ara
+              Tur Ara
             </button>
           </div>
         </div>
@@ -878,7 +901,7 @@ export function Hero({ variant = 'default' }: HeroProps) {
           <p className="text-sm leading-relaxed md:text-xl max-w-2xl mx-auto text-white/85 md:text-white/90 font-light px-1 md:px-2">
             {isRoutesVariant
               ? 'Kapadokya, Likya Yolu, Pamukkale ve daha fazlası için tur seçeneklerini inceleyin.'
-              : "Türkiye'nin dört bir yanındaki eşsiz otelleri, turları ve deneyimleri kolayca bulun ve rezerve edin."}
+              : "Türkiye'nin dört bir yanındaki turları ve deneyimleri kolayca bulun, karşılaştırın ve rezerve edin."}
           </p>
         </div>
 
