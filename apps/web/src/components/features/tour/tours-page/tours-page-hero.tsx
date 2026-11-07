@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { listRoutes } from '@/services/route';
 import { useToursPageUi } from './tours-page-context';
+import { sanitizeSearchQuery } from './tours-page.helpers';
 
 const TOURS_RESULTS_ANCHOR_ID = 'tours-results';
 
@@ -106,11 +107,16 @@ export function ToursPageHero() {
               <div className="flex-1 flex items-center pl-3">
                 <Search className="h-5 w-5 text-gray-400 mr-2" />
                 <input
-                  type="text"
+                  type="search"
+                  name="q"
+                  maxLength={120}
+                  autoComplete="off"
                   placeholder="Tur adı, destinasyon veya aktivite ara..."
-                  className="w-full py-3 px-2 outline-none text-gray-700 bg-transparent"
+                  className="w-full truncate bg-transparent px-2 py-3 text-neutral-700 outline-none"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) =>
+                    setSearchTerm(sanitizeSearchQuery(e.target.value))
+                  }
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
@@ -118,17 +124,20 @@ export function ToursPageHero() {
                     }
                   }}
                 />
-                {searchTerm && (
+                {searchTerm ? (
                   <button
+                    type="button"
                     onClick={() => setSearchTerm('')}
-                    className="p-2 text-gray-400 hover:text-gray-600"
+                    className="flex h-11 w-11 items-center justify-center text-neutral-400 transition-colors hover:text-neutral-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+                    aria-label="Aramayı temizle"
                   >
                     <X className="h-4 w-4" />
                   </button>
-                )}
+                ) : null}
               </div>
               <button
-                className="bg-neutral-950 hover:bg-neutral-800 text-white font-medium rounded-lg px-5 py-3 transition-colors flex items-center"
+                type="button"
+                className="flex min-h-11 items-center rounded-lg bg-neutral-950 px-5 py-3 font-medium text-white transition-colors hover:bg-neutral-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
                 onClick={handleSearch}
               >
                 <Search className="h-4 w-4 mr-2" />

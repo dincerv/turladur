@@ -1,30 +1,32 @@
 'use client';
 
-import { Search, ChevronRight } from 'lucide-react';
+import { Search, RotateCcw } from 'lucide-react';
 
-/** Split from tours-page-client.tsx (Faz 7) — empty results; UI unchanged. */
 export function ToursNoResults({ onReset }: { onReset: () => void }) {
   return (
     <div
-      className="bg-white rounded-xl shadow-md p-8 text-center"
-      role="alert"
+      className="flex min-h-[22rem] flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-200 bg-white px-6 py-12 text-center shadow-sm sm:min-h-[26rem]"
+      role="status"
       aria-live="polite"
     >
-      <div className="mx-auto w-20 h-20 bg-neutral-100 rounded-full flex items-center justify-center mb-4">
-        <Search className="w-10 h-10 text-neutral-600" />
+      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100">
+        <Search className="h-8 w-8 text-neutral-500" aria-hidden />
       </div>
-      <h3 className="text-xl font-bold text-gray-900 mb-2">Tur bulunamadı</h3>
-      <p className="text-gray-600 mb-6 max-w-md mx-auto">
-        Arama kriterlerinize uygun tur bulunamadı. Farklı filtreler deneyebilir
-        veya tüm filtreleri temizleyebilirsiniz.
+      <h3 className="mb-2 text-xl font-bold break-words text-neutral-900">
+        Tur bulunamadı
+      </h3>
+      <p className="mb-8 max-w-md text-sm leading-relaxed text-neutral-600 sm:text-base">
+        Arama veya filtrelerinize uygun tur yok. Kriterleri gevşetin ya da tüm
+        filtreleri temizleyip yeniden deneyin.
       </p>
       <button
+        type="button"
         onClick={onReset}
-        className="bg-neutral-950 hover:bg-neutral-800 text-white font-medium px-6 py-3 rounded-lg inline-flex items-center transition-colors"
+        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-neutral-950 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
         aria-label="Tüm filtreleri temizle"
       >
-        Tüm filtreleri temizle
-        <ChevronRight className="w-4 h-4 ml-1" />
+        <RotateCcw className="h-4 w-4" aria-hidden />
+        Filtreleri Temizle
       </button>
     </div>
   );

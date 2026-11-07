@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import {
   Calendar,
   ChevronRight,
@@ -17,10 +18,16 @@ import {
   MOBILE_FILTER_SECTION,
   MOBILE_PRICE_INPUT,
   formatDateParam,
+  sanitizeSearchQuery,
 } from './tours-page.helpers';
 import { useToursPageUi } from './tours-page-context';
 
-/** Split from tours-page-client.tsx (Faz 7) — filters drawer; UI unchanged. */
+const CHIP_BASE =
+  'inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 lg:w-full lg:justify-start lg:rounded-lg lg:px-3 lg:font-normal';
+const CHIP_ON = 'bg-neutral-950 text-white shadow-sm';
+const CHIP_OFF =
+  'border border-neutral-200/80 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 lg:border-0 lg:bg-gray-100 lg:hover:bg-gray-200';
+
 export function ToursPageFilters() {
   const ui = useToursPageUi();
   const {
@@ -38,13 +45,27 @@ export function ToursPageFilters() {
     resetFilters,
   } = ui;
 
+  useEffect(() => {
+    if (!isFilterOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsFilterOpen(false);
+    };
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [isFilterOpen, setIsFilterOpen]);
+
   return (
     <>
-      {/* Mobil Filtre Butonu */}
-      <div className="lg:hidden mb-4">
+      <div className="mb-4 lg:hidden">
         <button
+          type="button"
           onClick={() => setIsFilterOpen(true)}
-          className="w-full flex items-center gap-2.5 bg-white py-3.5 px-4 rounded-2xl shadow-sm border border-neutral-100/80 hover:shadow-md transition-shadow"
+          className="flex min-h-12 w-full items-center gap-2.5 rounded-2xl border border-neutral-100/80 bg-white px-4 py-3.5 shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
         >
           <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-neutral-100">
             <SlidersHorizontal className="h-4 w-4 text-neutral-950" />
@@ -68,13 +89,13 @@ export function ToursPageFilters() {
         />
       )}
 
-      {/* Yandan Açılır Filtre Menüsü */}
+      {/* Mobil: kapalıyken DOM dışı; desktop: her zaman yan panel */}
       <div
-        className={`
-            fixed inset-y-0 right-0 w-full max-w-sm lg:max-w-none bg-neutral-50 shadow-2xl transform transition-transform duration-300 ease-in-out z-50
-            ${isFilterOpen ? 'translate-x-0' : 'translate-x-full'}
-            lg:relative lg:translate-x-0 lg:shadow-none lg:w-72 xl:w-80 lg:z-auto
-          `}
+        className={
+          isFilterOpen
+            ? 'fixed inset-y-0 right-0 z-50 flex w-full max-w-sm transform flex-col bg-neutral-50 shadow-2xl transition-transform duration-300 ease-in-out lg:relative lg:z-auto lg:max-w-none lg:w-72 lg:translate-x-0 lg:shadow-none xl:w-80'
+            : 'hidden lg:relative lg:flex lg:w-72 lg:flex-col lg:bg-neutral-50 xl:w-80'
+        }
       >
         <div className="h-full flex flex-col">
           {/* Header */}
@@ -91,8 +112,9 @@ export function ToursPageFilters() {
               )}
             </h3>
             <button
+              type="button"
               onClick={() => setIsFilterOpen(false)}
-              className="lg:hidden p-2 -mr-1 text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 rounded-xl transition-colors"
+              className="-mr-1 flex h-11 w-11 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 lg:hidden"
               aria-label="Filtreleri kapat"
             >
               <X className="h-5 w-5" />
@@ -124,11 +146,7 @@ export function ToursPageFilters() {
                             stayKind: isSelected ? null : item.value,
                           })
                         }
-                        className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-colors lg:w-full lg:justify-start lg:rounded-lg lg:px-3 lg:py-2 lg:font-normal ${
-                          isSelected
-                            ? 'bg-neutral-950 text-white shadow-sm lg:bg-neutral-950'
-                            : 'bg-neutral-100 text-neutral-700 border border-neutral-200/80 hover:bg-neutral-200 lg:border-0 lg:bg-gray-100 lg:hover:bg-gray-200'
-                        }`}
+                        className={`${CHIP_BASE} ${isSelected ? CHIP_ON : CHIP_OFF}`}
                       >
                         {item.label}
                       </button>
@@ -160,11 +178,7 @@ export function ToursPageFilters() {
                             destinationScope: isSelected ? null : item.value,
                           })
                         }
-                        className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-colors lg:w-full lg:justify-start lg:rounded-lg lg:px-3 lg:py-2 lg:font-normal ${
-                          isSelected
-                            ? 'bg-neutral-950 text-white shadow-sm lg:bg-neutral-950'
-                            : 'bg-neutral-100 text-neutral-700 border border-neutral-200/80 hover:bg-neutral-200 lg:border-0 lg:bg-gray-100 lg:hover:bg-gray-200'
-                        }`}
+                        className={`${CHIP_BASE} ${isSelected ? CHIP_ON : CHIP_OFF}`}
                       >
                         {item.label}
                       </button>
@@ -186,8 +200,9 @@ export function ToursPageFilters() {
                     placeholder="Kalkış noktası ara..."
                     value={departureSearch}
                     className={`${MOBILE_FILTER_INPUT} mb-0 lg:mb-2`}
+                    maxLength={80}
                     onChange={(e) => {
-                      setDepartureSearch(e.target.value);
+                      setDepartureSearch(sanitizeSearchQuery(e.target.value));
                     }}
                   />
                 </div>
@@ -206,15 +221,12 @@ export function ToursPageFilters() {
                                 departureCity: isSelected ? null : item.city,
                               })
                             }
-                            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-colors lg:w-full lg:justify-start lg:rounded-lg lg:px-3 lg:py-2 lg:font-normal ${
-                              isSelected
-                                ? 'bg-neutral-950 text-white shadow-sm lg:bg-neutral-950'
-                                : 'bg-neutral-100 text-neutral-700 border border-neutral-200/80 hover:bg-neutral-200 lg:border-0 lg:bg-gray-100 lg:hover:bg-gray-200'
-                            }`}
+                            type="button"
+                            className={`${CHIP_BASE} ${isSelected ? CHIP_ON : CHIP_OFF}`}
                           >
-                            <span>{item.city}</span>
+                            <span className="truncate">{item.city}</span>
                             <span
-                              className={`text-xs ${
+                              className={`shrink-0 text-xs ${
                                 isSelected
                                   ? 'text-neutral-200 lg:text-white'
                                   : 'text-neutral-500 lg:text-inherit'
@@ -357,8 +369,9 @@ export function ToursPageFilters() {
                     placeholder="Bölge ara..."
                     value={regionSearch}
                     className={`${MOBILE_FILTER_INPUT} mb-0 lg:mb-2`}
+                    maxLength={80}
                     onChange={(e) => {
-                      setRegionSearch(e.target.value);
+                      setRegionSearch(sanitizeSearchQuery(e.target.value));
                     }}
                   />
                 </div>
@@ -376,15 +389,12 @@ export function ToursPageFilters() {
                                 region: isSelected ? null : item.region,
                               })
                             }
-                            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-colors lg:w-full lg:justify-start lg:rounded-lg lg:px-3 lg:py-2 lg:font-normal ${
-                              isSelected
-                                ? 'bg-neutral-950 text-white shadow-sm lg:bg-neutral-950'
-                                : 'bg-neutral-100 text-neutral-700 border border-neutral-200/80 hover:bg-neutral-200 lg:border-0 lg:bg-gray-100 lg:hover:bg-gray-200'
-                            }`}
+                            type="button"
+                            className={`${CHIP_BASE} ${isSelected ? CHIP_ON : CHIP_OFF}`}
                           >
-                            <span>{item.region}</span>
+                            <span className="truncate">{item.region}</span>
                             <span
-                              className={`text-xs ${
+                              className={`shrink-0 text-xs ${
                                 isSelected
                                   ? 'text-neutral-200 lg:text-white'
                                   : 'text-neutral-500 lg:text-inherit'
@@ -410,16 +420,18 @@ export function ToursPageFilters() {
           <div className="lg:hidden shrink-0 border-t border-neutral-100 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
             <div className="flex gap-3">
               <button
+                type="button"
                 onClick={resetFilters}
                 disabled={activeFilterCount === 0}
-                className="flex-1 flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl border border-neutral-200 text-neutral-700 text-sm font-semibold hover:bg-neutral-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-xl border border-neutral-200 px-4 py-3 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Trash2 className="h-4 w-4" />
                 Temizle
               </button>
               <button
+                type="button"
                 onClick={() => setIsFilterOpen(false)}
-                className="flex-[1.4] py-3 px-4 rounded-xl bg-neutral-950 hover:bg-neutral-800 text-white text-sm font-semibold transition-colors shadow-sm"
+                className="flex min-h-12 flex-[1.4] items-center justify-center rounded-xl bg-neutral-950 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-neutral-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
               >
                 Filtreleri Uygula
               </button>

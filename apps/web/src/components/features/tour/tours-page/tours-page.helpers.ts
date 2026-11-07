@@ -47,6 +47,73 @@ export const formatDateParam = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+/** Strip control chars and clamp length (keeps spaces while typing). */
+export function sanitizeSearchQuery(raw: string | null | undefined): string {
+  if (!raw) return '';
+  return raw.replace(/[\u0000-\u001F\u007F]/g, '').slice(0, 120);
+}
+
+/** URL / API bound queries — trimmed. */
+export function sanitizeSearchQueryStrict(
+  raw: string | null | undefined,
+): string {
+  return sanitizeSearchQuery(raw).trim();
+}
+
+export type ToursSortBy =
+  | 'popular'
+  | 'price-low'
+  | 'price-high'
+  | 'duration'
+  | 'rating'
+  | 'date'
+  | 'discount';
+
+export function isToursSortBy(value: string): value is ToursSortBy {
+  return (
+    value === 'popular' ||
+    value === 'price-low' ||
+    value === 'price-high' ||
+    value === 'duration' ||
+    value === 'rating' ||
+    value === 'date' ||
+    value === 'discount'
+  );
+}
+
+function getDepartureSuffix(city: string): string {
+  if (!city) return "'dan";
+  const cityLower = city.toLocaleLowerCase('tr-TR');
+  const vowels = 'aıoueiöü';
+  let lastVowel = 'a';
+  for (let i = cityLower.length - 1; i >= 0; i--) {
+    if (vowels.includes(cityLower[i])) {
+      lastVowel = cityLower[i];
+      break;
+    }
+  }
+  const unvoicedConsonants = 'pçtkfhsş';
+  const lastChar = city.slice(-1).toLocaleLowerCase('tr-TR');
+  const useT = unvoicedConsonants.includes(lastChar);
+  const useA = 'aıou'.includes(lastVowel);
+  if (useT) return useA ? "'tan" : "'ten";
+  return useA ? "'dan" : "'den";
+}
+
+export function formatDepartureCityLabel(
+  cityData: string | string[] | null | undefined,
+): string {
+  if (!cityData) return '';
+  const cities = (Array.isArray(cityData) ? cityData : [cityData]).filter(
+    (c) => c && c.trim() !== '',
+  );
+  if (cities.length === 0) return '';
+  const lastCity = cities[cities.length - 1];
+  const suffix = getDepartureSuffix(lastCity);
+  if (cities.length === 1) return `${lastCity}${suffix} kalkışlı`;
+  return `${cities.slice(0, -1).join(', ')} ve ${lastCity}${suffix} kalkışlı`;
+}
+
 // Fiyat formatlama yardımcı fonksiyonu
 export const formatPrice = (price: number) => {
   return price
@@ -215,7 +282,34 @@ export function matchesClientExtrasFilters(
   return true;
 }
 
-export const DEFAULT_TOUR_REGIONS = TOUR_GEO_REGIONS;
+const FALLBACK_REGIONS = [
+  'Marmara',
+  'Ege',
+  'Akdeniz',
+  'İç Anadolu',
+  'Karadeniz',
+  'Doğu Anadolu',
+  'Güneydoğu Anadolu',
+] as const;
+
+export const DEFAULT_TOUR_REGIONS =
+  Array.isArray(TOUR_GEO_REGIONS) && TOUR_GEO_REGIONS.length > 0
+    ? TOUR_GEO_REGIONS
+    : [...FALLBACK_REGIONS];
+
+const SAFE_DEPARTURE_CITIES =
+  Array.isArray(DEFAULT_DEPARTURE_CITIES) && DEFAULT_DEPARTURE_CITIES.length > 0
+    ? DEFAULT_DEPARTURE_CITIES
+    : ([
+        'İstanbul',
+        'Ankara',
+        'İzmir',
+        'Antalya',
+        'Bursa',
+        'Adana',
+        'Trabzon',
+        'Nevşehir',
+      ] as const);
 
 export const TOURS_FACET_FETCH_LIMIT = 100;
 
@@ -241,7 +335,7 @@ export function buildDepartureFacets(
 
   const seen = new Set<string>();
   const options: DepartureCityOption[] = [];
-  for (const city of DEFAULT_DEPARTURE_CITIES) {
+  for (const city of SAFE_DEPARTURE_CITIES) {
     seen.add(city);
     options.push({ city, count: counts.get(city) ?? 0 });
   }
@@ -283,3 +377,62 @@ export function buildRegionFacets(
 }
 
 export const TOURS_SEARCH_DEBOUNCE_MS = 400;
+
+type ToursListQueryInput = {
+  searchTerm: string;
+  filterOptions: FilterOptions;
+  sortBy: string;
+  view: 'grid' | 'list';
+};
+
+/** Build shareable /tours query string from UI state. */
+export function buildToursListQuery({
+  searchTerm,
+  filterOptions,
+  sortBy,
+  view,
+}: ToursListQueryInput): string {
+  const params = new URLSearchParams();
+  const q = sanitizeSearchQueryStrict(searchTerm);
+  if (q) params.set('q', q);
+
+  if (filterOptions.stayKind) params.set('stayKind', filterOptions.stayKind);
+  if (filterOptions.destinationScope) {
+    params.set('destinationScope', filterOptions.destinationScope);
+  }
+  if (filterOptions.departureCity) {
+    params.set(
+      'departureCity',
+      sanitizeSearchQueryStrict(filterOptions.departureCity),
+    );
+  }
+  if (filterOptions.region) {
+    params.set('region', sanitizeSearchQueryStrict(filterOptions.region));
+  }
+  if (filterOptions.duration) params.set('duration', filterOptions.duration);
+  if (filterOptions.featured) params.set('featured', 'true');
+  if (filterOptions.minPrice != null) {
+    params.set('minPrice', String(filterOptions.minPrice));
+  }
+  if (filterOptions.maxPrice != null) {
+    params.set('maxPrice', String(filterOptions.maxPrice));
+  }
+  if (filterOptions.dateRange[0]) {
+    params.set('startDate', formatDateParam(filterOptions.dateRange[0]));
+  }
+  if (filterOptions.dateRange[1]) {
+    params.set('endDate', formatDateParam(filterOptions.dateRange[1]));
+  }
+  if (sortBy && sortBy !== 'popular' && isToursSortBy(sortBy)) {
+    params.set('sort', sortBy);
+  }
+  if (view === 'list') params.set('view', 'list');
+
+  return params.toString();
+}
+
+export function parseOptionalInt(raw: string | null): number | null {
+  if (raw == null || raw === '') return null;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}

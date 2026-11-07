@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, Suspense, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, useEffect, Suspense, useMemo, useRef } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { LegacyTourCard as Tour } from '@/lib/tours/legacy-tour';
 import { ApiError } from '@/services/api-client';
 import { searchToursByQueryString } from '@/services/catalog';
@@ -12,10 +12,14 @@ import {
   TOURS_SEARCH_DEBOUNCE_MS,
   buildDepartureFacets,
   buildRegionFacets,
+  buildToursListQuery,
   countActiveFilters,
+  isToursSortBy,
   mapTourFromApi,
   matchesClientExtrasFilters,
   normalizeFilterText,
+  parseOptionalInt,
+  sanitizeSearchQueryStrict,
 } from './tours-page/tours-page.helpers';
 import {
   ToursPageUiProvider,
@@ -30,57 +34,95 @@ import type {
   RegionOption,
 } from './tours-page/tours-page.types';
 
+const EMPTY_FILTERS: FilterOptions = {
+  stayKind: null,
+  destinationScope: null,
+  departureCity: null,
+  region: null,
+  transportation: null,
+  duration: null,
+  period: null,
+  priceRange: [0, 10000],
+  featured: false,
+  month: null,
+  remainingDays: null,
+  minPrice: null,
+  maxPrice: null,
+  tourType: null,
+  accommodationType: null,
+  difficultyLevel: null,
+  ageRestriction: null,
+  rating: null,
+  dateRange: [null, null],
+  isPopular: false,
+  isLastMinute: false,
+  isEarlyBird: false,
+  languages: [],
+  tags: [],
+};
+
 function ToursPageContent() {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const searchParamsKey = searchParams.toString();
+  const readyToSyncUrl = useRef(false);
+
   const durationParam = searchParams.get('duration');
   const featuredParam = searchParams.get('featured');
-  const urlSearch = searchParams.get('search') || searchParams.get('q');
-  const urlDepartureCity = searchParams.get('departureCity');
+  const urlSearch = sanitizeSearchQueryStrict(
+    searchParams.get('search') || searchParams.get('q'),
+  );
+  const urlDepartureCity = sanitizeSearchQueryStrict(
+    searchParams.get('departureCity'),
+  );
+  const urlRegion = sanitizeSearchQueryStrict(searchParams.get('region'));
   const urlStayKind = searchParams.get('stayKind');
   const urlDestinationScope = searchParams.get('destinationScope');
   const urlStartDate = searchParams.get('startDate');
   const urlEndDate = searchParams.get('endDate');
+  const urlMinPrice = parseOptionalInt(searchParams.get('minPrice'));
+  const urlMaxPrice = parseOptionalInt(searchParams.get('maxPrice'));
+  const urlSortRaw = searchParams.get('sort') || 'popular';
+  const urlSort = isToursSortBy(urlSortRaw) ? urlSortRaw : 'popular';
+  const urlView = searchParams.get('view') === 'list' ? 'list' : 'grid';
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- hero search loading state reserved for filter UI
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(urlSearch);
   const [apiTourRows, setApiTourRows] = useState<Record<string, unknown>[]>([]);
   /** Facet counts — exclude region/departure so selecting one chip doesn’t zero the others. */
   const [facetSourceRows, setFacetSourceRows] = useState<
     Record<string, unknown>[]
   >([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState('popular');
+  const [sortBy, setSortBy] = useState(urlSort);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- reserved for desktop filter panel toggle
   const [showFilters, setShowFilters] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [view, setView] = useState<'grid' | 'list'>('grid');
-  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
-    stayKind: null,
-    destinationScope: null,
-    departureCity: null,
-    region: null,
-    transportation: null,
-    duration: null,
-    period: null,
-    priceRange: [0, 10000],
-    featured: false,
-    month: null,
-    remainingDays: null,
-    minPrice: null,
-    maxPrice: null,
-    tourType: null,
-    accommodationType: null,
-    difficultyLevel: null,
-    ageRestriction: null,
-    rating: null,
-    dateRange: [null, null],
-    isPopular: false,
-    isLastMinute: false,
-    isEarlyBird: false,
-    languages: [],
-    tags: [],
-  });
+  const [view, setView] = useState<'grid' | 'list'>(urlView);
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>(() => ({
+    ...EMPTY_FILTERS,
+    stayKind:
+      urlStayKind === 'DAY_TRIP' || urlStayKind === 'OVERNIGHT'
+        ? urlStayKind
+        : null,
+    destinationScope:
+      urlDestinationScope === 'DOMESTIC' ||
+      urlDestinationScope === 'INTERNATIONAL'
+        ? urlDestinationScope
+        : null,
+    departureCity: urlDepartureCity || null,
+    region: urlRegion || null,
+    duration: durationParam,
+    featured: featuredParam === 'true',
+    minPrice: urlMinPrice,
+    maxPrice: urlMaxPrice,
+    dateRange: [
+      urlStartDate ? new Date(`${urlStartDate}T00:00:00`) : null,
+      urlEndDate ? new Date(`${urlEndDate}T00:00:00`) : null,
+    ],
+  }));
 
   const [departureCityOptions, setDepartureCityOptions] = useState<
     DepartureCityOption[]
@@ -96,7 +138,7 @@ function ToursPageContent() {
   // Sayfalama ve gösterim seçenekleri
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(15);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- reserved for infinite scroll pagination
   const [loadingMore, setLoadingMore] = useState(false);
@@ -109,7 +151,12 @@ function ToursPageContent() {
   );
 
   useEffect(() => {
-    const cities = DEFAULT_DEPARTURE_CITIES.map((city) => ({ city, count: 0 }));
+    const cities = (
+      Array.isArray(DEFAULT_DEPARTURE_CITIES) &&
+      DEFAULT_DEPARTURE_CITIES.length > 0
+        ? DEFAULT_DEPARTURE_CITIES
+        : ['İstanbul', 'Ankara', 'İzmir', 'Antalya']
+    ).map((city) => ({ city, count: 0 }));
     const regions = DEFAULT_TOUR_REGIONS.map((region) => ({
       region,
       count: 0,
@@ -146,70 +193,93 @@ function ToursPageContent() {
     );
   }, [facetSourceRows, departureSearch, regionSearch]);
 
-  // Hero ve header linklerinden gelen URL parametrelerini uygula
+  // URL → state (paylaşılabilir link / geri-ileri)
   useEffect(() => {
-    if (urlSearch) {
-      setSearchTerm((prev) => (prev === urlSearch ? prev : urlSearch));
-    }
+    setSearchTerm((prev) => (prev === urlSearch ? prev : urlSearch));
+    setSortBy((prev) => (prev === urlSort ? prev : urlSort));
+    setView((prev) => (prev === urlView ? prev : urlView));
 
     setFilterOptions((prev) => {
-      const nextDateRange: [Date | null, Date | null] =
-        urlStartDate || urlEndDate
-          ? [
-              urlStartDate ? new Date(`${urlStartDate}T00:00:00`) : null,
-              urlEndDate ? new Date(`${urlEndDate}T00:00:00`) : null,
-            ]
-          : prev.dateRange;
-
-      const nextDepartureCity = urlDepartureCity ?? prev.departureCity;
-      const nextStayKind =
+      const nextDateRange: [Date | null, Date | null] = [
+        urlStartDate ? new Date(`${urlStartDate}T00:00:00`) : null,
+        urlEndDate ? new Date(`${urlEndDate}T00:00:00`) : null,
+      ];
+      const nextStayKind: FilterOptions['stayKind'] =
         urlStayKind === 'DAY_TRIP' || urlStayKind === 'OVERNIGHT'
           ? urlStayKind
-          : prev.stayKind;
-      const nextDestinationScope =
+          : null;
+      const nextDestinationScope: FilterOptions['destinationScope'] =
         urlDestinationScope === 'DOMESTIC' ||
         urlDestinationScope === 'INTERNATIONAL'
           ? urlDestinationScope
-          : prev.destinationScope;
-      const nextDuration = durationParam ?? prev.duration;
-      const nextFeatured = featuredParam === 'true' ? true : prev.featured;
-
-      const dateUnchanged =
-        (prev.dateRange[0]?.getTime() ?? null) ===
-          (nextDateRange[0]?.getTime() ?? null) &&
-        (prev.dateRange[1]?.getTime() ?? null) ===
-          (nextDateRange[1]?.getTime() ?? null);
-
-      if (
-        prev.departureCity === nextDepartureCity &&
-        prev.stayKind === nextStayKind &&
-        prev.destinationScope === nextDestinationScope &&
-        prev.duration === nextDuration &&
-        prev.featured === nextFeatured &&
-        dateUnchanged
-      ) {
-        return prev;
-      }
-
-      return {
+          : null;
+      const next: FilterOptions = {
         ...prev,
-        departureCity: nextDepartureCity,
         stayKind: nextStayKind,
         destinationScope: nextDestinationScope,
-        duration: nextDuration,
-        featured: nextFeatured,
+        departureCity: urlDepartureCity || null,
+        region: urlRegion || null,
+        duration: durationParam,
+        featured: featuredParam === 'true',
+        minPrice: urlMinPrice,
+        maxPrice: urlMaxPrice,
         dateRange: nextDateRange,
       };
+
+      const same =
+        prev.stayKind === next.stayKind &&
+        prev.destinationScope === next.destinationScope &&
+        prev.departureCity === next.departureCity &&
+        prev.region === next.region &&
+        prev.duration === next.duration &&
+        prev.featured === next.featured &&
+        prev.minPrice === next.minPrice &&
+        prev.maxPrice === next.maxPrice &&
+        (prev.dateRange[0]?.getTime() ?? null) ===
+          (next.dateRange[0]?.getTime() ?? null) &&
+        (prev.dateRange[1]?.getTime() ?? null) ===
+          (next.dateRange[1]?.getTime() ?? null);
+
+      return same ? prev : next;
     });
+
+    readyToSyncUrl.current = true;
   }, [
+    searchParamsKey,
     urlSearch,
     urlDepartureCity,
+    urlRegion,
     urlStartDate,
     urlEndDate,
     urlStayKind,
     urlDestinationScope,
     durationParam,
     featuredParam,
+    urlMinPrice,
+    urlMaxPrice,
+    urlSort,
+    urlView,
+  ]);
+
+  // state → URL
+  useEffect(() => {
+    if (!readyToSyncUrl.current) return;
+    const qs = buildToursListQuery({
+      searchTerm,
+      filterOptions,
+      sortBy,
+      view,
+    });
+    if (qs === searchParamsKey) return;
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [
+    searchTerm,
+    filterOptions,
+    sortBy,
+    view,
+    pathname,
+    router,
+    searchParamsKey,
   ]);
 
   // Sayfalama seçenekleri
@@ -449,40 +519,15 @@ function ToursPageContent() {
     setCurrentPage(1);
   }, [filterOptions, searchTerm, sortBy, itemsPerPage]);
 
-  // Filtreleri sıfırla
   const resetFilters = () => {
     setSearchTerm('');
-    setFilterOptions({
-      stayKind: null,
-      destinationScope: null,
-      departureCity: null,
-      region: null,
-      transportation: null,
-      duration: null,
-      period: null,
-      priceRange: [0, 10000],
-      featured: false,
-      month: null,
-      remainingDays: null,
-      minPrice: null,
-      maxPrice: null,
-      tourType: null,
-      accommodationType: null,
-      difficultyLevel: null,
-      ageRestriction: null,
-      rating: null,
-      dateRange: [null, null],
-      isPopular: false,
-      isLastMinute: false,
-      isEarlyBird: false,
-      languages: [],
-      tags: [],
-    });
+    setFilterOptions({ ...EMPTY_FILTERS });
     setDepartureSearch('');
     setRegionSearch('');
     setFilteredDepartureCities(departureCityOptions);
     setFilteredRegions(regionOptions);
     setSortBy('popular');
+    setView('grid');
   };
 
   // Sayfalama için hesaplamalar
@@ -513,6 +558,7 @@ function ToursPageContent() {
   };
 
   const handleSortChange = (sort: string) => {
+    if (!isToursSortBy(sort)) return;
     setSortBy(sort);
     setCurrentPage(1);
   };
