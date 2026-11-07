@@ -35,17 +35,17 @@ const locations = [
   {
     name: 'Kapadokya',
     image:
-      'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=200&q=80',
+      'https://images.unsplash.com/photo-1641128324972-af3212f0f6bd?auto=format&fit=crop&w=200&q=80',
   },
   {
     name: 'Antalya',
     image:
-      'https://images.unsplash.com/photo-1552733407-5d5c46c3bb3b?auto=format&fit=crop&w=200&q=80',
+      'https://images.unsplash.com/photo-1593238739364-18cfde30e522?auto=format&fit=crop&w=200&q=80',
   },
   {
     name: 'Bodrum',
     image:
-      'https://images.unsplash.com/photo-1552733407-5d5c46c3bb3b?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80',
+      'https://images.unsplash.com/photo-1583062482795-d2bef78e9bc1?auto=format&fit=crop&w=200&q=80',
   },
 ];
 const monthNames = [
@@ -64,7 +64,7 @@ const monthNames = [
 ];
 
 const routesHeroImage =
-  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=2070&q=80';
+  'https://images.unsplash.com/photo-1641128324972-af3212f0f6bd?auto=format&fit=crop&w=2070&q=80';
 
 const HOME_HERO_SLOGANS = [
   "Aradığın deneyim Turta'da.",
@@ -878,7 +878,7 @@ export function Hero({ variant = 'default' }: HeroProps) {
           <p className="text-sm leading-relaxed md:text-xl max-w-2xl mx-auto text-white/85 md:text-white/90 font-light px-1 md:px-2">
             {isRoutesVariant
               ? 'Kapadokya, Likya Yolu, Pamukkale ve daha fazlası için tur seçeneklerini inceleyin.'
-              : "Türkiye'nin dört bir yanındaki eşsiz otelleri, turları ve deneyimleri kolayca bulun ve rezerve edin."}
+              : "Türkiye'nin dört bir yanındaki turları ve deneyimleri karşılaştırın, güvenle rezerve edin."}
           </p>
         </div>
 

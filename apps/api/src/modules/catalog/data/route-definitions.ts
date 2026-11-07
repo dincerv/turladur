@@ -78,7 +78,7 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
 
 Balon turları, at turları, yürüyüş rotaları ve şarap tadımları gibi birçok aktivite seçeneği bulunmaktadır. Bölge, her mevsim farklı güzellikler sunar ve fotoğraf tutkunları için ideal bir destinasyondur.`,
     image:
-      'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=2070&q=80',
+      'https://images.unsplash.com/photo-1641128324972-af3212f0f6bd?auto=format&fit=crop&w=2070&q=80',
     location: 'Nevşehir, Türkiye',
     bestTimeToVisit: 'Nisan - Ekim',
     weather: 'Yazları sıcak (25-35°C), kışları soğuk (-5-5°C)',
@@ -108,7 +108,7 @@ Balon turları, at turları, yürüyüş rotaları ve şarap tadımları gibi bi
       'Antik Likya uygarlığının izlerini takip eden, deniz manzaralı yürüyüş rotası.',
     longDescription: `Likya Yolu, Akdeniz kıyısı boyunca uzanan dünyanın en güzel yürüyüş rotalarından biridir. Antik Likya kentlerinin kalıntıları, turkuaz koylar ve çam ormanları arasında unutulmaz bir trekking deneyimi sunar.`,
     image:
-      'https://images.unsplash.com/photo-1552733407-5d5c46c3bb3b?ixlib=rb-4.0.3&auto=format&fit=crop&w=2080&q=80',
+      'https://images.unsplash.com/photo-1593238739364-18cfde30e522?auto=format&fit=crop&w=2070&q=80',
     location: 'Antalya - Muğla, Türkiye',
     bestTimeToVisit: 'Mart - Mayıs, Eylül - Kasım',
     weather: 'Ilıman Akdeniz iklimi',
@@ -142,7 +142,7 @@ Balon turları, at turları, yürüyüş rotaları ve şarap tadımları gibi bi
     description: 'Travertenler ve antik havuzuyla dünyaca ünlü doğa harikası.',
     longDescription: `Pamukkale, beyaz traverten terasları ve üzerindeki Hierapolis antik kentiyle UNESCO Dünya Mirası Listesi'nde yer alan eşsiz bir destinasyondur.`,
     image:
-      'https://images.unsplash.com/photo-1524231757912-21f4fe3a7200?ixlib=rb-4.0.3&auto=format&fit=crop&w=2071&q=80',
+      'https://images.unsplash.com/photo-1720974613560-e65ad8b37ca9?auto=format&fit=crop&w=2070&q=80',
     location: 'Denizli, Türkiye',
     bestTimeToVisit: 'Mart - Kasım',
     weather: 'Yazları sıcak, kışları ılıman',
@@ -169,7 +169,7 @@ Balon turları, at turları, yürüyüş rotaları ve şarap tadımları gibi bi
     description: "Roma İmparatorluğu'nun en önemli antik kentlerinden biri.",
     longDescription: `Efes, dünyanın en iyi korunmuş antik kentlerinden biridir. Celsus Kütüphanesi, Büyük Tiyatro ve Artemis Tapınağı kalıntılarıyla tarih meraklılarının vazgeçilmez durağıdır.`,
     image:
-      'https://images.unsplash.com/photo-1524231757912-21f4fe3a7200?ixlib=rb-4.0.3&auto=format&fit=crop&w=2071&q=80',
+      'https://images.unsplash.com/photo-1700855553036-47b91c5f4aaa?auto=format&fit=crop&w=2070&q=80',
     location: 'Selçuk, İzmir',
     bestTimeToVisit: 'Mart - Kasım',
     weather: 'Ilıman Ege iklimi',
@@ -197,7 +197,7 @@ Balon turları, at turları, yürüyüş rotaları ve şarap tadımları gibi bi
     description: 'Muhteşem koylar ve plajlarla çevrili doğa cenneti.',
     longDescription: `Fethiye ve Ölüdeniz, turkuaz suları, Kelebekler Vadisi ve yamaç paraşütü imkânlarıyla Akdeniz'in en popüler tatil rotalarından biridir.`,
     image:
-      'https://images.unsplash.com/photo-1552733407-5d5c46c3bb3b?ixlib=rb-4.0.3&auto=format&fit=crop&w=2080&q=80',
+      'https://images.unsplash.com/photo-1719451642957-172abf017863?auto=format&fit=crop&w=2070&q=80',
     location: 'Muğla, Türkiye',
     bestTimeToVisit: 'Mayıs - Ekim',
     weather: 'Sıcak yazlar, ılıman kışlar',
@@ -226,7 +226,7 @@ Balon turları, at turları, yürüyüş rotaları ve şarap tadımları gibi bi
       'Medeniyetlerin buluşma noktasında binlerce yıllık tarih ve kültür.',
     longDescription: `İstanbul, iki kıtayı birleştiren eşsiz şehir. Ayasofya, Topkapı Sarayı, Kapalıçarşı ve Boğaz manzarasıyla dünyanın en çok ziyaret edilen kültür rotalarından biridir.`,
     image:
-      'https://images.unsplash.com/photo-1621867822738-0b8db9ea15e7?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80',
+      'https://images.unsplash.com/photo-1589561454226-796a8aa89b05?auto=format&fit=crop&w=2070&q=80',
     location: 'İstanbul, Türkiye',
     bestTimeToVisit: 'Nisan - Haziran, Eylül - Kasım',
     weather: 'Ilıman, nemli',

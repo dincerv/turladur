@@ -8,9 +8,10 @@ interface FooterProps {
   className?: string;
 }
 
+/** Empty href = account not opened yet; icon stays hidden. */
 const socialLinks = [
   {
-    href: 'https://facebook.com',
+    href: '',
     label: 'Facebook',
     icon: (
       <svg
@@ -24,7 +25,7 @@ const socialLinks = [
     ),
   },
   {
-    href: 'https://twitter.com',
+    href: '',
     label: 'Twitter',
     icon: (
       <svg
@@ -38,7 +39,7 @@ const socialLinks = [
     ),
   },
   {
-    href: 'https://instagram.com',
+    href: '',
     label: 'Instagram',
     icon: (
       <svg
@@ -69,8 +70,8 @@ const footerLinks = [
     links: [
       { label: 'Hakkımızda', href: '/about' },
       { label: 'Kariyer', href: '/careers' },
-      { label: 'Kampanyalar', href: '/campaigns' },
       { label: 'İletişim', href: '/contact' },
+      { label: 'Acente Başvurusu', href: '/partner-register' },
     ],
   },
   {
@@ -80,16 +81,12 @@ const footerLinks = [
       { label: 'Gizlilik Politikası', href: '/privacy' },
       { label: 'Kullanım Şartları', href: '/terms' },
       { label: 'Çerez Politikası', href: '/cookie-policy' },
+      { label: 'Erişilebilirlik', href: '/accessibility' },
     ],
   },
 ];
 
-const legalLinks = [
-  { label: 'Kullanım Şartları', href: '/terms' },
-  { label: 'Gizlilik Politikası', href: '/privacy' },
-  { label: 'Çerez Politikası', href: '/cookie-policy' },
-  { label: 'Erişilebilirlik', href: '/accessibility' },
-];
+const activeSocialLinks = socialLinks.filter((link) => link.href);
 
 export function Footer({ className = '' }: FooterProps) {
   const currentYear = new Date().getFullYear();
@@ -113,20 +110,22 @@ export function Footer({ className = '' }: FooterProps) {
               Türkiye&apos;nin turizm ekosistemini tek platformda
               buluşturuyoruz.
             </p>
-            <div className="flex space-x-4">
-              {socialLinks.map((link) => (
-                <a
-                  key={link.label}
-                  href={link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={link.label}
-                  className="text-neutral-500 transition-colors duration-200 hover:text-white"
-                >
-                  {link.icon}
-                </a>
-              ))}
-            </div>
+            {activeSocialLinks.length > 0 && (
+              <div className="flex space-x-4">
+                {activeSocialLinks.map((link) => (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={link.label}
+                    className="text-neutral-500 transition-colors duration-200 hover:text-white"
+                  >
+                    {link.icon}
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-8 md:grid-cols-3 lg:col-span-8">
@@ -153,21 +152,8 @@ export function Footer({ className = '' }: FooterProps) {
         </div>
 
         <div className="mt-12 border-t border-neutral-800 pt-8">
-          <div className="flex flex-col items-center justify-between sm:flex-row">
-            <div className="mb-4 text-xs text-neutral-500 sm:mb-0">
-              © {currentYear} turta. Tüm hakları saklıdır.
-            </div>
-            <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs">
-              {legalLinks.map((link) => (
-                <Link
-                  key={link.label}
-                  href={link.href}
-                  className="text-neutral-500 transition-colors duration-200 hover:text-white"
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </div>
+          <div className="text-center text-xs text-neutral-500 sm:text-left">
+            © {currentYear} turta. Tüm hakları saklıdır.
           </div>
         </div>
       </div>

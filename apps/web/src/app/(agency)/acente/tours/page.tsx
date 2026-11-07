@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { tourCategoryLabel } from '@turta/shared-constants';
 
 import { TourCard } from '@/components/features/partner-dashboard/tour-card';
 import { getTourDates, type TourDateRow } from '@/services/catalog';
@@ -267,7 +268,7 @@ export default function PartnerToursPage() {
               id={tour.id}
               title={tour.title}
               price={`${Number(tour.price).toLocaleString('tr-TR')} ${tour.currency}`}
-              location={tour.category || '—'}
+              location={tourCategoryLabel(tour.category) || '—'}
               duration={`${tour.durationDays} gün`}
               maxParticipants={20}
               imageUrl={tour.coverUrl || '/brand/mark-on-light.png'}

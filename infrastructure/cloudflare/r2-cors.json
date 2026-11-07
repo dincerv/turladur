@@ -1,0 +1,15 @@
+[
+  {
+    "AllowedOrigins": [
+      "http://localhost:3001",
+      "http://localhost:3000",
+      "https://*.vercel.app",
+      "https://www.turta.com.tr",
+      "https://turta.com.tr"
+    ],
+    "AllowedMethods": ["GET", "PUT", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]

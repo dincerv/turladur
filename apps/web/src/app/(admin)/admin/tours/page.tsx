@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { tourCategoryLabel } from '@turta/shared-constants';
 
 import {
   listPendingExperiences,
@@ -109,7 +110,7 @@ export default function AdminToursPage() {
             <div>
               <p className="font-medium text-neutral-900">{row.title}</p>
               <p className="text-xs text-neutral-500">
-                {row.category}
+                {tourCategoryLabel(row.category)}
                 {row.location ? ` · ${row.location}` : ''} · {row.price}{' '}
                 {row.currency}
               </p>

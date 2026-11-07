@@ -43,6 +43,20 @@ export enum TourCategory {
   BEACH = 'BEACH',
 }
 
+export const TOUR_CATEGORY_LABELS: Record<TourCategory, string> = {
+  [TourCategory.CULTURAL]: 'Kültür',
+  [TourCategory.ADVENTURE]: 'Macera',
+  [TourCategory.GASTRONOMY]: 'Gastronomi',
+  [TourCategory.NATURE]: 'Doğa',
+  [TourCategory.CITY]: 'Şehir',
+  [TourCategory.BEACH]: 'Deniz & Plaj',
+};
+
+export function tourCategoryLabel(category?: string | null): string {
+  if (!category) return '';
+  return TOUR_CATEGORY_LABELS[category as TourCategory] ?? category;
+}
+
 export enum TourStatus {
   DRAFT = 'DRAFT',
   PENDING_REVIEW = 'PENDING_REVIEW',

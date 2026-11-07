@@ -36,8 +36,10 @@
 
 - Local / soft launch (**custom domain yok**):  
   `CDN_URL=https://<API_HOST>/api/v1/storage/media` (Nest public proxy → R2)  
-  Runbook: [PUBLISH.md](./PUBLISH.md)
-- Hedef prod: Cloudflare R2 + `https://media.turta.com` — [CDN_CLOUDFLARE.md](./CDN_CLOUDFLARE.md)
+  Runbook: [PUBLISH.md](./PUBLISH.md) · R2 panel: [infrastructure/cloudflare/R2_SETUP.md](../infrastructure/cloudflare/R2_SETUP.md)
+- Hedef prod: Cloudflare R2 + `https://media.turta.com.tr` — [CDN_CLOUDFLARE.md](./CDN_CLOUDFLARE.md) · [DOMAIN_DNS_CUTOVER.md](./DOMAIN_DNS_CUTOVER.md)
+- Env şablon: `infrastructure/cloudflare/soft-launch.env.example`
+- Doğrulama: `pnpm check:prod-env` · `pnpm smoke:media`
 - `publicUrl` her zaman `CDN_URL` tabanlı; upload `Cache-Control` immutable (unique key)
 
 ## GitHub Actions (Sprint 19+)

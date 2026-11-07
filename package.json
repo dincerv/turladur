@@ -28,7 +28,9 @@
     "check:module-boundaries": "bash scripts/check-module-boundaries.sh",
     "test:api": "pnpm --filter api test -- --runInBand --forceExit",
     "test:e2e": "playwright test",
-    "test:e2e:install": "playwright install chromium"
+    "test:e2e:install": "playwright install chromium",
+    "smoke:media": "node scripts/smoke-media.mjs",
+    "check:prod-env": "node scripts/check-prod-env.mjs"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,cjs,json,md,yml,yaml,css}": [
