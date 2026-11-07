@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import MembershipBadge from '@/components/features/tour/membership-badge';
 import { resolveMediaUrl, shouldUnoptimizeMedia } from '@/lib/media';
+import { formatPriceTry, sanitizePlainText } from './tour-detail.helpers';
+import { TourDetailExpandableText } from './tour-detail-expandable-text';
 import { useTourDetailUi } from './tour-detail-context';
 import { renderStars } from './render-stars';
 
@@ -42,24 +44,40 @@ export function TourDetailSidebar() {
       `https://ui-avatars.com/api/?name=${encodeURIComponent(tourOperator.companyName || 'Operator')}&background=0EA5E9&color=fff`
     : '';
 
+  const displayUnitPrice =
+    selectedTourDate?.price != null ? selectedTourDate.price : tour.price;
+
   return (
-    <aside className="flex w-full flex-col space-y-8 self-start lg:sticky lg:top-24 lg:col-span-1">
-      {/* Rezervasyon Kartı */}
+    <aside className="flex w-full flex-col space-y-8 self-start lg:sticky lg:top-24 lg:col-span-1 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:pb-4 lg:scrollbar-thin">
+      {/* Rezervasyon Kartı — desktop sticky */}
       <div
         id="booking"
-        className="w-full rounded-xl border border-neutral-200/70 bg-white p-6 shadow-md"
+        className="w-full scroll-mt-28 rounded-xl border border-neutral-200/70 bg-white p-6 shadow-md"
       >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-          <h2 className="text-2xl font-semibold text-gray-900 flex items-center">
-            <CalendarDaysIcon className="h-6 w-6 mr-2.5 text-neutral-950 flex-shrink-0" />
-            <span>Rezervasyon</span>
-          </h2>
-          {/* Badges */}
-          <div className="flex items-center gap-2 flex-wrap justify-start sm:justify-end">
-            <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200/70">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="flex items-center text-2xl font-semibold text-gray-900">
+              <CalendarDaysIcon className="mr-2.5 h-6 w-6 flex-shrink-0 text-neutral-950" />
+              <span>Rezervasyon</span>
+            </h2>
+            <div className="mt-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                {selectedTourDate ? 'Seçilen tarih fiyatı' : 'Kişi başı fiyat'}
+              </p>
+              <p
+                className="mt-1 text-3xl font-bold tracking-tight text-neutral-950"
+                aria-readonly="true"
+              >
+                {formatPriceTry(displayUnitPrice)}
+              </p>
+              <p className="mt-0.5 text-sm text-neutral-500">/ kişi</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 justify-start sm:justify-end">
+            <div className="inline-flex items-center rounded-full border border-emerald-200/70 bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800">
               Ücretsiz İptal
             </div>
-            <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-800 border border-neutral-200/70">
+            <div className="inline-flex items-center rounded-full border border-neutral-200/70 bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-800">
               Anında Onay
             </div>
           </div>
@@ -132,12 +150,12 @@ export function TourDetailSidebar() {
                       onClick={() => {
                         handleDateSelect(date);
                       }}
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white rounded-lg border transition-colors text-left w-full ${
+                      className={`flex w-full flex-col gap-3 rounded-lg border bg-white p-4 text-left transition-all duration-150 ease-out hover:shadow-sm active:scale-[0.99] sm:flex-row sm:items-center sm:justify-between ${
                         selectedTourDate?.id === date.id
-                          ? 'border-neutral-950 ring-2 ring-neutral-200'
+                          ? 'border-neutral-950 ring-2 ring-neutral-200 shadow-sm'
                           : showDateSelectionHint
                             ? 'border-red-200 hover:border-red-400 hover:bg-red-50/30'
-                            : 'border-neutral-200/70 hover:border-neutral-200'
+                            : 'border-neutral-200/70 hover:border-neutral-300'
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -178,14 +196,17 @@ export function TourDetailSidebar() {
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1">
-                        <div className="text-lg font-semibold text-neutral-800">
-                          {date.price.toLocaleString('tr-TR')} ₺
+                        <div
+                          className="text-lg font-semibold text-neutral-800"
+                          aria-readonly="true"
+                        >
+                          {formatPriceTry(date.price)}
                         </div>
-                        {date.minParticipants && (
+                        {date.minParticipants ? (
                           <div className="text-xs text-neutral-500">
                             Minimum {date.minParticipants} kişi
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     </button>
                   );
@@ -234,18 +255,18 @@ export function TourDetailSidebar() {
                   className="object-cover"
                 />
               </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h4 className="text-lg font-semibold text-gray-900">
-                    {tourOperator.companyName}
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h4 className="break-words text-lg font-semibold text-gray-900 [overflow-wrap:anywhere]">
+                    {sanitizePlainText(tourOperator.companyName)}
                   </h4>
-                  {tourOperator.membershipTier && (
+                  {tourOperator.membershipTier ? (
                     <MembershipBadge tier={tourOperator.membershipTier} />
-                  )}
+                  ) : null}
                 </div>
                 <Link
                   href={`/tour-operator/${tourOperator.id}#tours`}
-                  className="text-sm text-neutral-950 hover:text-neutral-800"
+                  className="text-sm text-neutral-950 transition-colors hover:text-neutral-800"
                 >
                   Tüm turları gör
                 </Link>
@@ -253,12 +274,12 @@ export function TourDetailSidebar() {
             </div>
           </div>
 
-          {/* Simplified Description Area */}
-          <div className="bg-neutral-50/60 p-5 rounded-lg border border-neutral-200/70 mb-6">
-            <p className="text-neutral-700 text-sm leading-relaxed line-clamp-3">
-              {tourOperator.description ||
-                'Tur operatörü hakkında bilgi bulunmamaktadır.'}
-            </p>
+          <div className="mb-6 rounded-lg border border-neutral-200/70 bg-neutral-50/60 p-5">
+            <TourDetailExpandableText
+              text={tourOperator.description || ''}
+              lines={3}
+              emptyFallback="Tur operatörü hakkında bilgi bulunmamaktadır."
+            />
           </div>
 
           {/* Simplified Link Button */}
@@ -300,8 +321,8 @@ export function TourDetailSidebar() {
                 className="flex items-start p-3 rounded-md bg-white/70 border border-emerald-100"
               >
                 <CheckCircleIcon className="w-4 h-4 text-emerald-500 mr-2.5 mt-0.5 flex-shrink-0" />
-                <span className="text-neutral-700 text-sm font-medium">
-                  {item}
+                <span className="break-words text-sm font-medium text-neutral-700 [overflow-wrap:anywhere]">
+                  {sanitizePlainText(item)}
                 </span>
               </li>
             ))}
@@ -321,8 +342,8 @@ export function TourDetailSidebar() {
                 className="flex items-start p-3 rounded-md bg-white/70 border border-red-100"
               >
                 <XCircleIcon className="w-4 h-4 text-red-500 mr-2.5 mt-0.5 flex-shrink-0" />
-                <span className="text-neutral-700 text-sm font-medium">
-                  {item}
+                <span className="break-words text-sm font-medium text-neutral-700 [overflow-wrap:anywhere]">
+                  {sanitizePlainText(item)}
                 </span>
               </li>
             ))}
@@ -350,8 +371,8 @@ export function TourDetailSidebar() {
                   className="flex items-start p-3 rounded-md bg-white/70 border border-sky-100"
                 >
                   <ShieldCheckIcon className="w-4 h-4 text-sky-600 mr-2.5 mt-0.5 flex-shrink-0" />
-                  <span className="text-neutral-700 text-sm font-medium">
-                    {item}
+                  <span className="break-words text-sm font-medium text-neutral-700 [overflow-wrap:anywhere]">
+                    {sanitizePlainText(item)}
                   </span>
                 </li>
               ))}
@@ -410,8 +431,8 @@ export function TourDetailSidebar() {
 
               {/* Tur Bilgileri */}
               <div className="flex-grow min-w-0">
-                <h3 className="text-base font-medium text-gray-900 mb-2 truncate">
-                  {otherTour.name}
+                <h3 className="mb-2 truncate text-base font-medium text-gray-900">
+                  {sanitizePlainText(otherTour.name)}
                 </h3>
                 <div className="grid grid-cols-1 @sm:grid-cols-2 gap-2 text-sm text-gray-600">
                   <div className="flex items-center">
@@ -440,22 +461,23 @@ export function TourDetailSidebar() {
               {/* Fiyat ve Detay Butonu */}
               <div className="flex @sm:flex-col items-center @sm:items-end justify-between @sm:justify-start gap-2 flex-shrink-0 pt-3 @sm:pt-0 @sm:pl-4 border-t @sm:border-t-0 @sm:border-l border-gray-100">
                 <div className="text-left @sm:text-right">
-                  <div className="text-lg font-semibold text-gray-900">
-                    {otherTour.price.toLocaleString('tr-TR')} ₺
+                  <div
+                    className="text-lg font-semibold text-gray-900"
+                    aria-readonly="true"
+                  >
+                    {formatPriceTry(otherTour.price)}
                   </div>
-                  {otherTour.discount && otherTour.discount > 0 && (
+                  {otherTour.discount && otherTour.discount > 0 ? (
                     <div className="text-sm text-gray-500 line-through">
-                      {(
-                        otherTour.price *
-                        (1 + otherTour.discount / 100)
-                      ).toLocaleString('tr-TR')}{' '}
-                      ₺
+                      {formatPriceTry(
+                        otherTour.price * (1 + otherTour.discount / 100),
+                      )}
                     </div>
-                  )}
+                  ) : null}
                 </div>
                 <Link
-                  href={`/tour/${otherTour.id}`}
-                  className="inline-flex items-center px-4 py-2 bg-neutral-100 text-neutral-950 hover:bg-neutral-100 rounded-lg text-sm font-medium transition-colors group/link flex-shrink-0"
+                  href={`/tours/${otherTour.id}`}
+                  className="group/link inline-flex flex-shrink-0 items-center rounded-lg bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-950 transition-all hover:bg-neutral-200 active:scale-[0.98]"
                 >
                   <span>Detaylar</span>
                   <ArrowRightIcon className="w-4 h-4 ml-1.5 transform group-hover/link:translate-x-0.5 transition-transform" />

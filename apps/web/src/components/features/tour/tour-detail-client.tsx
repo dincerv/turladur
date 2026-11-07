@@ -17,6 +17,7 @@ import { useParams } from 'next/navigation';
 import {
   buildFallbackItinerary,
   getDestinationLabel,
+  sanitizePlainText,
 } from './tour-detail/tour-detail.helpers';
 import {
   TourDetailUiProvider,
@@ -26,6 +27,7 @@ import { TourDetailHero } from './tour-detail/tour-detail-hero';
 import { TourDetailLeftColumn } from './tour-detail/tour-detail-left-column';
 import { TourDetailSidebar } from './tour-detail/tour-detail-sidebar';
 import { TourDetailChrome } from './tour-detail/tour-detail-chrome';
+import { TourDetailSkeleton } from './tour-detail/tour-detail-skeleton';
 import type {
   Destination,
   ItineraryItem,
@@ -45,17 +47,11 @@ export default function TourDetailClient() {
   );
   const [showDateSelectionHint, setShowDateSelectionHint] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [participants, setParticipants] = useState<{ [key: string]: number }>(
-    {},
-  );
   const containerRef = useRef<HTMLDivElement>(null);
   const pickupSliderRef = useRef<HTMLDivElement>(null);
   const tourRef = useRef<Tour | null>(null);
   tourRef.current = tour;
   const [showScrollIndicator, setShowScrollIndicator] = useState(true);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [tourCount, setTourCount] = useState(0);
   const [tourOperator, setTourOperator] = useState<TourOperator | null>(null);
   const [otherTours, setOtherTours] = useState<Tour[]>([]);
 
@@ -280,19 +276,20 @@ export default function TourDetailClient() {
                 reviewCount?: number;
               })
             : null;
-        const partnerName =
+        const partnerName = sanitizePlainText(
           partnerPayload?.companyName ||
-          (partnerId === 'seed-partner-demo'
-            ? 'Demo Tur & Aktivite'
-            : 'Tur Operatörü');
+            (partnerId === 'seed-partner-demo'
+              ? 'Demo Tur & Aktivite'
+              : 'Tur Operatörü'),
+        );
         const partnerTier =
           partnerPayload?.membershipTier ||
           (partnerId === 'seed-partner-demo' ? 'SILVER' : null);
 
         const transformedTour: Tour = {
           id: String(data.id),
-          name: String(data.title ?? data.name ?? ''),
-          description: String(data.description ?? ''),
+          name: sanitizePlainText(String(data.title ?? data.name ?? '')),
+          description: sanitizePlainText(String(data.description ?? '')),
           duration: durationDays,
           price: basePrice,
           discount: Number(extras.discount ?? data.discount ?? 0) || null,
@@ -376,9 +373,14 @@ export default function TourDetailClient() {
             companyName: partnerName,
             logo: partnerPayload?.logo ?? null,
             description:
-              partnerId === 'seed-partner-demo'
-                ? 'Demo partner hesabı — tur ve aktivite yönetimi için örnek operatör.'
-                : null,
+              sanitizePlainText(
+                partnerId === 'seed-partner-demo'
+                  ? 'Demo partner hesabı — tur ve aktivite yönetimi için örnek operatör.'
+                  : typeof (partnerPayload as { description?: string } | null)
+                        ?.description === 'string'
+                    ? (partnerPayload as { description?: string }).description
+                    : null,
+              ) || null,
             membershipTier: partnerTier,
             rating: Number(partnerPayload?.averageRating ?? 0) || 5,
             reviewCount:
@@ -476,25 +478,10 @@ export default function TourDetailClient() {
       }
     };
 
-    const calculateTourCount = () => {
-      if (containerRef.current) {
-        const containerHeight = containerRef.current.clientHeight;
-        const tourItemHeight = 210;
-        const paddingAndMargin = 35;
-        const availableHeight = containerHeight - paddingAndMargin;
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const calculatedCount = Math.floor(availableHeight / tourItemHeight);
-        setTourCount(4); // Sabit 4 tur göster
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    window.addEventListener('resize', calculateTourCount);
-    calculateTourCount();
+    window.addEventListener('scroll', handleScroll, { passive: true });
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', calculateTourCount);
     };
   }, []);
 
@@ -630,14 +617,14 @@ export default function TourDetailClient() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, [selectedTourDate]);
 
-  const handleParticipantsChange = (newParticipants: {
+  const handleParticipantsChange = (_newParticipants: {
     [key: string]: number;
   }) => {
-    setParticipants(newParticipants);
+    // Counts stay in BottomBookingBar; checkout uses dateId + adults/children query.
   };
 
   if (loading) {
-    return <div>Yükleniyor...</div>;
+    return <TourDetailSkeleton />;
   }
 
   if (error || !tour) {
@@ -745,11 +732,11 @@ export default function TourDetailClient() {
 
   return (
     <TourDetailUiProvider value={ui}>
-      <div className="bg-gray-50">
+      <div className="bg-gray-50 pb-28 md:pb-0">
         <TourDetailHero />
 
         {/* Ana İçerik — legacy: container > max-w-7xl > full-width sections > 2-col grid */}
-        <div className="container mx-auto px-4 py-16 sm:py-20 lg:py-24">
+        <div className="container mx-auto px-4 py-12 sm:py-16 lg:py-20">
           <div className="mx-auto max-w-7xl">
             <div className="mb-12 grid grid-cols-1 items-start gap-10 md:mb-16 lg:grid-cols-3 lg:gap-12 xl:gap-16">
               <TourDetailLeftColumn />

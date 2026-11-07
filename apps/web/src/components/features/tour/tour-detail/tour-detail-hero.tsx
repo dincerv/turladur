@@ -105,12 +105,12 @@ export function TourDetailHero() {
           <div className="absolute bottom-0 left-0 right-0 z-10 px-4 pb-14">
             <div className="flex items-end justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <h1 className="text-2xl font-bold text-white leading-tight drop-shadow-md mb-2">
+                <h1 className="mb-2 break-words text-2xl font-bold leading-tight text-white drop-shadow-md [overflow-wrap:anywhere]">
                   {tour.name}
                 </h1>
-                <div className="flex items-start gap-1.5 text-white/90 mb-2.5">
-                  <MapPinIcon className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 opacity-90" />
-                  <span className="text-sm leading-snug">
+                <div className="mb-2.5 flex items-start gap-1.5 text-white/90">
+                  <MapPinIcon className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 opacity-90" />
+                  <span className="break-words text-sm leading-snug [overflow-wrap:anywhere]">
                     {destinations.join(', ')}
                   </span>
                 </div>
@@ -252,7 +252,7 @@ export function TourDetailHero() {
                 Popüler Seçim
               </span>
             </div>
-            <h1 className="text-[3.5rem] lg:text-[4rem] font-bold text-white mb-4 leading-tight animate-fade-in-up drop-shadow-md">
+            <h1 className="mb-4 animate-fade-in-up break-words text-[2.75rem] font-bold leading-tight text-white drop-shadow-md [overflow-wrap:anywhere] lg:text-[3.5rem]">
               {tour.name}
             </h1>
             <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-white/90 mb-8 max-w-3xl mx-auto">

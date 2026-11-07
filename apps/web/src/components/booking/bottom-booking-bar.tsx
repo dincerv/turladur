@@ -340,6 +340,7 @@ export default function BottomBookingBar({
     new Intl.NumberFormat('tr-TR', {
       style: 'currency',
       currency: 'TRY',
+      maximumFractionDigits: 0,
     }).format(price);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- reserved for discount badge UI
   const checkDiscounts = useCallback(
@@ -752,27 +753,75 @@ export default function BottomBookingBar({
 
   if (!visible && !forceVisible) return null;
 
+  const collapsedUnitPrice = currentSelectedDate?.price ?? data?.price ?? 0;
+  const collapsedPriceLabel = currentSelectedDate
+    ? formatPrice(totalPrice > 0 ? totalPrice : collapsedUnitPrice)
+    : formatPrice(collapsedUnitPrice);
+
   return (
     <>
+      {/* Desktop: compact tab to open full panel */}
       <button
+        type="button"
         onClick={handleExpandClick}
-        className={`fixed bottom-0 left-1/2 transform -translate-x-1/2 z-50 bg-white text-neutral-700 rounded-t-lg px-5 py-2.5 shadow-md border border-b-0 border-neutral-200/80 flex items-center gap-2 transition-all duration-300 ease-out hover:shadow-lg hover:bg-neutral-50 ${visible && !expanded ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}`}
+        className={`fixed bottom-0 left-1/2 z-50 hidden -translate-x-1/2 items-center gap-2 rounded-t-lg border border-b-0 border-neutral-200/80 bg-white px-5 py-2.5 text-neutral-700 shadow-md transition-all duration-300 ease-out hover:bg-neutral-50 hover:shadow-lg md:flex ${visible && !expanded ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-full opacity-0'}`}
       >
         <span className="text-sm font-semibold">
           Tarih ve Fiyat Seçenekleri
         </span>
         <ChevronUpIcon
-          className={`w-4 h-4 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
+          className={`h-4 w-4 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
         />
       </button>
 
-      {expanded && (
+      {/* Mobile: sticky price + CTA action bar */}
+      <div
+        className={`fixed inset-x-0 bottom-0 z-50 border-t border-neutral-200/80 bg-white/95 px-4 pt-3 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] backdrop-blur-md md:hidden ${visible && !expanded ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-full opacity-0'} pb-[max(0.75rem,env(safe-area-inset-bottom))] transition-all duration-300 ease-out`}
+      >
+        <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-500">
+              {currentSelectedDate
+                ? totalParticipants > 0
+                  ? 'Toplam'
+                  : 'Kişi başı'
+                : 'Başlayan fiyat'}
+            </p>
+            <p
+              className="truncate text-xl font-bold text-neutral-950"
+              aria-readonly="true"
+            >
+              {collapsedPriceLabel}
+            </p>
+          </div>
+          {canCheckout && checkoutUrl ? (
+            <Link
+              href={checkoutUrl}
+              className="inline-flex shrink-0 items-center justify-center rounded-xl bg-neutral-950 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-neutral-800 hover:shadow-md active:scale-[0.97]"
+            >
+              Rezervasyon Yap
+              <ArrowRightIcon className="ml-2 h-4 w-4" />
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={handleExpandClick}
+              className="inline-flex shrink-0 items-center justify-center rounded-xl bg-neutral-950 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-neutral-800 hover:shadow-md active:scale-[0.97]"
+            >
+              Rezervasyon Yap
+              <ChevronUpIcon className="ml-2 h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {expanded ? (
         <div
           className="fixed inset-0 z-[100] bg-black/50 md:hidden"
           onClick={handleExpandClick}
           aria-hidden="true"
         />
-      )}
+      ) : null}
 
       <div
         id="booking-panel"
@@ -780,8 +829,9 @@ export default function BottomBookingBar({
         aria-modal="true"
         aria-labelledby="booking-panel-title"
         onClick={(e) => e.stopPropagation()}
-        className={`fixed inset-x-0 bottom-0 top-12 md:top-auto md:inset-x-0 md:bottom-0 bg-white md:bg-white/80 backdrop-blur-sm border-t border-neutral-200/80 shadow-lg z-[101] md:z-50 transition-transform duration-700 ease-out flex flex-col min-h-0 rounded-t-2xl md:rounded-none ${visible && expanded ? 'translate-y-0' : 'translate-y-full'}`}
+        className={`fixed inset-x-0 bottom-0 top-12 z-[101] flex min-h-0 flex-col rounded-t-2xl border-t border-neutral-200/80 bg-white shadow-lg backdrop-blur-sm transition-transform duration-500 ease-out md:inset-x-0 md:bottom-0 md:top-auto md:z-50 md:rounded-none md:bg-white/80 ${visible && expanded ? 'translate-y-0' : 'pointer-events-none translate-y-full'}`}
         style={{ maxHeight: 'calc(100dvh - 3rem)' }}
+        aria-hidden={!(visible && expanded)}
       >
         <div className="container mx-auto px-4 py-4 md:py-6 h-full flex flex-col min-h-0 max-h-[calc(100dvh-3rem)] md:max-h-[85vh]">
           <div className="flex items-center justify-between flex-shrink-0 pt-2 md:pt-0 pb-3 md:pb-0 md:relative">
@@ -830,13 +880,16 @@ export default function BottomBookingBar({
               {canCheckout && checkoutUrl ? (
                 <Link
                   href={checkoutUrl}
-                  className="inline-flex items-center justify-center px-6 py-2.5 bg-neutral-950 hover:bg-neutral-800 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm"
+                  className="inline-flex items-center justify-center rounded-lg bg-neutral-950 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-neutral-800 hover:shadow-md active:scale-[0.97]"
                 >
                   <span>Rezervasyon Yap</span>
-                  <ArrowRightIcon className="w-4 h-4 ml-2" />
+                  <ArrowRightIcon className="ml-2 h-4 w-4" />
                 </Link>
               ) : (
-                <span className="inline-flex items-center justify-center px-6 py-2.5 bg-neutral-950/50 text-white text-sm font-semibold rounded-lg cursor-not-allowed">
+                <span
+                  className="inline-flex cursor-not-allowed items-center justify-center rounded-lg bg-neutral-950/50 px-6 py-2.5 text-sm font-semibold text-white"
+                  aria-disabled="true"
+                >
                   <span>Rezervasyon Yap</span>
                 </span>
               )}

@@ -16,7 +16,9 @@ import {
 import OperatorReviewsSection from '@/components/features/tour-operator/OperatorReviewsSection';
 import TourItineraryMobile from '@/components/features/tour/itinerary/tour-itinerary-mobile';
 import { stripDayPrefixFromTitle } from '@/components/features/tour/itinerary/normalize-itinerary';
-import { getDestinationLabel } from './tour-detail.helpers';
+import { getDestinationLabel, sanitizePlainText } from './tour-detail.helpers';
+import { TourDetailExpandableText } from './tour-detail-expandable-text';
+import { TourDetailGallery } from './tour-detail-gallery';
 import { useTourDetailUi } from './tour-detail-context';
 import type { ItineraryItem } from './tour-detail.types';
 
@@ -42,6 +44,18 @@ export function TourDetailLeftColumn() {
 
   return (
     <div className="min-w-0 space-y-8 sm:space-y-10 lg:col-span-2">
+      {/* Tur Açıklaması */}
+      <section className="min-w-0 rounded-xl border border-neutral-200/70 bg-white p-5 shadow-sm sm:p-6">
+        <h2 className="mb-3 text-xl font-semibold text-gray-900 sm:text-2xl">
+          Tur Hakkında
+        </h2>
+        <TourDetailExpandableText
+          text={tour.description}
+          lines={5}
+          emptyFallback="Bu tur için detaylı açıklama yakında eklenecektir."
+        />
+      </section>
+
       {/* Tur Programı ve Rotası */}
       <div id="itinerary" className="scroll-mt-24 min-w-0">
         <div className="md:hidden">
@@ -147,7 +161,7 @@ export function TourDetailLeftColumn() {
                                       </span>
                                     )}
                                     <h4 className="text-lg font-semibold text-gray-900 break-words min-w-0">
-                                      {displayTitle}
+                                      {sanitizePlainText(displayTitle)}
                                     </h4>
                                   </div>
                                   <div className="flex items-center gap-2">
@@ -172,7 +186,7 @@ export function TourDetailLeftColumn() {
                               {/* Ana İçerik */}
                               <div className="p-5 min-w-0">
                                 <p className="text-gray-600 text-sm mb-6 break-words [overflow-wrap:anywhere]">
-                                  {content.description ||
+                                  {sanitizePlainText(content.description) ||
                                     'Bu gün için detaylı program bilgisi yakında eklenecektir.'}
                                 </p>
 
@@ -433,55 +447,11 @@ export function TourDetailLeftColumn() {
         </div>
       </div>
 
-      {/* Fotoğraf Galerisi — sol kolon (lg:col-span-2) genişliğine sığdır */}
-      <div className="w-full min-w-0">
-        <div className="mb-3 flex items-center justify-between gap-3 sm:mb-4">
-          <h2 className="flex min-w-0 items-center text-lg font-semibold text-gray-900 sm:text-xl">
-            <PhotoIcon className="mr-2 h-5 w-5 shrink-0 text-neutral-950 sm:mr-2.5 sm:h-6 sm:w-6" />
-            <span className="truncate">Fotoğraf Galerisi</span>
-          </h2>
-          <button
-            type="button"
-            className="flex shrink-0 items-center text-xs font-medium text-neutral-950 hover:text-neutral-800 sm:text-sm"
-          >
-            Tüm Fotoğraflar
-            <ChevronRightIcon className="ml-1 h-4 w-4" />
-          </button>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:gap-3">
-          {(galleryImages.length > 0
-            ? galleryImages.slice(0, 4)
-            : Array.from({ length: 4 }, () => null)
-          ).map((image, index) => (
-            <div
-              key={image ?? `placeholder-${index}`}
-              className="group relative aspect-[4/3] overflow-hidden rounded-lg shadow-sm transition-shadow hover:shadow-md sm:rounded-xl"
-            >
-              {image ? (
-                <Image
-                  src={image}
-                  alt={`${tour.name} - Resim ${index + 1}`}
-                  fill
-                  sizes="(max-width: 1024px) 45vw, 28vw"
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-neutral-200">
-                  <PhotoIcon className="h-7 w-7 text-neutral-400 sm:h-9 sm:w-9" />
-                </div>
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100">
-                <div className="absolute bottom-2 left-2 right-2">
-                  <p className="truncate text-xs font-medium text-white">
-                    {destinations[index % Math.max(destinations.length, 1)] ||
-                      'Tur Lokasyonu'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <TourDetailGallery
+        images={galleryImages}
+        tourName={tour.name}
+        destinationLabels={destinations}
+      />
 
       {/* Kalkış Noktası Bilgileri — noktalar slider, uyarılar sabit */}
       <div className="w-full min-w-0 overflow-hidden rounded-xl border border-emerald-200/70 bg-emerald-50/60 p-3 sm:p-5">

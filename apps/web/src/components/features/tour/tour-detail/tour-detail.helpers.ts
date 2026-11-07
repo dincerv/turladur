@@ -2,6 +2,30 @@
 
 import type { TourDestination } from './tour-detail.types';
 
+/** Strip tags / control chars so agency/tour text is never treated as HTML. */
+export function sanitizePlainText(input: string | null | undefined): string {
+  if (!input) return '';
+  return String(input)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function formatPriceTry(price: number): string {
+  return new Intl.NumberFormat('tr-TR', {
+    style: 'currency',
+    currency: 'TRY',
+    maximumFractionDigits: 0,
+  }).format(Number.isFinite(price) ? price : 0);
+}
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function formatAgeRange(minAge: number, maxAge: number | null): string {
   if (maxAge === null) {
