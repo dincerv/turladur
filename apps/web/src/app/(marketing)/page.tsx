@@ -7,10 +7,8 @@ import { CTA } from '@/components/features/home/cta';
 import { Destinations } from '@/components/features/home/destinations';
 import { Hero } from '@/components/features/home/hero';
 import { HotDeals } from '@/components/features/home/hot-deals';
-import { MobileOfferPopup } from '@/components/features/home/mobile-offer-popup';
 import { Newsletter } from '@/components/features/home/newsletter';
-import { Stats } from '@/components/features/home/stats';
-import { Testimonials } from '@/components/features/home/testimonials';
+import { Trust } from '@/components/features/home/trust';
 import { TourCard } from '@/components/features/tour/tour-card';
 import { searchTours } from '@/services/catalog';
 
@@ -27,8 +25,8 @@ export const metadata: Metadata = {
 };
 
 /**
- * Marketing home — legacy section order (Hero → Destinations → CTA → HotDeals →
- * Popüler Turlar → Stats → Testimonials → Newsletter). Data from Nest where available.
+ * Marketing home — Hero → Destinations → CTA → HotDeals → Popüler Turlar →
+ * Trust → Newsletter. Data from Nest where available.
  */
 export default async function HomePage() {
   let tours: Awaited<ReturnType<typeof searchTours>>['data'] = [];
@@ -77,10 +75,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <Stats />
-      <Testimonials />
+      <Trust />
       <Newsletter />
-      <MobileOfferPopup />
     </>
   );
 }

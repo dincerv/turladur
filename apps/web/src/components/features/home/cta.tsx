@@ -1,12 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, ShieldCheck, DollarSign, Ticket } from 'lucide-react';
+import { ArrowRight, BadgeCheck, CalendarCheck, MailCheck } from 'lucide-react';
 
 const advantages = [
-  { id: 1, text: 'Ücretsiz İptal', icon: Ticket },
-  { id: 2, text: 'En İyi Fiyat Garantisi', icon: DollarSign },
-  { id: 3, text: 'Güvenli Ödeme', icon: ShieldCheck },
+  { id: 1, text: 'Onaylı acenteler', icon: BadgeCheck },
+  { id: 2, text: 'Rezervasyonlarınız tek yerde', icon: CalendarCheck },
+  { id: 3, text: 'Voucher e-postanızda', icon: MailCheck },
 ];
 
 export function CTA() {
@@ -16,14 +16,14 @@ export function CTA() {
         <div className="max-w-3xl mx-auto text-center">
           <div>
             <div className="inline-flex items-center justify-center px-4 py-1.5 bg-neutral-100 rounded-full text-neutral-800 font-medium text-sm mb-4">
-              Fırsatı Yakala
+              Ücretsiz Üyelik
             </div>
             <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 mb-4 leading-tight">
               Hayalindeki Tatile İlk Adımı At!
             </h2>
             <p className="text-lg text-neutral-600 mb-8">
-              Hemen kaydol, ilk rezervasyonunda geçerli %15 indirim kodunu kap!
-              Binlerce tur seçeneği arasından sana en uygun olanı bul.
+              Ücretsiz üye ol; rezervasyonlarını tek yerden takip et, yeni
+              turlardan ve fırsatlardan ilk sen haberdar ol.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center mb-8">
@@ -31,7 +31,7 @@ export function CTA() {
                 href="/register"
                 className="group inline-flex items-center justify-center px-8 py-3.5 bg-neutral-950 text-white hover:bg-neutral-800 rounded-xl transition-all duration-200 font-medium shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-950 text-sm"
               >
-                <span>%15 İndirim Kodu Al</span>
+                <span>Ücretsiz Üye Ol</span>
                 <ArrowRight className="w-4 h-4 ml-2 transition-transform duration-200 group-hover:translate-x-1" />
               </Link>
               <Link

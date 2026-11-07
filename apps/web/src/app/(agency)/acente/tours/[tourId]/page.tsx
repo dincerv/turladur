@@ -20,6 +20,7 @@ import {
   Languages,
   Hash,
 } from 'lucide-react';
+import { tourCategoryLabel } from '@turta/shared-constants';
 
 import { useAuth } from '@/providers/auth-provider';
 import { getPartnerTourById } from '@/services/partner-admin';
@@ -353,7 +354,7 @@ export default function PartnerTourDetailPage() {
                     Kategori
                   </h3>
                   <p className="mt-1 text-sm text-gray-900">
-                    {tour.category || '-'}
+                    {tourCategoryLabel(tour.category) || '-'}
                   </p>
                 </div>
               </div>

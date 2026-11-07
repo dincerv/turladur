@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { tourCategoryLabel } from '@turta/shared-constants';
 import type { Tour } from '@turta/shared-types';
 import { resolveMediaUrl, shouldUnoptimizeMedia } from '@/lib/media';
 
@@ -31,7 +32,9 @@ export function TourCard({ tour }: { tour: Tour }) {
           />
         ) : (
           <div className="flex h-full items-center justify-center bg-gradient-to-br from-neutral-100 to-neutral-200 text-neutral-700">
-            <span className="text-sm font-medium">{tour.category}</span>
+            <span className="text-sm font-medium">
+              {tourCategoryLabel(tour.category)}
+            </span>
           </div>
         )}
         {tour.featured ? (
@@ -42,7 +45,7 @@ export function TourCard({ tour }: { tour: Tour }) {
       </div>
       <div className="flex flex-1 flex-col gap-2 p-4">
         <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-          {tour.category}
+          {tourCategoryLabel(tour.category)}
         </p>
         <h3 className="text-lg font-semibold text-neutral-900">
           <Link href={`/tours/${tour.id}`} className="hover:text-neutral-600">

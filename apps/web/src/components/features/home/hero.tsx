@@ -878,7 +878,7 @@ export function Hero({ variant = 'default' }: HeroProps) {
           <p className="text-sm leading-relaxed md:text-xl max-w-2xl mx-auto text-white/85 md:text-white/90 font-light px-1 md:px-2">
             {isRoutesVariant
               ? 'Kapadokya, Likya Yolu, Pamukkale ve daha fazlası için tur seçeneklerini inceleyin.'
-              : "Türkiye'nin dört bir yanındaki eşsiz otelleri, turları ve deneyimleri kolayca bulun ve rezerve edin."}
+              : "Türkiye'nin dört bir yanındaki turları ve deneyimleri karşılaştırın, güvenle rezerve edin."}
           </p>
         </div>
 

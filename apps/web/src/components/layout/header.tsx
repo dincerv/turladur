@@ -18,6 +18,9 @@ import DealsPopup from '@/components/layout/deals-popup';
 import { useAuth } from '@/providers/auth-provider';
 import { getPanelHrefForRole } from '@/lib/panel-routes';
 
+/** DealsPopup lists hardcoded placeholder campaigns; keep hidden until real campaigns exist. */
+const SHOW_DEALS = false;
+
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -362,15 +365,16 @@ export function Header() {
               İletişim
             </Link>
 
-            {/* Fırsatlar — mevcut popup akışı (navbar davranışı) */}
-            <button
-              type="button"
-              onClick={openDealsPopup}
-              className={`ml-2 flex items-center px-3.5 py-1.5 rounded-md text-sm font-medium transition-all duration-300 transform hover:scale-[1.03] shadow-sm ${buttonPrimaryBg} ${buttonPrimaryText}`}
-            >
-              <TagIcon className={`w-4 h-4 mr-1.5 ${dealsTagColor}`} />
-              Fırsatlar
-            </button>
+            {SHOW_DEALS && (
+              <button
+                type="button"
+                onClick={openDealsPopup}
+                className={`ml-2 flex items-center px-3.5 py-1.5 rounded-md text-sm font-medium transition-all duration-300 transform hover:scale-[1.03] shadow-sm ${buttonPrimaryBg} ${buttonPrimaryText}`}
+              >
+                <TagIcon className={`w-4 h-4 mr-1.5 ${dealsTagColor}`} />
+                Fırsatlar
+              </button>
+            )}
 
             {/* Arama Butonu */}
             <button
@@ -758,16 +762,18 @@ export function Header() {
                   <BuildingOfficeIcon className="w-4 h-4 mr-1.5" />
                   Partner Portal
                 </div>
-                <button
-                  onClick={() => {
-                    openDealsPopup();
-                    setIsMenuOpen(false);
-                  }}
-                  className="w-full text-left flex items-center py-2.5 px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-950 rounded-md transition-colors"
-                >
-                  <TagIcon className="w-4 h-4 mr-2 text-neutral-500" />
-                  Fırsatlar
-                </button>
+                {SHOW_DEALS && (
+                  <button
+                    onClick={() => {
+                      openDealsPopup();
+                      setIsMenuOpen(false);
+                    }}
+                    className="w-full text-left flex items-center py-2.5 px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-950 rounded-md transition-colors"
+                  >
+                    <TagIcon className="w-4 h-4 mr-2 text-neutral-500" />
+                    Fırsatlar
+                  </button>
+                )}
               </div>
             </div>
 
@@ -790,7 +796,7 @@ export function Header() {
         </div>
       )}
 
-      {mounted && (
+      {SHOW_DEALS && mounted && (
         <DealsPopup isOpen={dealsOpen} onClose={() => setDealsOpen(false)} />
       )}
     </header>

@@ -21,6 +21,7 @@ import {
   getMarketplaceAgencyProfile,
   type MarketplaceAgencyProfile,
 } from '@/services/marketplace-agency';
+import { tourCategoryLabel } from '@turta/shared-constants';
 import type { Tour } from '@turta/shared-types';
 
 type TourOperatorPublicClientProps = {
@@ -75,7 +76,7 @@ function TourCard({ tour }: { tour: Tour }) {
           </div>
           <div className="mt-auto flex items-end justify-between pt-4">
             <p className="text-xs text-neutral-500">
-              {tour.durationDays} gün · {tour.category}
+              {tour.durationDays} gün · {tourCategoryLabel(tour.category)}
             </p>
             <p className="text-base font-bold text-neutral-900">
               {formatPrice(tour.price, tour.currency)}

@@ -6,6 +6,12 @@ import { listRoutes } from '@/services/route';
 
 const HOMEPAGE_ROUTE_LIMIT = 4;
 
+const LG_COLUMNS: Record<number, string> = {
+  1: 'max-w-sm lg:grid-cols-1',
+  2: 'max-w-3xl lg:grid-cols-2',
+  3: 'lg:grid-cols-3',
+};
+
 export async function Destinations() {
   let featuredRoutes: Awaited<ReturnType<typeof listRoutes>>['routes'] = [];
 
@@ -18,10 +24,9 @@ export async function Destinations() {
       if (b.tourCount !== a.tourCount) return b.tourCount - a.tourCount;
       return (b.avgRating ?? 0) - (a.avgRating ?? 0);
     });
-    const withTours = sortedByReviews.filter((route) => route.tourCount > 0);
-    featuredRoutes = (
-      withTours.length >= HOMEPAGE_ROUTE_LIMIT ? withTours : sortedByReviews
-    ).slice(0, HOMEPAGE_ROUTE_LIMIT);
+    featuredRoutes = sortedByReviews
+      .filter((route) => route.tourCount > 0)
+      .slice(0, HOMEPAGE_ROUTE_LIMIT);
   } catch {
     return null;
   }
@@ -46,7 +51,9 @@ export async function Destinations() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:gap-8 lg:grid-cols-4">
+        <div
+          className={`mx-auto grid grid-cols-1 gap-6 sm:grid-cols-2 md:gap-8 ${LG_COLUMNS[featuredRoutes.length] ?? 'lg:grid-cols-4'}`}
+        >
           {featuredRoutes.map((route, index) => (
             <Link
               key={route.id}
