@@ -617,9 +617,10 @@ export default function TourDetailClient() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, [selectedTourDate]);
 
-  const handleParticipantsChange = (_newParticipants: {
+  const handleParticipantsChange = (_participants: {
     [key: string]: number;
   }) => {
+    void _participants;
     // Counts stay in BottomBookingBar; checkout uses dateId + adults/children query.
   };
 

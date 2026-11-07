@@ -26,7 +26,6 @@ export function formatPriceTry(price: number): string {
   }).format(Number.isFinite(price) ? price : 0);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function formatAgeRange(minAge: number, maxAge: number | null): string {
   if (maxAge === null) {
     return `${minAge}+`;
@@ -34,13 +33,12 @@ export function formatAgeRange(minAge: number, maxAge: number | null): string {
   return `${minAge}-${maxAge}`;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function formatPricing(
   pricingType: string,
   value: number,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  basePrice: number,
+  _basePrice: number,
 ): string {
+  void _basePrice;
   switch (pricingType) {
     case 'free':
       return 'Ücretsiz';
