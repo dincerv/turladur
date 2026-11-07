@@ -78,10 +78,19 @@ export function TourDetailGallery({
     'Tur Lokasyonu';
 
   const placeholders = Array.from({ length: 4 }, (_, i) => i);
-  const mosaic = list.length > 0 ? list.slice(0, 5) : [];
+  /** Max 3 tiles so desktop mosaic always fills without gaps. */
+  const mosaic =
+    list.length === 0
+      ? []
+      : list.length === 1
+        ? list.slice(0, 1)
+        : list.length === 2
+          ? list.slice(0, 2)
+          : list.slice(0, 3);
+  const extraCount = Math.max(0, list.length - mosaic.length);
 
   return (
-    <div className="w-full min-w-0">
+    <div className="w-full min-w-0 overflow-hidden">
       <div className="mb-3 flex items-center justify-between gap-3 sm:mb-4">
         <h2 className="flex min-w-0 items-center text-lg font-semibold text-gray-900 sm:text-xl">
           <PhotoIcon className="mr-2 h-5 w-5 shrink-0 text-neutral-950 sm:mr-2.5 sm:h-6 sm:w-6" />
@@ -159,14 +168,14 @@ export function TourDetailGallery({
         ) : null}
       </div>
 
-      {/* Desktop — main + side mosaic */}
+      {/* Desktop — main + side mosaic (fixed height, no empty cells) */}
       <div className="hidden md:block">
         {list.length === 0 ? (
-          <div className="grid grid-cols-2 gap-2 sm:gap-3">
-            {placeholders.map((index) => (
+          <div className="grid h-[300px] grid-cols-2 gap-2 lg:h-[360px] sm:gap-3">
+            {placeholders.slice(0, 2).map((index) => (
               <div
                 key={index}
-                className="relative aspect-[4/3] overflow-hidden rounded-xl bg-neutral-200"
+                className="relative h-full overflow-hidden rounded-xl bg-neutral-200"
               >
                 <div className="flex h-full w-full items-center justify-center">
                   <PhotoIcon className="h-9 w-9 text-neutral-400" />
@@ -174,31 +183,57 @@ export function TourDetailGallery({
               </div>
             ))}
           </div>
-        ) : (
-          <div
-            className={cn(
-              'grid gap-2 sm:gap-3',
-              mosaic.length === 1 && 'grid-cols-1',
-              mosaic.length === 2 && 'grid-cols-2',
-              mosaic.length >= 3 && 'grid-cols-4 grid-rows-2',
-            )}
+        ) : mosaic.length === 1 ? (
+          <button
+            type="button"
+            onClick={() => openAt(0)}
+            className="group relative h-[300px] w-full overflow-hidden rounded-xl bg-neutral-200 lg:h-[360px]"
           >
+            <Image
+              src={mosaic[0]}
+              alt={`${safeName} - 1`}
+              fill
+              sizes="(max-width: 1280px) 66vw, 720px"
+              priority
+              unoptimized={shouldUnoptimizeMedia(mosaic[0])}
+              className="object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+          </button>
+        ) : mosaic.length === 2 ? (
+          <div className="grid h-[300px] grid-cols-2 gap-2 lg:h-[360px] sm:gap-3">
+            {mosaic.map((image, index) => (
+              <button
+                key={`${image}-${index}`}
+                type="button"
+                onClick={() => openAt(index)}
+                className="group relative h-full min-h-0 overflow-hidden rounded-xl bg-neutral-200"
+              >
+                <Image
+                  src={image}
+                  alt={`${safeName} - ${index + 1}`}
+                  fill
+                  sizes="(max-width: 1280px) 33vw, 360px"
+                  priority={index === 0}
+                  loading={index === 0 ? 'eager' : 'lazy'}
+                  unoptimized={shouldUnoptimizeMedia(image)}
+                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="grid h-[300px] grid-cols-[minmax(0,2fr)_minmax(0,1fr)] grid-rows-2 gap-2 lg:h-[360px] sm:gap-3">
             {mosaic.map((image, index) => {
-              const isHero = index === 0 && mosaic.length >= 3;
-              const isLastVisible =
-                index === mosaic.length - 1 && list.length > mosaic.length;
+              const isHero = index === 0;
+              const showExtra = index === mosaic.length - 1 && extraCount > 0;
               return (
                 <button
                   key={`${image}-${index}`}
                   type="button"
                   onClick={() => openAt(index)}
                   className={cn(
-                    'group relative overflow-hidden rounded-xl bg-neutral-200 shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2',
-                    isHero
-                      ? 'col-span-2 row-span-2 aspect-[4/3] min-h-[280px]'
-                      : mosaic.length >= 3
-                        ? 'aspect-[4/3] min-h-0'
-                        : 'aspect-[4/3]',
+                    'group relative min-h-0 min-w-0 overflow-hidden rounded-xl bg-neutral-200 shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2',
+                    isHero ? 'row-span-2' : 'row-span-1',
                   )}
                 >
                   <Image
@@ -207,25 +242,25 @@ export function TourDetailGallery({
                     fill
                     sizes={
                       isHero
-                        ? '(max-width: 1280px) 50vw, 560px'
-                        : '(max-width: 1280px) 25vw, 280px'
+                        ? '(max-width: 1280px) 45vw, 480px'
+                        : '(max-width: 1280px) 22vw, 240px'
                     }
                     priority={index === 0}
                     loading={index === 0 ? 'eager' : 'lazy'}
                     unoptimized={shouldUnoptimizeMedia(image)}
                     className="object-cover transition-transform duration-300 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100">
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100">
                     <div className="absolute bottom-2 left-2 right-2">
                       <p className="truncate text-xs font-medium text-white">
                         {labelAt(index)}
                       </p>
                     </div>
                   </div>
-                  {isLastVisible ? (
+                  {showExtra ? (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/45">
                       <span className="text-sm font-semibold text-white">
-                        +{list.length - mosaic.length + 1} fotoğraf
+                        +{extraCount} fotoğraf
                       </span>
                     </div>
                   ) : null}

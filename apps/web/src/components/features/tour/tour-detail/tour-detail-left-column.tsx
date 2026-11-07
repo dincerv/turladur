@@ -4,8 +4,6 @@ import Image from 'next/image';
 import {
   Building2 as BuildingOfficeIcon,
   CalendarDays as CalendarDaysIcon,
-  ChevronLeft as ChevronLeftIcon,
-  ChevronRight as ChevronRightIcon,
   Clock as ClockIcon,
   Image as PhotoIcon,
   Map as MapIcon,
@@ -30,10 +28,6 @@ export function TourDetailLeftColumn() {
     itinerary,
     galleryImages,
     activePickupPoints,
-    pickupSlideCount,
-    pickupSlideClass,
-    pickupSliderRef,
-    scrollPickupSlider,
     tourReviews,
     tourReviewCount,
     tourAverageRating,
@@ -43,7 +37,7 @@ export function TourDetailLeftColumn() {
   const getDestinationName = getDestinationLabel;
 
   return (
-    <div className="min-w-0 space-y-8 sm:space-y-10 lg:col-span-2">
+    <div className="min-w-0 space-y-8 overflow-x-hidden sm:space-y-10">
       {/* Tur Açıklaması */}
       <section className="min-w-0 rounded-xl border border-neutral-200/70 bg-white p-5 shadow-sm sm:p-6">
         <h2 className="mb-3 text-xl font-semibold text-gray-900 sm:text-2xl">
@@ -453,46 +447,19 @@ export function TourDetailLeftColumn() {
         destinationLabels={destinations}
       />
 
-      {/* Kalkış Noktası Bilgileri — noktalar slider, uyarılar sabit */}
-      <div className="w-full min-w-0 overflow-hidden rounded-xl border border-emerald-200/70 bg-emerald-50/60 p-3 sm:p-5">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:mb-4">
+      <div className="w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-emerald-200/70 bg-emerald-50/60 p-3 sm:p-5">
+        <div className="mb-3 sm:mb-4">
           <h3 className="flex min-w-0 items-center text-base font-semibold text-emerald-800 sm:text-lg">
             <MapPinIcon className="mr-2 h-5 w-5 shrink-0 text-emerald-600 sm:h-6 sm:w-6" />
             <span className="leading-snug">
               Kalkış Noktaları ve Buluşma Bilgileri
             </span>
           </h3>
-          {pickupSlideCount > 1 ? (
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => scrollPickupSlider('prev')}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-emerald-200 bg-white text-emerald-700 shadow-sm hover:bg-emerald-50"
-                aria-label="Önceki kalkış noktası"
-              >
-                <ChevronLeftIcon className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollPickupSlider('next')}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-emerald-200 bg-white text-emerald-700 shadow-sm hover:bg-emerald-50"
-                aria-label="Sonraki kalkış noktası"
-              >
-                <ChevronRightIcon className="h-4 w-4" />
-              </button>
-            </div>
-          ) : null}
         </div>
 
-        <div
-          ref={pickupSliderRef}
-          className="mb-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
+        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
           {tour.meetingPoint ? (
-            <div
-              data-pickup-slide
-              className={`${pickupSlideClass} group relative overflow-hidden rounded-lg border border-emerald-100 bg-white p-3.5 sm:p-4`}
-            >
+            <div className="group relative min-w-0 overflow-hidden rounded-lg border border-emerald-100 bg-white p-3.5 sm:p-4">
               <div className="absolute right-0 top-0 -z-0 h-16 w-16 rounded-bl-[100px] bg-emerald-100 transition-colors group-hover:bg-emerald-200" />
               <div className="relative z-10">
                 <div className="mb-2 inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
@@ -530,8 +497,7 @@ export function TourDetailLeftColumn() {
             activePickupPoints.map((point, index) => (
               <div
                 key={point.id}
-                data-pickup-slide
-                className={`${pickupSlideClass} group relative overflow-hidden rounded-lg border border-emerald-100 bg-white p-3.5 sm:p-4`}
+                className="group relative min-w-0 overflow-hidden rounded-lg border border-emerald-100 bg-white p-3.5 sm:p-4"
               >
                 <div className="absolute right-0 top-0 -z-0 h-16 w-16 rounded-bl-[100px] bg-emerald-100 transition-colors group-hover:bg-emerald-200" />
                 <div className="relative z-10">
@@ -564,10 +530,7 @@ export function TourDetailLeftColumn() {
               </div>
             ))
           ) : !tour.meetingPoint ? (
-            <div
-              data-pickup-slide
-              className={`${pickupSlideClass} group relative overflow-hidden rounded-lg border border-emerald-100 bg-white p-3.5 sm:p-4`}
-            >
+            <div className="group relative min-w-0 overflow-hidden rounded-lg border border-emerald-100 bg-white p-3.5 sm:p-4">
               <div className="absolute right-0 top-0 -z-0 h-16 w-16 rounded-bl-[100px] bg-emerald-100 transition-colors group-hover:bg-emerald-200" />
               <div className="relative z-10">
                 <div className="mb-2 inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">

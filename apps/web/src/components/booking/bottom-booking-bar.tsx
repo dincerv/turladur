@@ -89,6 +89,8 @@ interface Props {
   onExpandedChange?: (expanded: boolean) => void;
   selectedDate?: TourDate | ActivityDate | null;
   forceVisible?: boolean;
+  /** Hide desktop tab/panel — use with sticky sidebar booking UI. */
+  mobileOnly?: boolean;
 }
 
 /** Legacy UX: even without partner-defined tiers, show Yetişkin / Çocuk counters. */
@@ -125,6 +127,7 @@ export default function BottomBookingBar({
   onExpandedChange,
   selectedDate: initialSelectedDate = null,
   forceVisible = false,
+  mobileOnly = false,
 }: Props) {
   const [visible, setVisible] = useState(forceVisible);
   const [expanded, setExpanded] = useState(false);
@@ -761,18 +764,20 @@ export default function BottomBookingBar({
   return (
     <>
       {/* Desktop: compact tab to open full panel */}
-      <button
-        type="button"
-        onClick={handleExpandClick}
-        className={`fixed bottom-0 left-1/2 z-50 hidden -translate-x-1/2 items-center gap-2 rounded-t-lg border border-b-0 border-neutral-200/80 bg-white px-5 py-2.5 text-neutral-700 shadow-md transition-all duration-300 ease-out hover:bg-neutral-50 hover:shadow-lg md:flex ${visible && !expanded ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-full opacity-0'}`}
-      >
-        <span className="text-sm font-semibold">
-          Tarih ve Fiyat Seçenekleri
-        </span>
-        <ChevronUpIcon
-          className={`h-4 w-4 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
-        />
-      </button>
+      {!mobileOnly ? (
+        <button
+          type="button"
+          onClick={handleExpandClick}
+          className={`fixed bottom-0 left-1/2 z-50 hidden -translate-x-1/2 items-center gap-2 rounded-t-lg border border-b-0 border-neutral-200/80 bg-white px-5 py-2.5 text-neutral-700 shadow-md transition-all duration-300 ease-out hover:bg-neutral-50 hover:shadow-lg md:flex ${visible && !expanded ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-full opacity-0'}`}
+        >
+          <span className="text-sm font-semibold">
+            Tarih ve Fiyat Seçenekleri
+          </span>
+          <ChevronUpIcon
+            className={`h-4 w-4 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
+          />
+        </button>
+      ) : null}
 
       {/* Mobile: sticky price + CTA action bar */}
       <div
@@ -829,7 +834,7 @@ export default function BottomBookingBar({
         aria-modal="true"
         aria-labelledby="booking-panel-title"
         onClick={(e) => e.stopPropagation()}
-        className={`fixed inset-x-0 bottom-0 top-12 z-[101] flex min-h-0 flex-col rounded-t-2xl border-t border-neutral-200/80 bg-white shadow-lg backdrop-blur-sm transition-transform duration-500 ease-out md:inset-x-0 md:bottom-0 md:top-auto md:z-50 md:rounded-none md:bg-white/80 ${visible && expanded ? 'translate-y-0' : 'pointer-events-none translate-y-full'}`}
+        className={`fixed inset-x-0 bottom-0 top-12 z-[101] flex min-h-0 flex-col rounded-t-2xl border-t border-neutral-200/80 bg-white shadow-lg backdrop-blur-sm transition-transform duration-500 ease-out ${mobileOnly ? '' : 'md:inset-x-0 md:bottom-0 md:top-auto md:z-50 md:rounded-none md:bg-white/80'} ${visible && expanded ? 'translate-y-0' : 'pointer-events-none translate-y-full'} ${mobileOnly ? 'md:hidden' : ''}`}
         style={{ maxHeight: 'calc(100dvh - 3rem)' }}
         aria-hidden={!(visible && expanded)}
       >

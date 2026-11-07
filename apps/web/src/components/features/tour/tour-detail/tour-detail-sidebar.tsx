@@ -48,38 +48,38 @@ export function TourDetailSidebar() {
     selectedTourDate?.price != null ? selectedTourDate.price : tour.price;
 
   return (
-    <aside className="flex w-full flex-col space-y-8 self-start lg:sticky lg:top-24 lg:col-span-1 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:pb-4 lg:scrollbar-thin">
-      {/* Rezervasyon Kartı — desktop sticky */}
+    <aside className="flex w-full min-w-0 flex-col space-y-6 self-start overflow-hidden lg:sticky lg:top-24 lg:col-span-1 lg:space-y-8">
+      {/* Rezervasyon Kartı — desktop sticky (page scroll only; no nested scroll) */}
       <div
         id="booking"
-        className="w-full scroll-mt-28 rounded-xl border border-neutral-200/70 bg-white p-6 shadow-md"
+        className="w-full min-w-0 scroll-mt-28 overflow-hidden rounded-xl border border-neutral-200/70 bg-white p-4 shadow-md sm:p-5"
       >
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <h2 className="flex items-center text-2xl font-semibold text-gray-900">
-              <CalendarDaysIcon className="mr-2.5 h-6 w-6 flex-shrink-0 text-neutral-950" />
-              <span>Rezervasyon</span>
+        <div className="mb-4 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex min-w-0 items-center text-xl font-semibold text-gray-900">
+              <CalendarDaysIcon className="mr-2 h-5 w-5 flex-shrink-0 text-neutral-950" />
+              <span className="truncate">Rezervasyon</span>
             </h2>
-            <div className="mt-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-                {selectedTourDate ? 'Seçilen tarih fiyatı' : 'Kişi başı fiyat'}
-              </p>
-              <p
-                className="mt-1 text-3xl font-bold tracking-tight text-neutral-950"
-                aria-readonly="true"
-              >
-                {formatPriceTry(displayUnitPrice)}
-              </p>
-              <p className="mt-0.5 text-sm text-neutral-500">/ kişi</p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <div className="inline-flex items-center rounded-full border border-emerald-200/70 bg-emerald-100 px-2.5 py-0.5 text-[11px] font-medium text-emerald-800">
+                Ücretsiz İptal
+              </div>
+              <div className="inline-flex items-center rounded-full border border-neutral-200/70 bg-neutral-100 px-2.5 py-0.5 text-[11px] font-medium text-neutral-800">
+                Anında Onay
+              </div>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 justify-start sm:justify-end">
-            <div className="inline-flex items-center rounded-full border border-emerald-200/70 bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800">
-              Ücretsiz İptal
-            </div>
-            <div className="inline-flex items-center rounded-full border border-neutral-200/70 bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-800">
-              Anında Onay
-            </div>
+          <div className="min-w-0">
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+              {selectedTourDate ? 'Seçilen tarih fiyatı' : 'Kişi başı fiyat'}
+            </p>
+            <p
+              className="mt-1 text-2xl font-bold tracking-tight text-neutral-950 sm:text-3xl"
+              aria-readonly="true"
+            >
+              {formatPriceTry(displayUnitPrice)}
+            </p>
+            <p className="mt-0.5 text-sm text-neutral-500">/ kişi</p>
           </div>
         </div>
 
@@ -97,9 +97,9 @@ export function TourDetailSidebar() {
             </div>
           )}
           <div
-            className={`bg-neutral-50/60 p-6 rounded-lg mb-6 transition-all duration-300 ${
+            className={`mb-0 rounded-lg bg-neutral-50/60 p-3 transition-all duration-300 sm:p-4 ${
               showDateSelectionHint
-                ? 'border-2 border-red-500 ring-2 ring-red-100 animate-pulse'
+                ? 'animate-pulse border-2 border-red-500 ring-2 ring-red-100'
                 : 'border border-neutral-200/70'
             }`}
             title={
@@ -108,25 +108,25 @@ export function TourDetailSidebar() {
                 : undefined
             }
           >
-            {showDateSelectionHint && (
-              <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm font-medium">
-                <ExclamationCircleIcon className="w-5 h-5 flex-shrink-0" />
+            {showDateSelectionHint ? (
+              <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                <ExclamationCircleIcon className="h-5 w-5 flex-shrink-0" />
                 <span>Önce tarih seçiniz</span>
               </div>
-            )}
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-neutral-800">
+            ) : null}
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h3 className="text-base font-semibold text-neutral-800">
                 Tur Tarihleri
               </h3>
-              <div className="text-sm text-neutral-600">
-                {availableTourDates.length} tarih mevcut
+              <div className="shrink-0 text-xs text-neutral-600 sm:text-sm">
+                {availableTourDates.length} tarih
               </div>
             </div>
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3">
               {availableTourDates.length === 0 ? (
-                <div className="text-center py-8">
-                  <CalendarDaysIcon className="h-12 w-12 text-neutral-400 mx-auto mb-3" />
-                  <p className="text-neutral-600">
+                <div className="py-6 text-center">
+                  <CalendarDaysIcon className="mx-auto mb-3 h-10 w-10 text-neutral-400" />
+                  <p className="text-sm text-neutral-600">
                     Şu anda mevcut tur tarihi bulunmamaktadır.
                   </p>
                 </div>
@@ -147,65 +147,66 @@ export function TourDetailSidebar() {
                   return (
                     <button
                       key={date.id}
+                      type="button"
                       onClick={() => {
                         handleDateSelect(date);
                       }}
-                      className={`flex w-full flex-col gap-3 rounded-lg border bg-white p-4 text-left transition-all duration-150 ease-out hover:shadow-sm active:scale-[0.99] sm:flex-row sm:items-center sm:justify-between ${
+                      className={`flex w-full min-w-0 flex-col gap-2 rounded-lg border bg-white p-3 text-left transition-all duration-150 ease-out hover:shadow-sm active:scale-[0.99] ${
                         selectedTourDate?.id === date.id
-                          ? 'border-neutral-950 ring-2 ring-neutral-200 shadow-sm'
+                          ? 'border-neutral-950 shadow-sm ring-2 ring-neutral-200'
                           : showDateSelectionHint
                             ? 'border-red-200 hover:border-red-400 hover:bg-red-50/30'
                             : 'border-neutral-200/70 hover:border-neutral-300'
                       }`}
                     >
-                      <div className="flex items-start gap-3">
-                        <CalendarDaysIcon className="h-5 w-5 text-neutral-950 flex-shrink-0 mt-1" />
-                        <div>
-                          <div className="text-sm font-medium text-neutral-900">
-                            {startDate.toLocaleDateString('tr-TR', {
-                              day: 'numeric',
-                              month: 'long',
-                              year: 'numeric',
-                            })}{' '}
-                            -{' '}
-                            {endDate.toLocaleDateString('tr-TR', {
-                              day: 'numeric',
-                              month: 'long',
-                              year: 'numeric',
-                            })}
-                          </div>
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            <span
-                              className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${isLimited ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}
-                            >
-                              {isLimited
-                                ? `Son ${date.availableSeats} kontenjan!`
-                                : `${date.availableSeats} kişilik kontenjan`}
-                            </span>
-                            {hasEarlyBirdDiscount && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-800">
-                                %{date.earlyBirdDiscount} Erken Rezervasyon
-                              </span>
-                            )}
-                            {hasLastMinuteDiscount && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-700">
-                                %{date.lastMinuteDiscount} Son Dakika
-                              </span>
-                            )}
+                      <div className="flex min-w-0 items-start justify-between gap-2">
+                        <div className="flex min-w-0 items-start gap-2">
+                          <CalendarDaysIcon className="mt-0.5 h-4 w-4 flex-shrink-0 text-neutral-950" />
+                          <div className="min-w-0">
+                            <div className="break-words text-sm font-medium text-neutral-900 [overflow-wrap:anywhere]">
+                              {startDate.toLocaleDateString('tr-TR', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                              })}
+                              {' – '}
+                              {endDate.toLocaleDateString('tr-TR', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                              })}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
                         <div
-                          className="text-lg font-semibold text-neutral-800"
+                          className="shrink-0 text-base font-semibold text-neutral-800"
                           aria-readonly="true"
                         >
                           {formatPriceTry(date.price)}
                         </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 pl-6">
+                        <span
+                          className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${isLimited ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}
+                        >
+                          {isLimited
+                            ? `Son ${date.availableSeats} kontenjan!`
+                            : `${date.availableSeats} kişilik kontenjan`}
+                        </span>
+                        {hasEarlyBirdDiscount ? (
+                          <span className="inline-flex items-center rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-800">
+                            %{date.earlyBirdDiscount} Erken Rezervasyon
+                          </span>
+                        ) : null}
+                        {hasLastMinuteDiscount ? (
+                          <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                            %{date.lastMinuteDiscount} Son Dakika
+                          </span>
+                        ) : null}
                         {date.minParticipants ? (
-                          <div className="text-xs text-neutral-500">
-                            Minimum {date.minParticipants} kişi
-                          </div>
+                          <span className="text-xs text-neutral-500">
+                            Min. {date.minParticipants} kişi
+                          </span>
                         ) : null}
                       </div>
                     </button>
@@ -219,40 +220,36 @@ export function TourDetailSidebar() {
 
       {/* Tur Operatörü Bilgileri - ikas Style */}
       {tourOperator && (
-        <div
-          className="bg-white rounded-xl p-6 border border-neutral-200/70 shadow-md w-full"
-          /* Simplified card style */
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-            <h2 className="text-2xl font-semibold text-gray-900 flex items-center">
-              <ChatBubbleLeftRightIcon className="h-6 w-6 mr-2.5 text-neutral-950 flex-shrink-0" />
-              <span>Tur Operatörü</span>
+        <div className="w-full min-w-0 overflow-hidden rounded-xl border border-neutral-200/70 bg-white p-4 shadow-md sm:p-5">
+          <div className="mb-4 space-y-2">
+            <h2 className="flex min-w-0 items-center text-xl font-semibold text-gray-900">
+              <ChatBubbleLeftRightIcon className="mr-2 h-5 w-5 flex-shrink-0 text-neutral-950" />
+              <span className="truncate">Tur Operatörü</span>
             </h2>
-            {(tourOperator.reviewCount ?? 0) > 0 && (
-              <div className="flex items-center text-xs text-neutral-500 flex-wrap">
-                <div className="flex items-center text-yellow-400 mr-1.5">
-                  {renderStars(tourOperator.rating ?? 0)}
+            {(tourOperator.reviewCount ?? 0) > 0 ? (
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-neutral-500">
+                <div className="flex items-center text-yellow-400">
+                  {renderStars(tourOperator.rating ?? 0, 'sm')}
                 </div>
                 <span className="font-medium">
                   ({(tourOperator.rating ?? 0).toFixed(1)}/5)
                 </span>
-                <span className="mx-1">•</span>
+                <span aria-hidden>•</span>
                 <span>{tourOperator.reviewCount} değerlendirme</span>
               </div>
-            )}
+            ) : null}
           </div>
 
-          {/* Simplified Operator Info Area */}
-          <div className="bg-neutral-50/60 p-5 rounded-lg border border-neutral-200/70 mb-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-md">
+          <div className="mb-4 rounded-lg border border-neutral-200/70 bg-neutral-50/60 p-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-full border-2 border-white shadow-md">
                 <Image
                   src={operatorLogoUrl}
                   alt={tourOperator.companyName || 'Tur Operatörü'}
                   width={48}
                   height={48}
                   unoptimized={shouldUnoptimizeMedia(operatorLogoUrl)}
-                  className="object-cover"
+                  className="h-full w-full object-cover"
                 />
               </div>
               <div className="min-w-0 flex-1">
@@ -274,7 +271,7 @@ export function TourDetailSidebar() {
             </div>
           </div>
 
-          <div className="mb-6 rounded-lg border border-neutral-200/70 bg-neutral-50/60 p-5">
+          <div className="mb-4 rounded-lg border border-neutral-200/70 bg-neutral-50/60 p-4">
             <TourDetailExpandableText
               text={tourOperator.description || ''}
               lines={3}
@@ -282,10 +279,9 @@ export function TourDetailSidebar() {
             />
           </div>
 
-          {/* Simplified Link Button */}
           <Link
             href={`/tour-operator/${tourOperator.id}`}
-            className="group text-sm font-medium text-neutral-950 hover:text-neutral-800 transition-colors flex items-center justify-between p-4 rounded-lg border border-neutral-200/70 hover:bg-neutral-100/50 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-neutral-950"
+            className="group flex items-center justify-between rounded-lg border border-neutral-200/70 p-3 text-sm font-medium text-neutral-950 transition-colors hover:bg-neutral-100/50 hover:text-neutral-800 focus:outline-none focus:ring-1 focus:ring-neutral-950 focus:ring-offset-1"
           >
             <span className="flex items-center">
               <BuildingOfficeIcon className="w-4 h-4 mr-2" />
@@ -296,15 +292,13 @@ export function TourDetailSidebar() {
         </div>
       )}
 
-      {/* Dahil Olanlar / Olmayanlar - ikas Style */}
-      <div
-        className="bg-white rounded-xl p-6 border border-neutral-200/70 shadow-md w-full"
-        /* Simplified card style */
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-semibold text-gray-900 flex items-center">
-            <CheckCircleIcon className="h-6 w-6 mr-2.5 text-neutral-950 flex-shrink-0" />
-            <span>Dahil Olanlar / Olmayanlar</span>
+      <div className="w-full min-w-0 overflow-hidden rounded-xl border border-neutral-200/70 bg-white p-4 shadow-md sm:p-5">
+        <div className="mb-4">
+          <h2 className="flex min-w-0 items-center text-lg font-semibold text-gray-900 sm:text-xl">
+            <CheckCircleIcon className="mr-2 h-5 w-5 flex-shrink-0 text-neutral-950" />
+            <span className="break-words [overflow-wrap:anywhere]">
+              Dahil Olanlar / Olmayanlar
+            </span>
           </h2>
         </div>
 
@@ -381,10 +375,9 @@ export function TourDetailSidebar() {
         </div>
       )}
 
-      {/* Acentenin Diğer Turları - Kompakt UI */}
       <div
         ref={containerRef}
-        className="@container bg-white rounded-xl overflow-hidden border border-neutral-200/70 shadow-md"
+        className="@container w-full min-w-0 overflow-hidden rounded-xl border border-neutral-200/70 bg-white shadow-md"
       >
         {/* Header - Daha kompakt */}
         <div className="border-b border-neutral-100 px-5 py-4 flex items-center justify-between bg-gray-50/80">

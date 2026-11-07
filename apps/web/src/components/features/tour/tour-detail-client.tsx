@@ -733,16 +733,15 @@ export default function TourDetailClient() {
 
   return (
     <TourDetailUiProvider value={ui}>
-      <div className="bg-gray-50 pb-28 md:pb-0">
+      <div className="overflow-x-hidden bg-gray-50 pb-28 md:pb-0">
         <TourDetailHero />
 
-        {/* Ana İçerik — legacy: container > max-w-7xl > full-width sections > 2-col grid */}
-        <div className="container mx-auto px-4 py-12 sm:py-16 lg:py-20">
-          <div className="mx-auto max-w-7xl">
-            <div className="mb-12 grid grid-cols-1 items-start gap-10 md:mb-16 lg:grid-cols-3 lg:gap-12 xl:gap-16">
+        <div className="container mx-auto max-w-7xl px-4 py-12 sm:py-16 lg:py-20">
+          <div className="mb-12 grid grid-cols-1 items-start gap-8 md:mb-16 lg:grid-cols-3 lg:gap-10 xl:gap-12">
+            <div className="min-w-0 lg:col-span-2">
               <TourDetailLeftColumn />
-              <TourDetailSidebar />
             </div>
+            <TourDetailSidebar />
           </div>
         </div>
 
