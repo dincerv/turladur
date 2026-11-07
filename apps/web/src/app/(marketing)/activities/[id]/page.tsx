@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import ActivityDetailClient from '@/components/features/activity/activity-detail-client';
 
 export const metadata: Metadata = {
-  title: 'Aktivite | turta',
+  title: 'Aktivite',
   description: 'Aktivite detayı',
 };
 

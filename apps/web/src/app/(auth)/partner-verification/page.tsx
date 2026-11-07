@@ -118,7 +118,7 @@ function PartnerVerificationContent() {
                 <li className="flex items-start">
                   <CheckCircle className="mr-2 mt-0.5 h-5 w-5 shrink-0 text-sky-500" />
                   <span>
-                    &quot;TourTech Partner Hesabınızı Doğrulayın&quot; başlıklı
+                    &quot;turta Partner Hesabınızı Doğrulayın&quot; başlıklı
                     e-postayı bulun
                   </span>
                 </li>
@@ -182,7 +182,7 @@ function PartnerVerificationContent() {
             <p className="text-xs text-neutral-500">
               E-postayı bulamıyor musunuz?{' '}
               <a
-                href="mailto:partners@tourtech.com"
+                href="mailto:partner@turta.com.tr"
                 className="font-medium text-sky-600 underline-offset-2 transition-colors duration-150 hover:text-sky-800 hover:underline"
               >
                 Destek ile iletişime geçin

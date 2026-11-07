@@ -13,11 +13,11 @@ export async function generateMetadata({
   try {
     const data = await getRouteById(id);
     return {
-      title: `${data.route.name} | turta`,
+      title: data.route.name,
       description: data.route.description.slice(0, 160),
     };
   } catch {
-    return { title: 'Rota | turta' };
+    return { title: 'Rota' };
   }
 }
 

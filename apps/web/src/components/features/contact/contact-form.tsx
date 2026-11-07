@@ -156,7 +156,7 @@ export default function ContactForm() {
             Kişisel verilerimin işlenmesine ilişkin{' '}
           </span>
           <Link
-            href="/privacy-policy"
+            href="/privacy"
             className="text-sky-600 hover:text-sky-700 hover:underline transition-colors"
           >
             aydınlatma metnini

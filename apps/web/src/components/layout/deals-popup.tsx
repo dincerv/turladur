@@ -479,7 +479,7 @@ export default function DealsPopup({ isOpen, onClose }: DealsPopupProps) {
                 Özel Avantajlardan Yararlanın
               </h4>
               <p className="text-gray-600 text-sm mt-0.5">
-                TourTech üyeleri tüm fırsatlardan öncelikli haberdar olur.
+                turta üyeleri tüm fırsatlardan öncelikli haberdar olur.
               </p>
             </div>
 

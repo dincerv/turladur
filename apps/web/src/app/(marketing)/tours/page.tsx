@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import ToursPageClient from '@/components/features/tour/tours-page-client';
 
 export const metadata: Metadata = {
-  title: 'Turlar | turta',
+  title: 'Turlar',
   description: 'Yayınlanmış turları ara ve filtrele.',
 };
 

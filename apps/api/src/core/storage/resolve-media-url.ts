@@ -61,11 +61,8 @@ export function resolveMediaUrl(
       return `${base}/${localMatch[3]}`;
     }
 
-    // Local / soft-launch Nest media proxy → rebase key onto active CDN_URL
-    if (
-      (host === 'localhost' || host === '127.0.0.1') &&
-      parsed.pathname.includes('/storage/media/')
-    ) {
+    // Nest media proxy (local / soft-launch Railway|Fly) → rebase onto CDN_URL
+    if (parsed.pathname.includes('/storage/media/')) {
       const marker = '/storage/media/';
       const idx = parsed.pathname.indexOf(marker);
       const key = parsed.pathname
@@ -79,9 +76,10 @@ export function resolveMediaUrl(
       return `${base}/${bucketMatch[1]}`;
     }
 
-    // Same path under old media.turta.com / r2.dev — re-base to CDN_URL
+    // Same path under media.* / r2.dev — re-base to CDN_URL
     if (
       host === 'media.turta.com' ||
+      host === 'media.turta.com.tr' ||
       host.endsWith('.r2.dev') ||
       host.includes('r2.cloudflarestorage.com') ||
       host.includes('amazonaws.com')

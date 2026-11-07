@@ -116,7 +116,7 @@ export function Newsletter() {
                         className="text-neutral-500"
                       >
                         <Link
-                          href="/privacy-policy"
+                          href="/privacy"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-medium text-neutral-950 underline-offset-2 hover:underline"

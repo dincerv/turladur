@@ -35,7 +35,8 @@ export function getCdnBaseUrl(): string {
   if (process.env.NODE_ENV !== 'production') {
     return 'http://localhost:4000/api/v1/storage/media';
   }
-  return 'https://media.turta.com';
+  // Prod fallback when NEXT_PUBLIC_CDN_URL unset — .tr primary after cutover
+  return 'https://media.turta.com.tr';
 }
 
 function extractStorageKey(pathname: string): string {
@@ -92,10 +93,10 @@ export function resolveMediaUrl(
       host.endsWith('.r2.dev') ||
       host.includes('r2.cloudflarestorage.com') ||
       host === 'media.turta.com' ||
+      host === 'media.turta.com.tr' ||
+      parsed.pathname.includes('/storage/media/') ||
       ((host === 'localhost' || host === '127.0.0.1') &&
-        (parsed.port === '9000' ||
-          parsed.pathname.includes('tourtech-media') ||
-          parsed.pathname.includes('/storage/media/')))
+        (parsed.port === '9000' || parsed.pathname.includes('tourtech-media')))
     ) {
       const key = extractStorageKey(parsed.pathname);
       if (!key) return value;

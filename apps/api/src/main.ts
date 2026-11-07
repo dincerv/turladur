@@ -58,15 +58,20 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('turta API')
-    .setDescription('turta platform API')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
+  const enableSwagger =
+    process.env.ENABLE_SWAGGER === 'true' ||
+    process.env.NODE_ENV !== 'production';
+  if (enableSwagger) {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('turta API')
+      .setDescription('turta platform API')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   const port = Number(process.env.PORT ?? 4000);
   // Railway/public proxies need 0.0.0.0 — default bind can yield 502

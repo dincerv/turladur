@@ -606,7 +606,7 @@ export default function PartnerRegisterPage() {
             <p className="text-xs text-neutral-500">
               Sorularınız mı var?{' '}
               <a
-                href="mailto:partners@tourtech.com"
+                href="mailto:partner@turta.com.tr"
                 className="font-medium text-sky-600 underline-offset-2 transition-colors duration-150 hover:text-sky-800 hover:underline"
               >
                 Destek ile iletişime geçin

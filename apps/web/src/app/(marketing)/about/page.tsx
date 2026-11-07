@@ -3,9 +3,9 @@ import type { Metadata } from 'next';
 import AboutPageContent from '@/components/features/about/about-page';
 
 export const metadata: Metadata = {
-  title: 'Hakkımızda | turta',
+  title: 'Hakkımızda',
   description:
-    'turta vizyonu, değerleri ve başarı öyküsü. Turizm sektörünü teknolojiyle dönüştürüyoruz.',
+    'turta, Türkiye’deki tur acentelerini tek platformda buluşturur. Ofisimiz Ankara Çankaya’dadır.',
 };
 
 export default function AboutPage() {

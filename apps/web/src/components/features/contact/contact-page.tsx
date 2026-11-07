@@ -1,486 +1,301 @@
 'use client';
-import ContactForm from './contact-form';
 
-import React from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import {
-  MapPin as MapPinIcon,
-  Phone as PhoneIcon,
-  Mail as EnvelopeIcon,
-  Clock as ClockIcon,
-  ChevronDown as ChevronDownIcon,
-  Building2 as BuildingOffice2Icon,
-  User as UserIcon,
-  HelpCircle as QuestionMarkCircleIcon,
-  Users as UserGroupIcon,
+  Building2,
+  ChevronDown,
+  Clock,
+  Mail,
+  MapPin,
+  MessageSquare,
+  Handshake,
+  HelpCircle,
+  User,
 } from 'lucide-react';
 
-// SSS verileri
+import ContactForm from './contact-form';
+import {
+  COMPANY,
+  getCompanyAddressLines,
+  getCompanyMapsDirectionsUrl,
+  getCompanyMapsEmbedUrl,
+} from '@/lib/company';
+
 const faqData = [
   {
     question: 'Rezervasyon iptali nasıl yapılır?',
     answer:
-      "Rezervasyon iptallerinizi hesabınızın 'Rezervasyonlarım' bölümünden yapabilirsiniz. İptal koşulları rezervasyon tipine göre değişiklik gösterebilir. Detaylı bilgi için müşteri hizmetlerimizle iletişime geçebilirsiniz.",
+      'Hesabınızdaki Rezervasyonlarım bölümünden iptal talebi oluşturabilirsiniz. İptal koşulları turun kendi politikasına göre değişir; detay rezervasyon onayınızda yer alır.',
   },
   {
-    question: 'Ödeme seçenekleri nelerdir?',
+    question: 'Ödeme nasıl yapılır?',
     answer:
-      'turta üzerinden kredi kartı, banka kartı, havale/EFT ve online ödeme sistemleri ile ödeme yapabilirsiniz. Bazı rezervasyonlarda taksit seçenekleri de sunulmaktadır.',
+      'Rezervasyon sırasında kredi veya banka kartı ile ödeme alıyoruz. Ödeme altyapısı güvenli ödeme kuruluşu üzerinden çalışır.',
   },
   {
     question: 'Rezervasyon sonrası değişiklik yapabilir miyim?',
     answer:
-      'Evet, çoğu rezervasyonda değişiklik yapabilirsiniz. Değişiklik koşulları ve ücretleri, rezervasyon tipine ve otel/tur politikasına göre değişiklik gösterebilir.',
+      'Tarih veya kişi sayısı değişikliği, turun müsaitliğine ve acentenin kurallarına bağlıdır. Destek ekibimiz veya acente ile iletişime geçebilirsiniz.',
   },
   {
-    question: 'Grup rezervasyonları için özel fiyatlar mevcut mu?',
+    question: 'Acente olarak tur yayınlamak istiyorum, ne yapmalıyım?',
     answer:
-      'Evet, 10 kişi ve üzeri grup rezervasyonları için özel fiyat ve avantajlar sunuyoruz. Grup rezervasyonları için iletişim formumuz üzerinden bize ulaşabilirsiniz.',
+      'Acente başvurusu sayfasından kayıt olun. Başvurunuz incelendikten sonra tur yayınlamaya başlayabilirsiniz.',
   },
   {
-    question: 'Yurt dışı turlarında vize desteği sağlıyor musunuz?',
+    question: 'Ofisinizi ziyaret edebilir miyim?',
     answer:
-      'Evet, yurt dışı turlarımızda vize süreçlerinize destek sağlıyoruz. Gerekli evraklar ve başvuru süreci hakkında detaylı bilgilendirme yapıyoruz.',
+      'Evet. Ankara Çankaya’daki ofisimiz randevu ile ziyaret edilebilir. Form üzerinden veya e-posta ile randevu talep edin.',
   },
 ];
 
-// Ofis bilgileri
-const officeLocations = [
+const channels = [
   {
-    city: 'İstanbul',
-    address: 'Levent Mah. Büyükdere Cad. No:201 Kat:5, 34394 Şişli/İstanbul',
-    phone: '+90 212 555 67 89',
-    email: 'istanbul@tourtech.com',
-    hours: 'Pazartesi - Cuma: 09:00 - 18:00',
+    icon: Mail,
+    title: 'Genel iletişim',
+    text: 'Sorularınız, önerileriniz ve basın talepleri için.',
+    email: COMPANY.emails.info,
   },
   {
-    city: 'Antalya',
-    address: 'Lara Cad. No:122, 07230 Muratpaşa/Antalya',
-    phone: '+90 242 444 12 34',
-    email: 'antalya@tourtech.com',
-    hours: 'Pazartesi - Cumartesi: 09:00 - 19:00',
+    icon: MessageSquare,
+    title: 'Destek',
+    text: 'Rezervasyon, iptal ve hesap işlemleri için yazın. Mesai saatlerinde dönüş yapıyoruz.',
+    email: COMPANY.emails.support,
   },
   {
-    city: 'İzmir',
-    address: 'Konak Mah. Atatürk Cad. No:58/A, 35210 Konak/İzmir',
-    phone: '+90 232 333 22 11',
-    email: 'izmir@tourtech.com',
-    hours: 'Pazartesi - Cuma: 09:00 - 18:00',
+    icon: Handshake,
+    title: 'Acente ortaklığı',
+    text: 'Turlarınızı turta’da yayınlamak için başvurun.',
+    email: COMPANY.emails.partner,
   },
 ];
 
 export default function ContactPageContent() {
+  const addressLines = getCompanyAddressLines();
+
   return (
-    <main className="bg-neutral-50 text-neutral-800">
-      {/* Hero Bölümü */}
-      <div className="relative bg-white pt-32 pb-20 lg:pt-40 lg:pb-28 overflow-hidden">
-        <div className="absolute top-0 right-0 w-full h-full lg:w-1/2 hidden lg:block">
-          <div className="h-full w-full relative">
-            <Image
-              src="https://images.unsplash.com/photo-1577412647305-991150c7d163?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"
-              alt="Kurumsal İletişim"
-              fill
-              className="object-cover"
-              priority
-            />
-            <div className="absolute inset-0 bg-gradient-to-l from-white/0 via-white/70 to-white"></div>
-          </div>
-        </div>
-
-        <div className="container mx-auto px-6 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <div className="max-w-xl">
-              <div className="inline-flex items-center px-3 py-1 bg-sky-100 rounded-full text-sky-700 font-medium text-xs mb-6">
-                <BuildingOffice2Icon className="w-4 h-4 mr-1.5" />
-                Kurumsal İletişim
-              </div>
-
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-neutral-900 mb-6 !leading-tight">
-                Sizinle İletişimde Olmaktan{' '}
-                <span className="text-sky-600">Memnuniyet</span> Duyarız
-              </h1>
-              <p className="text-lg text-neutral-600 mb-10 leading-relaxed">
-                turta olarak değerli müşterilerimize ve iş ortaklarımıza
-                profesyonel hizmet sunmaktayız. Sorularınız ve talepleriniz için
-                bizimle iletişime geçebilirsiniz.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-12">
-                <div className="flex items-center p-5 bg-neutral-100/50 rounded-lg border border-neutral-200/80">
-                  <div className="flex-shrink-0 mr-4">
-                    <div className="w-10 h-10 bg-sky-100 rounded-md flex items-center justify-center">
-                      <PhoneIcon className="w-5 h-5 text-sky-600" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs text-neutral-500 font-medium uppercase tracking-wider">
-                      Müşteri Hizmetleri
-                    </p>
-                    <p className="text-base font-semibold text-neutral-900">
-                      +90 850 123 45 67
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center p-5 bg-neutral-100/50 rounded-lg border border-neutral-200/80">
-                  <div className="flex-shrink-0 mr-4">
-                    <div className="w-10 h-10 bg-sky-100 rounded-md flex items-center justify-center">
-                      <EnvelopeIcon className="w-5 h-5 text-sky-600" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs text-neutral-500 font-medium uppercase tracking-wider">
-                      E-posta
-                    </p>
-                    <p className="text-base font-semibold text-neutral-900">
-                      iletisim@tourtech.com
-                    </p>
-                  </div>
+    <div className="bg-neutral-50 text-neutral-800">
+      <section className="relative overflow-hidden bg-white pt-32 pb-16 lg:pt-40 lg:pb-20">
+        <div className="container mx-auto px-6">
+          <div className="max-w-2xl">
+            <div className="mb-6 inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-700">
+              <Building2 className="mr-1.5 h-4 w-4" />
+              İletişim
+            </div>
+            <h1 className="mb-5 text-4xl font-bold leading-tight text-neutral-900 md:text-5xl">
+              Bize yazın, <span className="text-sky-600">Ankara’dan</span> dönüş
+              yapalım
+            </h1>
+            <p className="mb-8 text-lg leading-relaxed text-neutral-600">
+              Ofisimiz Bilkent Cyberpark Dikmen Girişim Ofisi’nde. Tur,
+              rezervasyon veya acente ortaklığı için form ya da e-posta yeterli.
+            </p>
+            <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex items-start rounded-lg border border-neutral-200/80 bg-neutral-50 p-5">
+                <Mail className="mt-0.5 mr-3 h-5 w-5 shrink-0 text-sky-600" />
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider text-neutral-500">
+                    E-posta
+                  </p>
+                  <a
+                    href={`mailto:${COMPANY.emails.info}`}
+                    className="text-base font-semibold text-neutral-900 hover:text-sky-700"
+                  >
+                    {COMPANY.emails.info}
+                  </a>
                 </div>
               </div>
-
-              <div className="flex flex-wrap gap-3">
-                <a
-                  href="#contactForm"
-                  className="px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-medium rounded-lg transition-colors shadow-sm inline-flex items-center text-sm"
-                >
-                  <UserIcon className="w-4 h-4 mr-2" />
-                  İletişim Formu
-                </a>
-                <a
-                  href="#offices"
-                  className="px-6 py-3 bg-white hover:bg-neutral-100 text-sky-600 font-medium rounded-lg transition-colors shadow-sm border border-neutral-200 inline-flex items-center text-sm"
-                >
-                  <MapPinIcon className="w-4 h-4 mr-2" />
-                  Ofislerimiz
-                </a>
+              <div className="flex items-start rounded-lg border border-neutral-200/80 bg-neutral-50 p-5">
+                <MapPin className="mt-0.5 mr-3 h-5 w-5 shrink-0 text-sky-600" />
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider text-neutral-500">
+                    Ofis
+                  </p>
+                  <p className="text-sm font-medium text-neutral-900">
+                    {COMPANY.city} · {COMPANY.district}
+                  </p>
+                </div>
               </div>
             </div>
-            <div></div>
+            <div className="flex flex-wrap gap-3">
+              <a
+                href="#contactForm"
+                className="inline-flex items-center rounded-lg bg-sky-600 px-6 py-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-sky-700"
+              >
+                <User className="mr-2 h-4 w-4" />
+                İletişim formu
+              </a>
+              <a
+                href="#office"
+                className="inline-flex items-center rounded-lg border border-neutral-200 bg-white px-6 py-3 text-sm font-medium text-sky-600 shadow-sm transition-colors hover:bg-neutral-50"
+              >
+                <MapPin className="mr-2 h-4 w-4" />
+                Ofis adresi
+              </a>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* İletişim Kartları */}
-      <div className="py-24 bg-neutral-100/70">
+      <section className="bg-neutral-100/70 py-16 md:py-20">
         <div className="container mx-auto px-6">
-          <div className="mb-16 text-center max-w-3xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 mb-4">
-              İletişim Kanallarımız
+          <div className="mx-auto mb-12 max-w-2xl text-center">
+            <h2 className="mb-3 text-3xl font-bold text-neutral-900">
+              İletişim kanalları
             </h2>
-            <p className="text-lg text-neutral-600">
-              Size en uygun iletişim kanalını seçerek bizimle bağlantı
-              kurabilirsiniz. Profesyonel ekibimiz sorularınızı yanıtlamak için
-              hazır.
+            <p className="text-neutral-600">
+              Size en yakın konu üzerinden yazın; mesai saatlerinde dönüş
+              yapıyoruz.
             </p>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: PhoneIcon,
-                color: 'sky',
-                title: 'Müşteri Hizmetleri',
-                text: '7/24 müşteri hizmetleri ekibimiz her türlü sorunuz için yanınızda. Dilediğiniz zaman bizimle iletişime geçebilirsiniz.',
-                phone: '+90 850 123 45 67',
-                email: 'destek@tourtech.com',
-              },
-              {
-                icon: ClockIcon,
-                color: 'green',
-                title: 'Rezervasyon',
-                text: 'Rezervasyon yapmak, değişiklik veya iptal işlemleri için uzman ekibimizle iletişime geçebilirsiniz.',
-                phone: '+90 850 123 45 68',
-                email: 'rezervasyon@tourtech.com',
-              },
-              {
-                icon: UserGroupIcon,
-                color: 'purple',
-                title: 'İş Ortaklığı',
-                text: 'Otel, tur operatörü veya aktivite sağlayıcısı olarak turta ile iş birliği yapmak için bizimle iletişime geçin.',
-                phone: '+90 850 123 45 69',
-                email: 'partner@tourtech.com',
-              },
-            ].map((card, index) => (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            {channels.map((card) => (
               <div
-                key={index}
-                className="bg-white rounded-xl p-8 shadow-sm hover:shadow-md transition-shadow duration-300 border border-neutral-200/80 flex flex-col"
+                key={card.title}
+                className="flex flex-col rounded-xl border border-neutral-200/80 bg-white p-8 shadow-sm"
               >
-                <div
-                  className={`rounded-lg bg-${card.color}-100 p-3 inline-flex items-center justify-center w-12 h-12 mb-6`}
-                >
-                  <card.icon className={`w-6 h-6 text-${card.color}-600`} />
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-lg bg-sky-100">
+                  <card.icon className="h-6 w-6 text-sky-600" />
                 </div>
-                <h3 className="text-xl font-semibold text-neutral-900 mb-3">
+                <h3 className="mb-2 text-xl font-semibold text-neutral-900">
                   {card.title}
                 </h3>
-                <p className="text-neutral-600 mb-6 flex-grow text-sm leading-relaxed">
+                <p className="mb-6 flex-grow text-sm leading-relaxed text-neutral-600">
                   {card.text}
                 </p>
-                <div className="space-y-3 pt-5 border-t border-neutral-100">
-                  <div className="flex items-center text-sm">
-                    <PhoneIcon
-                      className={`w-4 h-4 text-${card.color}-600 mr-3 flex-shrink-0`}
-                    />
-                    <p className="font-medium text-neutral-800">{card.phone}</p>
-                  </div>
-                  <div className="flex items-center text-sm">
-                    <EnvelopeIcon
-                      className={`w-4 h-4 text-${card.color}-600 mr-3 flex-shrink-0`}
-                    />
-                    <p className="text-neutral-700 hover:text-neutral-900 transition-colors">
-                      {card.email}
-                    </p>
-                  </div>
-                </div>
+                <a
+                  href={`mailto:${card.email}`}
+                  className="inline-flex items-center gap-2 border-t border-neutral-100 pt-5 text-sm font-medium text-sky-700 hover:text-sky-800"
+                >
+                  <Mail className="h-4 w-4" />
+                  {card.email}
+                </a>
               </div>
             ))}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* İletişim Formu ve Harita */}
-      <div id="contactForm" className="py-24 bg-white">
+      <section id="contactForm" className="bg-white py-16 md:py-24">
         <div className="container mx-auto px-6">
-          <div className="mb-16 text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center px-3 py-1 bg-sky-100 rounded-full text-sky-700 font-medium text-xs mb-6">
-              <EnvelopeIcon className="w-4 h-4 mr-1.5" />
-              İletişim Formu
-            </div>
-            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 mb-4">
-              Bizimle İletişime Geçin
+          <div className="mx-auto mb-12 max-w-2xl text-center">
+            <h2 className="mb-3 text-3xl font-bold text-neutral-900">
+              Formu doldurun
             </h2>
-            <p className="text-lg text-neutral-600">
-              Aşağıdaki formu doldurarak bizimle iletişime geçebilirsiniz. Uzman
-              ekibimiz en kısa sürede size dönüş yapacaktır.
+            <p className="text-neutral-600">
+              Mesajınız ilgili ekibe düşer; mümkün olan en kısa sürede dönüş
+              yaparız.
             </p>
           </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 lg:gap-16 items-start">
-            <div className="bg-white rounded-xl p-8 lg:p-10 shadow-lg border border-neutral-200/60 lg:col-span-3">
+          <div className="grid grid-cols-1 items-start gap-12 lg:grid-cols-5">
+            <div className="rounded-xl border border-neutral-200/60 bg-white p-8 shadow-lg lg:col-span-3 lg:p-10">
               <ContactForm />
             </div>
-
-            <div className="lg:col-span-2 space-y-8">
-              <div className="bg-neutral-50/80 rounded-xl p-8 border border-neutral-200/80">
-                <h3 className="text-xl font-semibold text-neutral-900 mb-5 pb-4 border-b border-neutral-200">
-                  Genel Merkez
+            <div id="office" className="space-y-8 lg:col-span-2">
+              <div className="rounded-xl border border-neutral-200/80 bg-neutral-50/80 p-8">
+                <h3 className="mb-5 border-b border-neutral-200 pb-4 text-xl font-semibold text-neutral-900">
+                  Ofisimiz
                 </h3>
-                <div className="space-y-4">
-                  {[
-                    {
-                      icon: MapPinIcon,
-                      text: 'Levent Mah. Büyükdere Cad. No:201 Kat:5, 34394 Şişli/İstanbul',
-                    },
-                    { icon: PhoneIcon, text: '+90 212 555 67 89' },
-                    { icon: EnvelopeIcon, text: 'info@tourtech.com' },
-                    {
-                      icon: ClockIcon,
-                      text: 'Pazartesi - Cuma: 09:00 - 18:00',
-                    },
-                  ].map((item, index) => (
-                    <div key={index} className="flex items-start">
-                      <item.icon className="w-5 h-5 text-sky-600 flex-shrink-0 mt-0.5" />
-                      <p className="ml-3 text-neutral-700 text-sm">
-                        {item.text}
-                      </p>
+                <div className="space-y-4 text-sm text-neutral-700">
+                  <div className="flex items-start gap-3">
+                    <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-sky-600" />
+                    <div>
+                      {addressLines.map((line) => (
+                        <p key={line}>{line}</p>
+                      ))}
                     </div>
-                  ))}
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Mail className="mt-0.5 h-5 w-5 shrink-0 text-sky-600" />
+                    <a
+                      href={`mailto:${COMPANY.emails.info}`}
+                      className="hover:text-sky-700"
+                    >
+                      {COMPANY.emails.info}
+                    </a>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Clock className="mt-0.5 h-5 w-5 shrink-0 text-sky-600" />
+                    <p>{COMPANY.hours}</p>
+                  </div>
                 </div>
+                <a
+                  href={getCompanyMapsDirectionsUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-6 inline-flex items-center text-sm font-medium text-sky-600 hover:text-sky-700"
+                >
+                  <MapPin className="mr-1.5 h-4 w-4" />
+                  Yol tarifi al
+                </a>
               </div>
-
-              <div className="rounded-xl overflow-hidden shadow-md border border-neutral-200/80 h-[300px] relative">
+              <div className="relative h-[280px] overflow-hidden rounded-xl border border-neutral-200/80 shadow-md">
                 <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3008.2589461255607!2d29.004343316232286!3d41.07661201791399!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x14cab63f6f4a844b%3A0x41e8e7a9ca36f0f3!2sLevent%2C%20B%C3%BCy%C3%BCkdere%20Cd.%20201%2C%2034394%20%C5%9Ei%C5%9Fli%2F%C4%B0stanbul!5e0!3m2!1str!2str!4v1615376568447!5m2!1str!2str"
+                  src={getCompanyMapsEmbedUrl()}
                   width="100%"
                   height="100%"
                   style={{ border: 0 }}
                   allowFullScreen
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
-                  title="turta İstanbul Ofisi"
+                  title="turta Ankara ofisi"
                   className="absolute inset-0"
-                ></iframe>
+                />
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Ofisler */}
-      <div id="offices" className="py-24 bg-neutral-50">
+      <section className="bg-neutral-50 py-16 md:py-20">
         <div className="container mx-auto px-6">
-          <div className="mb-16 text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center px-3 py-1 bg-sky-100 rounded-full text-sky-700 font-medium text-xs mb-6">
-              <BuildingOffice2Icon className="w-4 h-4 mr-1.5" />
-              Ofislerimiz
+          <div className="mx-auto mb-10 max-w-2xl text-center">
+            <div className="mb-4 inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-700">
+              <HelpCircle className="mr-1.5 h-4 w-4" />
+              Sıkça sorulanlar
             </div>
-            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 mb-4">
-              Global Ağımız
+            <h2 className="text-3xl font-bold text-neutral-900">
+              Kısa yanıtlar
             </h2>
-            <p className="text-lg text-neutral-600">
-              Türkiye'nin farklı şehirlerindeki turta ofisleri, profesyonel
-              ekibimizle hizmetinizdedir. Size en yakın ofisimizi ziyaret
-              edebilirsiniz.
-            </p>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {officeLocations.map((office, index) => (
-              <div
-                key={index}
-                className="bg-white rounded-xl p-6 hover:shadow-lg transition-shadow duration-300 border border-neutral-200/80 flex flex-col"
+          <div className="mx-auto max-w-3xl space-y-3">
+            {faqData.map((faq) => (
+              <details
+                key={faq.question}
+                className="group overflow-hidden rounded-lg border border-neutral-200/80 bg-white"
               >
-                <div className="flex items-center mb-6">
-                  <div className="w-11 h-11 bg-sky-100 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
-                    <BuildingOffice2Icon className="w-5 h-5 text-sky-600" />
-                  </div>
-                  <div>
-                    <span className="text-xs text-sky-600 font-medium uppercase tracking-wider">
-                      turta
-                    </span>
-                    <h3 className="text-lg font-semibold text-neutral-900 leading-tight">
-                      {office.city} Ofisi
-                    </h3>
-                  </div>
+                <summary className="flex cursor-pointer list-none items-center justify-between p-5 font-semibold text-neutral-800 hover:bg-neutral-50">
+                  {faq.question}
+                  <ChevronDown className="ml-4 h-5 w-5 shrink-0 text-neutral-500 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="border-t border-neutral-200/60 px-5 pt-3 pb-5">
+                  <p className="text-sm leading-relaxed text-neutral-600">
+                    {faq.answer}
+                  </p>
                 </div>
-                <div className="space-y-3 text-sm flex-grow mb-6">
-                  {[
-                    { icon: MapPinIcon, text: office.address },
-                    { icon: PhoneIcon, text: office.phone },
-                    { icon: EnvelopeIcon, text: office.email },
-                    { icon: ClockIcon, text: office.hours },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-start">
-                      <item.icon className="w-4 h-4 text-neutral-400 flex-shrink-0 mt-0.5" />
-                      <p className="ml-3 text-neutral-600">{item.text}</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-auto pt-5 border-t border-neutral-100">
-                  <a
-                    href={`https://maps.google.com/?q=${encodeURIComponent(office.address)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center text-sm text-sky-600 font-medium hover:text-sky-700 transition-colors group"
-                  >
-                    <MapPinIcon className="w-4 h-4 mr-1.5 group-hover:animate-pulse" />
-                    Yol Tarifi Al
-                  </a>
-                </div>
-              </div>
+              </details>
             ))}
           </div>
-
-          <div className="mt-16 bg-gradient-to-r from-sky-50 to-blue-50 rounded-xl p-8 md:p-10 border border-sky-100/70">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="max-w-lg">
-                <h3 className="text-xl font-semibold text-neutral-900 mb-2">
-                  Kurumsal Ziyaretçiler İçin
-                </h3>
-                <p className="text-neutral-600 text-sm">
-                  Kurumsal görüşmeler ve özel toplantılar için lütfen iletişim
-                  formumuz üzerinden önceden randevu talep ediniz.
-                </p>
-              </div>
-              <a
-                href="#contactForm"
-                className="inline-flex items-center px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-medium rounded-lg transition-colors shadow-sm text-sm flex-shrink-0 whitespace-nowrap"
-              >
-                <UserIcon className="w-4 h-4 mr-2" />
-                Randevu Talep Et
-              </a>
-            </div>
-          </div>
         </div>
-      </div>
+      </section>
 
-      {/* SSS */}
-      <div className="py-24 bg-white">
-        <div className="container mx-auto px-6">
-          <div className="mb-16 text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center px-3 py-1 bg-sky-100 rounded-full text-sky-700 font-medium text-xs mb-6">
-              <QuestionMarkCircleIcon className="w-4 h-4 mr-1.5" />
-              Sıkça Sorulan Sorular
-            </div>
-            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 mb-4">
-              Aklınızdaki Soruların Yanıtları
-            </h2>
-            <p className="text-lg text-neutral-600">
-              Seyahat ve rezervasyon süreçlerinizle ilgili en çok sorulan
-              soruların yanıtlarını burada bulabilirsiniz.
-            </p>
-          </div>
-
-          <div className="max-w-3xl mx-auto">
-            <div className="space-y-3">
-              {faqData.map((faq, index) => (
-                <details
-                  key={index}
-                  className="group bg-white rounded-lg border border-neutral-200/80 overflow-hidden"
-                >
-                  <summary className="flex justify-between items-center font-medium cursor-pointer list-none p-5 hover:bg-neutral-50 transition-colors">
-                    <span className="text-base font-semibold text-neutral-800">
-                      {faq.question}
-                    </span>
-                    <span className="ml-4 flex-shrink-0 transform transition-transform duration-200 group-open:rotate-180">
-                      <ChevronDownIcon className="w-5 h-5 text-neutral-500" />
-                    </span>
-                  </summary>
-                  <div className="px-5 pb-5 pt-2 border-t border-neutral-200/60">
-                    <p className="text-neutral-600 text-sm leading-relaxed">
-                      {faq.answer}
-                    </p>
-                  </div>
-                </details>
-              ))}
-            </div>
-
-            <div className="mt-12 text-center border-t border-neutral-200 pt-8">
-              <p className="text-neutral-600 mb-5 text-sm">
-                Aradığınız sorunun cevabını bulamadınız mı?
-              </p>
-              <a
-                href="#contactForm"
-                className="inline-flex items-center px-6 py-3 bg-white hover:bg-neutral-100 text-sky-600 font-medium rounded-lg transition-colors shadow-sm border border-neutral-200 text-sm"
-              >
-                <EnvelopeIcon className="w-4 h-4 mr-2" />
-                Bize Sorun
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* CTA */}
-      <div className="py-20 bg-gradient-to-r from-sky-600 to-blue-700">
+      <section className="bg-gradient-to-r from-sky-600 to-blue-700 py-16">
         <div className="container mx-auto px-6 text-center">
-          <div className="max-w-3xl mx-auto">
-            <h3 className="text-3xl md:text-4xl font-bold text-white mb-5">
-              Profesyonel Tatil Planlaması için turta
-            </h3>
-            <p className="text-lg text-sky-100 mb-10">
-              En iyi otel, tur ve aktivite seçenekleriyle unutulmaz bir tatil
-              deneyimi için hemen keşfetmeye başlayın.
-            </p>
-            <div className="flex flex-wrap justify-center gap-4">
-              <Link
-                href="/"
-                className="inline-block px-7 py-3 bg-white text-sky-700 font-medium rounded-lg transition-colors hover:bg-sky-50 shadow-sm text-sm"
-              >
-                Tüm Seyahat Seçenekleri
-              </Link>
-              <Link
-                href="/tours"
-                className="inline-block px-7 py-3 bg-sky-700/50 text-white border border-sky-400/50 font-medium rounded-lg transition-colors hover:bg-sky-700 hover:border-sky-400 shadow-sm text-sm"
-              >
-                Özel Turlar
-              </Link>
-            </div>
-          </div>
+          <h3 className="mb-4 text-3xl font-bold text-white">
+            Turları keşfetmeye hazır mısınız?
+          </h3>
+          <p className="mx-auto mb-8 max-w-xl text-sky-100">
+            Türkiye’deki acentelerin turlarını karşılaştırın, güvenle rezerve
+            edin.
+          </p>
+          <Link
+            href="/tours"
+            className="inline-block rounded-lg bg-white px-7 py-3 text-sm font-medium text-sky-700 shadow-sm hover:bg-sky-50"
+          >
+            Turları incele
+          </Link>
         </div>
-      </div>
-    </main>
+      </section>
+    </div>
   );
 }
