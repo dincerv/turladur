@@ -173,10 +173,13 @@ Preview için aynı API’yi kullanabilirsin (veya ayrı staging API).
 
 ## 6) Custom domain gelince (sonra)
 
-1. R2 → Custom Domains → `media.turta.com`
-2. API: `CDN_URL=https://media.turta.com`
-3. Web: `NEXT_PUBLIC_CDN_URL=https://media.turta.com`
+Tam checklist: [DOMAIN_DNS_CUTOVER.md](./DOMAIN_DNS_CUTOVER.md) (`turta.com.tr`).
+
+1. R2 → Custom Domains → `media.turta.com.tr`
+2. API: `CDN_URL=https://media.turta.com.tr`
+3. Web: `NEXT_PUBLIC_CDN_URL=https://media.turta.com.tr`
 4. Eski proxy URL’leri API `resolveMediaUrl` ile path rewrite eder (dosya R2’deyse)
+5. Veridyen MX/SPF aynı DNS panelinde (Natro veya Cloudflare)
 
 ---
 

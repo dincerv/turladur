@@ -4,7 +4,7 @@ import { Suspense } from 'react';
 import RoutesPageClient from '@/components/features/route/routes-page-client';
 
 export const metadata: Metadata = {
-  title: 'Popüler Rotalar | turta',
+  title: 'Popüler Rotalar',
   description:
     "Türkiye'nin en popüler turizm rotalarını keşfedin. Kapadokya, Likya Yolu, Pamukkale ve daha fazlası.",
 };

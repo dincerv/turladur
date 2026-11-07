@@ -10,7 +10,6 @@ import { HotDeals } from '@/components/features/home/hot-deals';
 import { MobileOfferPopup } from '@/components/features/home/mobile-offer-popup';
 import { Newsletter } from '@/components/features/home/newsletter';
 import { Stats } from '@/components/features/home/stats';
-import { Testimonials } from '@/components/features/home/testimonials';
 import { TourCard } from '@/components/features/tour/tour-card';
 import { searchTours } from '@/services/catalog';
 
@@ -78,7 +77,6 @@ export default async function HomePage() {
       </section>
 
       <Stats />
-      <Testimonials />
       <Newsletter />
       <MobileOfferPopup />
     </>

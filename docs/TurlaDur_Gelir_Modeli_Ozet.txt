@@ -1,0 +1,52 @@
+TURLADUR — GELİR MODELİ (REVİZE)
+Giriş kasası: **2.000.000 TL** · Y1 zarar minimize · **(+) / (0) / (−)**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+0) ANA KARAR
+
+• 2 Mn → 4×75k net **YOK**
+• Y1 kurucu maaş **0** · gider tavanı sıkı
+• Para: üyelik/kayıt peşin (acente+rehber+otobüs)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1) FİYAT (özet)
+
+Acente: 4.490 / 8.990 / 17.990 · kayıt 19.900 (lansman 9.900)
+Rehber: kayıt 4.900 · PRO 1.490 · PRO+ 2.990
+Otobüs: kayıt 14.900 · 2.990 / 5.990 / 12.990
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2) Y1 SONU — ARTİ / EKSİ
+
+Senaryo     Ne olur?                      Gelir    Gider    P&L              Kasa sonu
+(+)         Satış iyi, maaşsız            3,4 Mn   0,55 Mn  ≈ **+2,85 Mn**   ≈ **4,9 Mn**
+(0) baz     Orta satış + 1 operasyon      1,8 Mn   1,0 Mn   ≈ **+0,8 Mn**    ≈ **2,8 Mn**
+(−)         Satış zayıf, disiplin var     0,7 Mn   0,7 Mn   ≈ **0 / −0,15**  ≈ **1,9 Mn**
+(−−)        Erken pahalı maaş/reklam      düşük    2,5 Mn+  ≈ **−1,5…−2**    ≈ **0–0,5 Mn** ← risk
+
+
+Okuma:
+• (+) ve (0) → şirket **artıda**, kasa büyür
+• (−) → neredeyse **başabaş**, 2 Mn korunur (~1,9 Mn kalır)
+• (−−) → 2 Mn **erir**, bu planın dışı
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3) ÇARK
+
+2 Mn koy → az yak → peşin üyelik topla →
+(+)(0) kasayı büyüt / (−) koru →
+Y2’de maaş ancak kasa ≥ 2,5 Mn iken
+
+
+TEK CÜMLE
+2 Mn + lean: (+) ≈ +2,9 Mn kâr · (0) ≈ +0,8 Mn · (−) ≈ sıfır;
+disiplin bozulursa (−−) kasa biter.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

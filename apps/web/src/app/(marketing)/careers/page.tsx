@@ -3,9 +3,9 @@ import type { Metadata } from 'next';
 import { CareersPageContent } from '@/components/features/careers/careers-page';
 
 export const metadata: Metadata = {
-  title: 'Kariyer | turta - Turizm Teknolojilerinde Lider Ekibe Katılın',
+  title: 'Kariyer',
   description:
-    'turta ile kariyerinize yön verin. Turizm teknolojileri alanında yenilikçi projeler geliştiren ekibimizde açık pozisyonları, avantajları ve başvuru sürecini keşfedin.',
+    'turta ekibine katılın. Ofisimiz Ankara Çankaya, Bilkent Cyberpark Dikmen Girişim Ofisi’ndedir.',
 };
 
 export default function CareersPage() {

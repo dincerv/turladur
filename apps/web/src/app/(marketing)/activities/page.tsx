@@ -7,7 +7,7 @@ import ActivitiesPageClient from '@/components/features/activity/activities-page
 import { getPageCover } from '@/services/content';
 
 export const metadata: Metadata = {
-  title: 'Aktiviteler | turta',
+  title: 'Aktiviteler',
   description: 'Yerel deneyimler ve aktiviteleri keşfedin.',
 };
 

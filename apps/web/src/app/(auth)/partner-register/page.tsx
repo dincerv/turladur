@@ -13,14 +13,12 @@ import {
   Lock,
   Mail,
   MapPin,
+  Phone,
   UserPlus,
   X,
 } from 'lucide-react';
 
 import { BrandLogo } from '@/components/brand/brand-logo';
-import { formatFullPhone, PhoneInput } from '@/components/ui/phone-input';
-import { PHONE_COUNTRIES, isValidFullPhone } from '@/lib/phone-rules';
-import { TURKEY_CITIES } from '@/lib/turkey-cities';
 import { ApiError } from '@/services/api-client';
 import { registerPartner } from '@/services/identity';
 
@@ -37,20 +35,16 @@ export default function PartnerRegisterPage() {
     email: '',
     password: '',
     confirmPassword: '',
-    phoneDial: '+90',
-    phoneLocal: '',
+    phone: '',
     address: '',
     city: '',
-    country: 'Türkiye',
+    country: '',
     website: '',
     description: '',
     termsAccepted: false,
     role: '',
     taxNumber: '',
   });
-  const [phoneError, setPhoneError] = useState<string | null>(null);
-
-  const isTurkey = formData.country === 'Türkiye';
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -63,12 +57,6 @@ export default function PartnerRegisterPage() {
 
     if (formData.password !== formData.confirmPassword) {
       setError('Şifreler eşleşmiyor.');
-      return;
-    }
-
-    if (!isValidFullPhone(formData.phoneDial, formData.phoneLocal)) {
-      setPhoneError('Geçerli bir telefon numarası girin.');
-      setError('Lütfen geçerli bir telefon numarası girin.');
       return;
     }
 
@@ -85,14 +73,9 @@ export default function PartnerRegisterPage() {
       await registerPartner({
         companyName: formData.companyName,
         contactEmail: formData.email,
-        contactPhone:
-          formatFullPhone(formData.phoneDial, formData.phoneLocal) || undefined,
+        contactPhone: formData.phone || undefined,
         password: formData.password,
         taxNumber: formData.taxNumber || undefined,
-        address: formData.address.trim() || undefined,
-        city: formData.city.trim() || undefined,
-        country: formData.country.trim() || undefined,
-        website: formData.website.trim() || undefined,
       });
 
       router.push(
@@ -131,39 +114,18 @@ export default function PartnerRegisterPage() {
       formData.companyName &&
       formData.email &&
       formData.password &&
-      formData.confirmPassword &&
-      formData.role
+      formData.confirmPassword
     );
   }
 
   function isStepTwoComplete() {
     return (
-      isValidFullPhone(formData.phoneDial, formData.phoneLocal) &&
-      formData.address &&
-      formData.city &&
-      formData.country
+      formData.phone && formData.address && formData.city && formData.country
     );
   }
 
-  function handleCountryChange(countryName: string) {
-    const match = PHONE_COUNTRIES.find((item) => item.name === countryName);
-    setFormData((prev) => ({
-      ...prev,
-      country: countryName,
-      city: countryName === prev.country ? prev.city : '',
-      phoneDial: match?.dial ?? prev.phoneDial,
-    }));
-    setPhoneError(null);
-  }
-
   const inputClass =
-    'block w-full rounded-lg border border-neutral-300 py-2.5 pl-9 pr-4 text-neutral-900 placeholder-neutral-400 shadow-sm transition duration-200 ease-in-out focus:border-neutral-950 focus:bg-white focus:outline-none focus:ring-1 focus:ring-neutral-300 focus:ring-offset-0 sm:text-sm';
-
-  const requiredMark = (
-    <span className="ml-0.5 text-red-500" aria-hidden="true">
-      *
-    </span>
-  );
+    'block w-full rounded-lg border border-neutral-300 py-2.5 pl-9 pr-4 text-neutral-900 placeholder-neutral-400 shadow-sm transition duration-200 ease-in-out focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-sky-300 focus:ring-offset-0 sm:text-sm';
 
   return (
     <div className="flex min-h-screen bg-neutral-50">
@@ -176,14 +138,14 @@ export default function PartnerRegisterPage() {
           priority
           sizes="50vw"
         />
-        <div className="absolute inset-0 z-10 bg-gradient-to-br from-neutral-900/90 via-neutral-900/85 to-neutral-950/90" />
+        <div className="absolute inset-0 z-10 bg-gradient-to-br from-sky-700/90 via-blue-800/85 to-sky-900/90" />
 
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-12 text-center">
           <div className="max-w-lg">
             <h2 className="mb-5 text-4xl font-bold leading-tight tracking-normal text-white xl:text-5xl">
               turta Partner Ağına Katılın
             </h2>
-            <p className="mb-10 text-lg font-light text-neutral-200/90">
+            <p className="mb-10 text-lg font-light text-sky-100/90">
               Binlerce turistin seyahat planlarını yönetin, gelirinizi artırın
               ve işinizi büyütün.
             </p>
@@ -204,7 +166,7 @@ export default function PartnerRegisterPage() {
                 href={null}
                 className="transition-opacity group-hover:opacity-90"
               />
-              <span className="text-sm font-semibold text-neutral-600">
+              <span className="text-sm font-semibold text-sky-600">
                 Partner
               </span>
             </Link>
@@ -239,7 +201,7 @@ export default function PartnerRegisterPage() {
                     htmlFor="companyName"
                     className="mb-1.5 block text-xs font-medium text-neutral-700"
                   >
-                    Şirket Adı{requiredMark}
+                    Şirket Adı
                   </label>
                   <div className="relative">
                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -268,7 +230,7 @@ export default function PartnerRegisterPage() {
                     htmlFor="email"
                     className="mb-1.5 block text-xs font-medium text-neutral-700"
                   >
-                    E-posta Adresi{requiredMark}
+                    E-posta Adresi
                   </label>
                   <div className="relative">
                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -295,7 +257,7 @@ export default function PartnerRegisterPage() {
                     htmlFor="password"
                     className="mb-1.5 block text-xs font-medium text-neutral-700"
                   >
-                    Şifre{requiredMark}
+                    Şifre
                   </label>
                   <div className="relative">
                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -323,7 +285,7 @@ export default function PartnerRegisterPage() {
                     htmlFor="confirmPassword"
                     className="mb-1.5 block text-xs font-medium text-neutral-700"
                   >
-                    Şifre Tekrar{requiredMark}
+                    Şifre Tekrar
                   </label>
                   <div className="relative">
                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -354,7 +316,7 @@ export default function PartnerRegisterPage() {
                     htmlFor="role"
                     className="mb-1.5 block text-xs font-medium text-neutral-700"
                   >
-                    Rol{requiredMark}
+                    Rol
                   </label>
                   <select
                     id="role"
@@ -364,7 +326,7 @@ export default function PartnerRegisterPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, role: e.target.value })
                     }
-                    className="block w-full rounded-lg border border-neutral-300 py-2.5 pl-3 pr-4 text-neutral-900 placeholder-neutral-400 shadow-sm transition duration-200 ease-in-out focus:border-neutral-950 focus:bg-white focus:outline-none focus:ring-1 focus:ring-neutral-300 focus:ring-offset-0 sm:text-sm"
+                    className="block w-full rounded-lg border border-neutral-300 py-2.5 pl-3 pr-4 text-neutral-900 placeholder-neutral-400 shadow-sm transition duration-200 ease-in-out focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-sky-300 focus:ring-offset-0 sm:text-sm"
                   >
                     <option value="">Rol Seçiniz</option>
                     <option value="TOUR_OPERATOR">Tur Operatörü</option>
@@ -376,38 +338,38 @@ export default function PartnerRegisterPage() {
               </>
             ) : (
               <>
-                <PhoneInput
-                  label="Telefon"
-                  size="compact"
-                  tone="neutral"
-                  required
-                  countryCode={formData.phoneDial}
-                  onCountryCodeChange={(dial) => {
-                    const match = PHONE_COUNTRIES.find(
-                      (item) => item.dial === dial,
-                    );
-                    setPhoneError(null);
-                    setFormData((prev) => ({
-                      ...prev,
-                      phoneDial: dial,
-                      country: match?.name ?? prev.country,
-                      city: match?.name === prev.country ? prev.city : '',
-                    }));
-                  }}
-                  value={formData.phoneLocal}
-                  onChange={(local) => {
-                    setPhoneError(null);
-                    setFormData((prev) => ({ ...prev, phoneLocal: local }));
-                  }}
-                  error={phoneError ?? undefined}
-                />
+                <div>
+                  <label
+                    htmlFor="phone"
+                    className="mb-1.5 block text-xs font-medium text-neutral-700"
+                  >
+                    Telefon
+                  </label>
+                  <div className="relative">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                      <Phone className="h-4 w-4 text-neutral-400" />
+                    </div>
+                    <input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      required
+                      value={formData.phone}
+                      onChange={(e) =>
+                        setFormData({ ...formData, phone: e.target.value })
+                      }
+                      className={inputClass}
+                      placeholder="+90 555 555 55 55"
+                    />
+                  </div>
+                </div>
 
                 <div>
                   <label
                     htmlFor="address"
                     className="mb-1.5 block text-xs font-medium text-neutral-700"
                   >
-                    Adres{requiredMark}
+                    Adres
                   </label>
                   <div className="relative">
                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -434,50 +396,24 @@ export default function PartnerRegisterPage() {
                       htmlFor="city"
                       className="mb-1.5 block text-xs font-medium text-neutral-700"
                     >
-                      Şehir{requiredMark}
+                      Şehir
                     </label>
                     <div className="relative">
                       <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                         <MapPin className="h-4 w-4 text-neutral-400" />
                       </div>
-                      {isTurkey ? (
-                        <select
-                          id="city"
-                          name="city"
-                          required
-                          value={formData.city}
-                          onChange={(e) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              city: e.target.value,
-                            }))
-                          }
-                          className={inputClass}
-                        >
-                          <option value="">Şehir seçin</option>
-                          {TURKEY_CITIES.map((city) => (
-                            <option key={city} value={city}>
-                              {city}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          id="city"
-                          name="city"
-                          type="text"
-                          required
-                          value={formData.city}
-                          onChange={(e) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              city: e.target.value,
-                            }))
-                          }
-                          className={inputClass}
-                          placeholder="Şehir"
-                        />
-                      )}
+                      <input
+                        id="city"
+                        name="city"
+                        type="text"
+                        required
+                        value={formData.city}
+                        onChange={(e) =>
+                          setFormData({ ...formData, city: e.target.value })
+                        }
+                        className={inputClass}
+                        placeholder="Şehir"
+                      />
                     </div>
                   </div>
 
@@ -486,26 +422,24 @@ export default function PartnerRegisterPage() {
                       htmlFor="country"
                       className="mb-1.5 block text-xs font-medium text-neutral-700"
                     >
-                      Ülke{requiredMark}
+                      Ülke
                     </label>
                     <div className="relative">
                       <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                         <MapPin className="h-4 w-4 text-neutral-400" />
                       </div>
-                      <select
+                      <input
                         id="country"
                         name="country"
+                        type="text"
                         required
                         value={formData.country}
-                        onChange={(e) => handleCountryChange(e.target.value)}
+                        onChange={(e) =>
+                          setFormData({ ...formData, country: e.target.value })
+                        }
                         className={inputClass}
-                      >
-                        {PHONE_COUNTRIES.map((item) => (
-                          <option key={item.code} value={item.name}>
-                            {item.name}
-                          </option>
-                        ))}
-                      </select>
+                        placeholder="Ülke"
+                      />
                     </div>
                   </div>
                 </div>
@@ -575,7 +509,7 @@ export default function PartnerRegisterPage() {
                         termsAccepted: e.target.checked,
                       })
                     }
-                    className="h-4 w-4 rounded border-neutral-300 text-neutral-950 focus:ring-neutral-950"
+                    className="h-4 w-4 rounded border-neutral-300 text-sky-600 focus:ring-sky-500"
                   />
                   <label
                     htmlFor="terms"
@@ -584,14 +518,14 @@ export default function PartnerRegisterPage() {
                     <span>
                       <Link
                         href="/terms"
-                        className="text-neutral-950 hover:text-neutral-800 hover:underline"
+                        className="text-sky-600 hover:text-sky-800 hover:underline"
                       >
                         İş Ortağı Sözleşmesi
                       </Link>{' '}
                       ve{' '}
                       <Link
                         href="/privacy"
-                        className="text-neutral-950 hover:text-neutral-800 hover:underline"
+                        className="text-sky-600 hover:text-sky-800 hover:underline"
                       >
                         Gizlilik Politikası
                       </Link>
@@ -607,15 +541,15 @@ export default function PartnerRegisterPage() {
                 <button
                   type="button"
                   onClick={prevStep}
-                  className="inline-flex items-center justify-center rounded-lg border border-neutral-300 bg-white px-4 py-2 text-xs font-medium text-neutral-700 shadow-sm transition-colors duration-200 hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-neutral-950 focus:ring-offset-2"
+                  className="inline-flex items-center justify-center rounded-lg border border-neutral-300 bg-white px-4 py-2 text-xs font-medium text-neutral-700 shadow-sm transition-colors duration-200 hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
                 >
                   <ChevronLeft className="mr-1.5 h-4 w-4" />
                   Geri
                 </button>
               ) : (
                 <Link
-                  href="/acente/giris"
-                  className="inline-flex items-center justify-center rounded-lg border border-neutral-300 bg-white px-4 py-2 text-xs font-medium text-neutral-700 shadow-sm transition-colors duration-200 hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-neutral-950 focus:ring-offset-2"
+                  href="/partner-login"
+                  className="inline-flex items-center justify-center rounded-lg border border-neutral-300 bg-white px-4 py-2 text-xs font-medium text-neutral-700 shadow-sm transition-colors duration-200 hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
                 >
                   Giriş Yap
                 </Link>
@@ -625,7 +559,7 @@ export default function PartnerRegisterPage() {
                 <button
                   type="button"
                   onClick={nextStep}
-                  className="inline-flex items-center justify-center rounded-lg border border-transparent bg-neutral-950 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-neutral-950 focus:ring-offset-2"
+                  className="inline-flex items-center justify-center rounded-lg border border-transparent bg-sky-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
                 >
                   Devam Et
                   <ArrowRight className="ml-1.5 h-4 w-4" />
@@ -634,7 +568,7 @@ export default function PartnerRegisterPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex items-center justify-center rounded-lg border border-transparent bg-neutral-950 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-neutral-950 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center rounded-lg border border-transparent bg-sky-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading ? (
                     <svg
@@ -672,8 +606,8 @@ export default function PartnerRegisterPage() {
             <p className="text-xs text-neutral-500">
               Sorularınız mı var?{' '}
               <a
-                href="mailto:partners@turta.com"
-                className="font-medium text-neutral-950 underline-offset-2 transition-colors duration-150 hover:text-neutral-800 hover:underline"
+                href="mailto:partner@turta.com.tr"
+                className="font-medium text-sky-600 underline-offset-2 transition-colors duration-150 hover:text-sky-800 hover:underline"
               >
                 Destek ile iletişime geçin
               </a>
