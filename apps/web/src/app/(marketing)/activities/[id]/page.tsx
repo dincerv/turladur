@@ -77,9 +77,14 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const activity = await loadActivity(id).catch(() => null);
-  if (!activity)
-    return { title: 'Aktivite bulunamadı', robots: { index: false } };
+  let activity: ActivityDetail | null;
+  try {
+    activity = await loadActivity(id);
+  } catch {
+    return { title: 'Aktivite' };
+  }
+  // Crawlers get blocking metadata, so throwing here yields a real 404 despite loading.tsx streaming.
+  if (!activity) notFound();
 
   const description = (activity.summary || activity.longDescription).slice(
     0,
