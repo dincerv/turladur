@@ -258,6 +258,34 @@ export interface Experience {
   popularityRate?: number;
 }
 
+export interface ExperienceScheduleItem {
+  time: string;
+  activity: string;
+}
+
+export interface ExperienceOperatorSummary {
+  id: string;
+  companyName: string;
+  logo: string | null;
+  membershipTier: MembershipTier | null;
+  averageRating: string;
+  reviewCount: number;
+}
+
+/** `GET /catalog/experiences/:id` — list endpoint stays lean. */
+export interface ExperienceDetail extends Experience {
+  longDescription: string;
+  currency: string;
+  gallery: string[];
+  included: string[];
+  notIncluded: string[];
+  highlights: string[];
+  schedule: ExperienceScheduleItem[];
+  meetingPoint: string | null;
+  meetingPointAddress: string | null;
+  operator: ExperienceOperatorSummary | null;
+}
+
 export interface ActivityDate {
   id: string;
   experienceId: string;

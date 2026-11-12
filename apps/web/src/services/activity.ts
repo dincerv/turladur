@@ -1,4 +1,8 @@
-import type { ActivityDate, Experience } from '@turta/shared-types';
+import type {
+  ActivityDate,
+  Experience,
+  ExperienceDetail,
+} from '@turta/shared-types';
 
 import { apiRequest, apiRequestWithMeta } from './api-client';
 
@@ -26,14 +30,15 @@ export async function searchExperiences(params: ExperienceSearchParams = {}) {
 }
 
 export async function getExperienceById(id: string) {
-  return apiRequest<Experience>(`/catalog/experiences/${id}`, {
-    next: { revalidate: 60 },
-  });
+  return apiRequest<ExperienceDetail>(
+    `/catalog/experiences/${encodeURIComponent(id)}`,
+    { next: { revalidate: 60 } },
+  );
 }
 
 export async function getExperienceDates(experienceId: string) {
   return apiRequest<ActivityDate[]>(
-    `/catalog/experiences/${experienceId}/dates`,
+    `/catalog/experiences/${encodeURIComponent(experienceId)}/dates`,
     { next: { revalidate: 30 } },
   );
 }

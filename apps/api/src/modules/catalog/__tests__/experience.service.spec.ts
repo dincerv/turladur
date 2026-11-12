@@ -151,6 +151,61 @@ describe('ExperienceService', () => {
         NotFoundException,
       );
     });
+
+    it('should map detail content and drop malformed json items', async () => {
+      (prisma.experience.findFirst as jest.Mock).mockResolvedValue({
+        id: 'e1',
+        title: 'Balon',
+        slug: 'balon',
+        description: 'Kısa',
+        longDescription: 'Uzun açıklama',
+        category: 'Doğa',
+        location: 'Göreme',
+        duration: '3 saat',
+        price: decimal(2300),
+        currency: 'TRY',
+        status: 'PUBLISHED',
+        agencyId: 'p1',
+        averageRating: decimal('4.5'),
+        reviewCount: 5,
+        ageRestriction: '18+',
+        gallery: ['/a.jpg', 42, ' '],
+        included: ['Transfer', null],
+        notIncluded: 'not-an-array',
+        highlights: [],
+        schedule: [
+          { time: '05:00', activity: 'Toplanma' },
+          '06:00 Kalkış',
+          { time: 1 },
+        ],
+        meetingPoint: ' ',
+        meetingPointAddress: 'Göreme Meydanı',
+        agency: {
+          id: 'p1',
+          companyName: 'Demo',
+          logo: null,
+          sellerTier: 'GOLD',
+          averageRating: decimal('4.8'),
+          reviewCount: 10,
+        },
+      });
+
+      const { data } = await service.getById('e1');
+      expect(data).toMatchObject({
+        longDescription: 'Uzun açıklama',
+        gallery: ['/a.jpg'],
+        included: ['Transfer'],
+        notIncluded: [],
+        schedule: [
+          { time: '05:00', activity: 'Toplanma' },
+          { time: '', activity: '06:00 Kalkış' },
+        ],
+        meetingPoint: null,
+        meetingPointAddress: 'Göreme Meydanı',
+        ageRestriction: '18+',
+        operator: { id: 'p1', membershipTier: 'GOLD', averageRating: '4.8' },
+      });
+    });
   });
 
   describe('update / delete / partner list', () => {

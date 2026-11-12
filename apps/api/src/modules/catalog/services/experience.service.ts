@@ -13,6 +13,9 @@ import {
 import type {
   ActivityDate as SharedActivityDate,
   Experience as SharedExperience,
+  ExperienceDetail as SharedExperienceDetail,
+  ExperienceScheduleItem,
+  MembershipTier as SharedMembershipTier,
 } from '@turta/shared-types';
 import { Prisma } from '../../../generated/prisma';
 
@@ -27,6 +30,39 @@ import {
   UpdateExperienceDto,
 } from '../dto/experience.dto';
 import { slugify } from '../utils/slugify';
+
+const MEMBERSHIP_TIERS = new Set<string>(['BRONZE', 'SILVER', 'GOLD']);
+const MAX_LIST_ITEMS = 50;
+
+/** Json columns are partner-authored; keep only non-empty strings. */
+function toStringList(value: Prisma.JsonValue | undefined): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((v): v is string => typeof v === 'string')
+    .map((v) => v.trim())
+    .filter(Boolean)
+    .slice(0, MAX_LIST_ITEMS);
+}
+
+/** Accepts `[{ time, activity }]` or plain strings ("09:00 — Toplanma"). */
+function toScheduleList(
+  value: Prisma.JsonValue | undefined,
+): ExperienceScheduleItem[] {
+  if (!Array.isArray(value)) return [];
+  const out: ExperienceScheduleItem[] = [];
+  for (const item of value) {
+    if (typeof item === 'string' && item.trim()) {
+      out.push({ time: '', activity: item.trim() });
+    } else if (item && typeof item === 'object' && !Array.isArray(item)) {
+      const time = typeof item.time === 'string' ? item.time.trim() : '';
+      const activity =
+        typeof item.activity === 'string' ? item.activity.trim() : '';
+      if (activity) out.push({ time, activity });
+    }
+    if (out.length >= MAX_LIST_ITEMS) break;
+  }
+  return out;
+}
 
 @Injectable()
 export class ExperienceService {
@@ -81,6 +117,18 @@ export class ExperienceService {
   async getById(experienceId: string) {
     const experience = await this.prisma.experience.findFirst({
       where: { id: experienceId, deletedAt: null, status: 'PUBLISHED' },
+      include: {
+        agency: {
+          select: {
+            id: true,
+            companyName: true,
+            logo: true,
+            sellerTier: true,
+            averageRating: true,
+            reviewCount: true,
+          },
+        },
+      },
     });
     if (!experience) {
       throw new NotFoundException({
@@ -90,7 +138,7 @@ export class ExperienceService {
     }
     return {
       success: true,
-      data: this.toExperience(experience),
+      data: this.toExperienceDetail(experience),
       error: null,
     };
   }
@@ -443,6 +491,54 @@ export class ExperienceService {
       imageUrl: row.imageUrl ?? null,
       featured: Boolean(row.featured),
       popularityRate: row.popularityRate ?? 0,
+    };
+  }
+
+  private toExperienceDetail(
+    row: Parameters<ExperienceService['toExperience']>[0] & {
+      longDescription?: string | null;
+      currency?: string | null;
+      gallery?: Prisma.JsonValue;
+      included?: Prisma.JsonValue;
+      notIncluded?: Prisma.JsonValue;
+      highlights?: Prisma.JsonValue;
+      schedule?: Prisma.JsonValue;
+      meetingPoint?: string | null;
+      meetingPointAddress?: string | null;
+      agency?: {
+        id: string;
+        companyName: string;
+        logo: string | null;
+        sellerTier: string;
+        averageRating: Prisma.Decimal;
+        reviewCount: number;
+      } | null;
+    },
+  ): SharedExperienceDetail {
+    const agency = row.agency ?? null;
+    return {
+      ...this.toExperience(row),
+      longDescription: row.longDescription ?? '',
+      currency: row.currency || DEFAULT_CURRENCY,
+      gallery: toStringList(row.gallery),
+      included: toStringList(row.included),
+      notIncluded: toStringList(row.notIncluded),
+      highlights: toStringList(row.highlights),
+      schedule: toScheduleList(row.schedule),
+      meetingPoint: row.meetingPoint?.trim() || null,
+      meetingPointAddress: row.meetingPointAddress?.trim() || null,
+      operator: agency
+        ? {
+            id: agency.id,
+            companyName: agency.companyName,
+            logo: agency.logo ?? null,
+            membershipTier: MEMBERSHIP_TIERS.has(agency.sellerTier)
+              ? (agency.sellerTier as SharedMembershipTier)
+              : null,
+            averageRating: agency.averageRating.toString(),
+            reviewCount: agency.reviewCount,
+          }
+        : null,
     };
   }
 

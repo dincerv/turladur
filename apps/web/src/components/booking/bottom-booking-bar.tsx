@@ -549,7 +549,7 @@ export default function BottomBookingBar({
                 })}
               </span>
               <span className="text-xs text-neutral-600 block mt-0.5">
-                {format(new Date(date.startDate), 'eeee')}
+                {format(new Date(date.startDate), 'eeee', { locale: tr })}
               </span>
               <span className="text-sm font-medium text-neutral-800 mt-1">
                 {formatPrice(date.price)} / kişi
@@ -607,9 +607,9 @@ export default function BottomBookingBar({
         </h4>
         <div className="flex items-start text-sm text-neutral-600">
           <p>
-            {activity?.ageRestriction === '18+'
-              ? 'Bu aktiviteye katılım için 18 yaşından büyük olmak gerekmektedir.'
-              : 'Bu aktivite her yaş için uygundur.'}
+            {activity?.ageRestriction
+              ? `Yaş koşulu: ${activity.ageRestriction}. Tüm katılımcıların bu koşulu sağlaması gerekir.`
+              : 'Bu aktivite için yaş sınırı belirtilmemiştir.'}
           </p>
         </div>
       </div>
@@ -856,12 +856,15 @@ export default function BottomBookingBar({
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 flex-grow overflow-y-auto overscroll-contain touch-pan-y min-h-0 mb-4 md:overflow-hidden md:min-h-[300px]">
+          <div
+            className={`grid grid-cols-1 ${entityType === 'tour' ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-5 flex-grow overflow-y-auto overscroll-contain touch-pan-y min-h-0 mb-4 md:overflow-hidden md:min-h-[300px]`}
+          >
             {renderDatePickerColumn()}
             {entityType === 'tour'
               ? renderTourParticipantPicker()
               : renderActivityParticipantPicker()}
-            {renderAdvantagesColumn()}
+            {/* Activity partners don't publish cancellation / confirmation policies yet. */}
+            {entityType === 'tour' ? renderAdvantagesColumn() : null}
           </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-1 pt-3 border-t border-neutral-200/80 flex-shrink-0 pb-[env(safe-area-inset-bottom)]">
@@ -879,6 +882,7 @@ export default function BottomBookingBar({
                   ? format(
                       new Date(currentSelectedDate.startDate),
                       'd MMMM yyyy',
+                      { locale: tr },
                     )
                   : 'Tarih seçilmedi'}
               </p>
