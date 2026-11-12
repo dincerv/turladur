@@ -10,11 +10,23 @@ import {
   Timer,
   Users,
 } from 'lucide-react';
-import { useActivitiesPageUi } from './activities-page-context';
+import { useCountdown } from './use-countdown';
 
-/** Split from activities-page-client.tsx (Faz 7) — marketing blocks; UI unchanged. */
+const OFFER_DURATION_MS =
+  21 * 86_400_000 + 18 * 3_600_000 + 45 * 60_000 + 37_000;
+
+const TIME_UNITS = [
+  { key: 'days', label: 'Gün' },
+  { key: 'hours', label: 'Saat' },
+  { key: 'minutes', label: 'Dakika' },
+  { key: 'seconds', label: 'Saniye' },
+] as const;
+
 export function ActivitiesPageMarketing() {
-  const { timeLeft } = useActivitiesPageUi();
+  const timeLeft = useCountdown(OFFER_DURATION_MS);
+  const isExpired =
+    timeLeft != null &&
+    timeLeft.days + timeLeft.hours + timeLeft.minutes + timeLeft.seconds === 0;
 
   return (
     <>
@@ -106,34 +118,25 @@ export function ActivitiesPageMarketing() {
                 hayalinizdeki tatili şimdiden planlayın.
               </p>
               <div className="flex flex-wrap gap-2 sm:gap-3 mb-6">
-                {Object.entries(timeLeft).map(([unit, value]) => (
+                {TIME_UNITS.map(({ key, label }) => (
                   <div
-                    key={unit}
+                    key={key}
                     className="bg-white/15 backdrop-blur-sm rounded-md p-2 text-center min-w-[60px] sm:min-w-[70px]"
                   >
                     <div className="text-xl sm:text-2xl font-bold tabular-nums">
-                      {String(value).padStart(2, '0')}
+                      {timeLeft ? String(timeLeft[key]).padStart(2, '0') : '--'}
                     </div>
-                    <div className="text-[10px] text-sky-200/80 uppercase tracking-wider capitalize">
-                      {unit === 'days'
-                        ? 'Gün'
-                        : unit === 'hours'
-                          ? 'Saat'
-                          : unit === 'minutes'
-                            ? 'Dakika'
-                            : 'Saniye'}
+                    <div className="text-[10px] text-sky-200/80 uppercase tracking-wider">
+                      {label}
                     </div>
                   </div>
                 ))}
               </div>
-              {timeLeft.days === 0 &&
-                timeLeft.hours === 0 &&
-                timeLeft.minutes === 0 &&
-                timeLeft.seconds === 0 && (
-                  <p className="text-amber-300 font-medium text-xs w-full">
-                    Bu fırsat sona erdi!
-                  </p>
-                )}
+              {isExpired && (
+                <p className="text-amber-300 font-medium text-xs w-full">
+                  Bu fırsat sona erdi!
+                </p>
+              )}
             </div>
             <div className="relative h-64 lg:h-auto min-h-[300px]">
               <Image

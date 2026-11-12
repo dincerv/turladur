@@ -118,6 +118,25 @@ body {
   animation: slideDownEnter 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+@keyframes sheetUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.animate-sheetUp {
+  animation: sheetUp 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-sheetUp {
+    animation: none;
+  }
+}
+
 @keyframes fadeInUp {
   from {
     opacity: 0;

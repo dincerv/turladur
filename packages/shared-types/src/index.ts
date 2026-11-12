@@ -251,6 +251,11 @@ export interface Experience {
   agencyId?: string;
   averageRating: string;
   reviewCount: number;
+  /** Free-form partner text, e.g. "18+", "7-65", "12 yaş üstü". */
+  ageRestriction?: string | null;
+  imageUrl?: string | null;
+  featured?: boolean;
+  popularityRate?: number;
 }
 
 export interface ActivityDate {

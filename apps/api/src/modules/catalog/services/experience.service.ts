@@ -420,6 +420,10 @@ export class ExperienceService {
     agencyId: string;
     averageRating: Prisma.Decimal;
     reviewCount: number;
+    ageRestriction?: string | null;
+    imageUrl?: string | null;
+    featured?: boolean;
+    popularityRate?: number;
   }): SharedExperience {
     return {
       id: row.id,
@@ -435,6 +439,10 @@ export class ExperienceService {
       agencyId: row.agencyId,
       averageRating: row.averageRating.toString(),
       reviewCount: row.reviewCount,
+      ageRestriction: row.ageRestriction ?? null,
+      imageUrl: row.imageUrl ?? null,
+      featured: Boolean(row.featured),
+      popularityRate: row.popularityRate ?? 0,
     };
   }
 

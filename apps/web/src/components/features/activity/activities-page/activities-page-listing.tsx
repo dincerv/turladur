@@ -1,234 +1,193 @@
 'use client';
 
-import Image from 'next/image';
-import Link from 'next/link';
+import { useState } from 'react';
+import { ChevronDown, Plus, Trash2, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import {
-  ChevronDown,
-  ChevronRight,
-  Clock,
-  Filter,
-  MapPin,
-  Plus,
-  Star,
-  Trash2,
-  X,
-} from 'lucide-react';
-import MembershipBadge from '@/components/features/tour/membership-badge';
-import { ITEMS_PER_PAGE } from './activities-page.helpers';
+  CATEGORIES,
+  ITEMS_PER_PAGE,
+  VISIBLE_CATEGORY_COUNT,
+} from './activities-page.constants';
+import {
+  ActivitiesEmptyState,
+  ActivitiesErrorState,
+} from './activities-empty-state';
 import { ActivityCardSkeleton } from './activity-card-skeleton';
-import { useActivitiesPageUi } from './activities-page-context';
+import { ActivityListingCard } from './activity-listing-card';
+import { hasAgeFilter } from './activity-filters';
+import { useActivitiesPage } from './activities-page-context';
 
-/** Split from activities-page-client.tsx (Faz 7) — categories + grid; UI unchanged. */
+const GRID_CLASS =
+  'grid grid-cols-1 items-stretch gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8 xl:grid-cols-4';
+const PRIORITY_CARD_COUNT = 4;
+
+function CategoryPills() {
+  const { filters, setFilter } = useActivitiesPage();
+  const [expanded, setExpanded] = useState(false);
+  const selectedIndex = CATEGORIES.findIndex((c) => c.id === filters.category);
+  const showAll = expanded || selectedIndex >= VISIBLE_CATEGORY_COUNT;
+  const visible = showAll
+    ? CATEGORIES
+    : CATEGORIES.slice(0, VISIBLE_CATEGORY_COUNT);
+
+  return (
+    <div className="mb-8">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-neutral-800">Kategoriler</h3>
+        <button
+          type="button"
+          aria-expanded={showAll}
+          onClick={() => setExpanded((v) => !v)}
+          className="-mr-2 inline-flex min-h-11 items-center gap-1 px-2 text-xs font-medium text-sky-600 hover:text-sky-800 md:min-h-0"
+        >
+          {showAll ? 'Daha Az Göster' : 'Tümünü Göster'}
+          <ChevronDown
+            aria-hidden
+            className={cn(
+              'h-3.5 w-3.5 transition-transform',
+              showAll && 'rotate-180',
+            )}
+          />
+        </button>
+      </div>
+      <div
+        className="flex flex-wrap gap-2"
+        role="group"
+        aria-label="Kategori seçimi"
+      >
+        {visible.map((category) => {
+          const active = filters.category === category.id;
+          return (
+            <button
+              key={category.id}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setFilter('category', category.id)}
+              className={cn(
+                'min-h-11 rounded-full px-4 text-sm font-medium transition-colors duration-200 md:min-h-9',
+                active
+                  ? 'bg-sky-600 text-white shadow-sm'
+                  : 'border border-neutral-200/80 bg-white text-neutral-700 hover:bg-neutral-100',
+              )}
+            >
+              {category.name}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ActiveFilterChips() {
+  const { chips, removeChip, resetFilters } = useActivitiesPage();
+  if (chips.length === 0) return null;
+
+  return (
+    <div className="mb-6 flex flex-wrap items-center gap-2 border-b border-neutral-200 pb-4">
+      <span className="mr-1 text-xs font-semibold text-neutral-600">
+        Aktif Filtreler:
+      </span>
+      {chips.map((chip) => (
+        <span
+          key={chip.key}
+          className="inline-flex max-w-full items-center rounded-full bg-sky-100/80 pl-3 text-xs font-semibold text-sky-800"
+        >
+          <span className="truncate">{chip.label}</span>
+          <button
+            type="button"
+            onClick={() => removeChip(chip.key)}
+            aria-label={`${chip.label} filtresini kaldır`}
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sky-600 hover:text-sky-900 md:h-8 md:w-8"
+          >
+            <X aria-hidden className="h-3.5 w-3.5" />
+          </button>
+        </span>
+      ))}
+      <button
+        type="button"
+        onClick={resetFilters}
+        className="ml-auto inline-flex min-h-11 items-center gap-1 px-2 text-xs font-medium text-neutral-500 hover:text-rose-600 md:min-h-0"
+      >
+        <Trash2 aria-hidden className="h-3.5 w-3.5" /> Filtreleri Temizle
+      </button>
+    </div>
+  );
+}
+
 export function ActivitiesPageListing() {
   const {
-    selectedCategory,
-    setSelectedCategory,
-    categories,
-    showAllCategories,
-    setShowAllCategories,
-    loading,
-    displayedActivities,
-    allFilteredActivities,
-    activeFilters,
-    removeFilter,
+    filters,
+    status,
+    retry,
+    totalCount,
+    visibleItems,
+    hasMore,
+    loadMore,
     resetFilters,
-    loadMoreActivities,
-  } = useActivitiesPageUi();
+    patchFilters,
+  } = useActivitiesPage();
+  const ageActive = hasAgeFilter(filters);
 
   return (
     <>
-      {/* Kategori Butonları Güncellendi */}
-      <div className="mb-10">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-neutral-800">
-            Kategoriler
-          </h3>
-          <button
-            onClick={() => setShowAllCategories(!showAllCategories)}
-            className="text-sky-600 hover:text-sky-800 text-xs font-medium flex items-center gap-1"
-          >
-            {showAllCategories ? 'Daha Az Göster' : 'Tümünü Göster'}
-            <ChevronDown
-              className={`w-3.5 h-3.5 transition-transform ${showAllCategories ? 'rotate-180' : ''}`}
-            />
-          </button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {(showAllCategories ? categories : categories.slice(0, 6)).map(
-            (category) => (
-              <button
-                key={category.id}
-                onClick={() => setSelectedCategory(category.id)}
-                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 ease-out ${selectedCategory === category.id ? 'bg-sky-600 text-white shadow-sm' : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200/80'}`}
-              >
-                {category.name}
-              </button>
-            ),
-          )}
-        </div>
+      <CategoryPills />
+      <ActiveFilterChips />
+
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold tracking-tight text-neutral-900 lg:text-2xl">
+          Aktiviteler
+        </h2>
+        <p
+          className="mt-0.5 min-h-[1rem] text-xs text-neutral-600"
+          aria-live="polite"
+        >
+          {status === 'ready' && `${totalCount} aktivite bulundu.`}
+        </p>
       </div>
 
-      {/* Active Filter Tags */}
-      {activeFilters.length > 0 && (
-        <div className="mb-6 flex flex-wrap items-center gap-2 border-b border-neutral-200 pb-4">
-          <span className="text-xs font-semibold text-neutral-600 mr-1">
-            Aktif Filtreler:
-          </span>
-          {activeFilters.map((filter) => (
-            <div
-              key={filter.key}
-              className="inline-flex items-center gap-1 bg-sky-100/80 text-sky-800 text-xs font-semibold px-2.5 py-1 rounded-full"
-            >
-              <span>{filter.label}</span>
-              <button
-                onClick={() => removeFilter(filter.key)}
-                className="ml-0.5 text-sky-600 hover:text-sky-800"
-              >
-                <X className="h-3 w-3 stroke-2" />
-              </button>
-            </div>
-          ))}
-          <button
-            onClick={resetFilters}
-            className="text-xs text-neutral-500 hover:text-rose-600 font-medium flex items-center gap-1 ml-auto"
-          >
-            <Trash2 className="w-3.5 h-3.5" /> Filtreleri Temizle
-          </button>
-        </div>
-      )}
-
-      {/* Activity Listing Section Header */}
-      <div className="mb-6 flex flex-col md:flex-row justify-between md:items-center gap-2">
-        <div>
-          <h2 className="text-xl lg:text-2xl font-semibold text-neutral-900 tracking-tight">
-            Aktiviteler
-          </h2>
-          <p className="mt-0.5 text-xs text-neutral-600">
-            {!loading && `${allFilteredActivities.length} aktivite bulundu.`}
-          </p>
-        </div>
-      </div>
-
-      {/* Loading / No Results / Grid */}
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 lg:gap-8">
-          {[...Array(ITEMS_PER_PAGE)].map((_, i) => (
+      {status === 'loading' ? (
+        <div
+          className={GRID_CLASS}
+          aria-busy="true"
+          aria-label="Aktiviteler yükleniyor"
+        >
+          {Array.from({ length: ITEMS_PER_PAGE }, (_, i) => (
             <ActivityCardSkeleton key={i} />
           ))}
         </div>
-      ) : displayedActivities.length === 0 ? (
-        <div className="mt-10 text-center">
-          <div className="rounded-lg border-2 border-dashed border-neutral-300 p-12 bg-white">
-            <Filter className="mx-auto h-10 w-10 text-neutral-400 mb-4" />
-            <h3 className="text-base font-semibold text-neutral-800 mb-2">
-              Sonuç Bulunamadı
-            </h3>
-            <p className="text-xs text-neutral-500 mb-4 max-w-xs mx-auto">
-              Arama kriterlerinize uygun aktivite bulunamadı. Filtreleri
-              değiştirmeyi veya temizlemeyi deneyin.
-            </p>
-            <button
-              className="text-sky-600 hover:text-sky-800 font-medium text-xs flex items-center justify-center mx-auto gap-1"
-              onClick={resetFilters}
-            >
-              <Trash2 className="w-3.5 h-3.5" /> Filtreleri Temizle
-            </button>
-          </div>
-        </div>
+      ) : status === 'error' ? (
+        <ActivitiesErrorState onRetry={retry} />
+      ) : visibleItems.length === 0 ? (
+        <ActivitiesEmptyState
+          onClearAll={resetFilters}
+          onClearAge={
+            ageActive
+              ? () => patchFilters({ minAge: null, maxAge: null })
+              : undefined
+          }
+        />
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 lg:gap-8">
-            {displayedActivities.map((experience) => (
-              <Link
-                href={`/activities/${experience.id}`}
-                key={experience.id}
-                className="group block bg-white rounded-xl overflow-hidden shadow-sm border border-neutral-100/80 hover:shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-1"
-              >
-                <div className="relative h-56 overflow-hidden">
-                  <Image
-                    src={experience.imageUrl}
-                    alt={experience.title}
-                    fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  {/* Top Right Badge (Rating) */}
-                  <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-lg shadow-sm">
-                    <div className="flex items-center gap-1">
-                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                      <span className="text-sm font-semibold text-gray-800">
-                        {experience.rating.toFixed(1)}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        ({experience.reviewCount})
-                      </span>
-                    </div>
-                  </div>
-                  {/* Top Left Badge (Category/Type) */}
-                  {experience.category && (
-                    <div className="absolute top-3 left-3 bg-gradient-to-r from-sky-500 to-blue-600 px-2.5 py-1 rounded-md shadow">
-                      <span className="text-[11px] font-semibold text-white capitalize tracking-wide">
-                        {experience.category}
-                      </span>
-                    </div>
-                  )}
-                  {/* Partner üyelik arması (müşteri değerlendirmelerinden otomatik hesaplanır) */}
-                  <div
-                    className={`absolute left-3 ${experience.category ? 'top-12' : 'top-3'}`}
-                  >
-                    <MembershipBadge
-                      tier={experience.experienceOperator?.membershipTier}
-                      variant="onImage"
-                    />
-                  </div>
-                </div>
-                <div className="p-4">
-                  <h3 className="text-base font-semibold text-neutral-900 mb-1.5 line-clamp-2 group-hover:text-sky-700 transition-colors duration-200">
-                    {experience.title}
-                  </h3>
-                  <div className="flex items-center gap-1.5 text-xs text-neutral-600 mb-1">
-                    <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-neutral-400" />
-                    <span>{experience.location}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-neutral-600 mb-3">
-                    <Clock className="w-3.5 h-3.5 flex-shrink-0 text-neutral-400" />
-                    <span>
-                      {experience.duration}{' '}
-                      {experience.durationHours
-                        ? `(${experience.durationHours} sa)`
-                        : ''}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between pt-3 border-t border-neutral-100/80">
-                    {experience.price ? (
-                      <span className="text-lg font-bold text-sky-600">
-                        ₺{experience.price.toLocaleString('tr-TR')}
-                      </span>
-                    ) : (
-                      <span className="text-xs font-medium text-neutral-500">
-                        Fiyat Sorunuz
-                      </span>
-                    )}
-                    <span className="inline-flex items-center px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold rounded-md transition-colors duration-200 cursor-pointer">
-                      Detayları Gör
-                      <ChevronRight className="w-3.5 h-3.5 ml-1 group-hover:translate-x-0.5 transition-transform" />
-                    </span>
-                  </div>
-                </div>
-              </Link>
+          <ul className={GRID_CLASS}>
+            {visibleItems.map((experience, index) => (
+              <li key={experience.id} className="min-w-0">
+                <ActivityListingCard
+                  experience={experience}
+                  priority={index < PRIORITY_CARD_COUNT}
+                />
+              </li>
             ))}
-          </div>
-          {/* Load More Button */}
-          {displayedActivities.length < allFilteredActivities.length && (
+          </ul>
+          {hasMore && (
             <div className="mt-12 text-center">
               <button
-                onClick={loadMoreActivities}
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
+                type="button"
+                onClick={loadMore}
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-sky-600 px-5 text-sm font-medium text-white shadow-sm transition-colors duration-200 hover:bg-sky-700"
               >
-                <Plus className="w-4 h-4" />
-                Daha Fazla Yükle (
-                {allFilteredActivities.length - displayedActivities.length} tane
-                daha)
+                <Plus aria-hidden className="h-4 w-4" />
+                Daha Fazla Yükle ({totalCount - visibleItems.length} tane daha)
               </button>
             </div>
           )}
