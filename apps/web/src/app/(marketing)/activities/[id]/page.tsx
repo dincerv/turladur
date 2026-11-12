@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { cache } from 'react';
+import { cache, Suspense } from 'react';
 
 import { mapExperienceRows } from '@/components/features/activity/activities-page/activities-page.helpers';
 import type { Experience } from '@/components/features/activity/activities-page/activities-page.types';
+import { ActivityDetailSkeleton } from '@/components/features/activity/activity-detail/activity-detail-skeleton';
 import { ActivityDetailView } from '@/components/features/activity/activity-detail/activity-detail-view';
 import {
   buildActivityJsonLd,
@@ -83,7 +84,6 @@ export async function generateMetadata({
   } catch {
     return { title: 'Aktivite' };
   }
-  // Crawlers get blocking metadata, so throwing here yields a real 404 despite loading.tsx streaming.
   if (!activity) notFound();
 
   const description = (activity.summary || activity.longDescription).slice(
@@ -105,11 +105,28 @@ export async function generateMetadata({
   };
 }
 
+/**
+ * No route-level loading.tsx: it would flush a 200 shell before `notFound()`.
+ * The activity is awaited up front; dates + related stream behind a
+ * layout-matched skeleton.
+ */
 export default async function ActivityDetailPage({ params }: PageProps) {
   const { id } = await params;
   const activity = await loadActivity(id);
   if (!activity) notFound();
 
+  return (
+    <Suspense fallback={<ActivityDetailSkeleton />}>
+      <ActivityDetailContent activity={activity} />
+    </Suspense>
+  );
+}
+
+async function ActivityDetailContent({
+  activity,
+}: {
+  activity: ActivityDetail;
+}) {
   const [sessions, related] = await Promise.all([
     loadSessions(activity.id),
     loadRelated(activity),
