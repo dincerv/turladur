@@ -74,16 +74,24 @@ export class ExperienceService {
   async search(dto: SearchExperiencesDto) {
     const page = dto.page ?? DEFAULT_PAGE;
     const limit = dto.limit ?? DEFAULT_PAGE_LIMIT;
-    const q = dto.q?.trim() ?? '';
+    const q = (dto.q?.trim() ?? '')
+      .slice(0, 100)
+      .replace(/[\u0000-\u001F\u007F]/g, '');
+    const category = (dto.category?.trim() ?? '')
+      .slice(0, 120)
+      .replace(/[\u0000-\u001F\u007F]/g, '');
+    const location = (dto.location?.trim() ?? '')
+      .slice(0, 200)
+      .replace(/[\u0000-\u001F\u007F]/g, '');
 
     const where: Prisma.ExperienceWhereInput = {
       deletedAt: null,
       status: 'PUBLISHED',
-      ...(dto.category
-        ? { category: { contains: dto.category, mode: 'insensitive' } }
+      ...(category
+        ? { category: { contains: category, mode: 'insensitive' } }
         : {}),
-      ...(dto.location
-        ? { location: { contains: dto.location, mode: 'insensitive' } }
+      ...(location
+        ? { location: { contains: location, mode: 'insensitive' } }
         : {}),
       ...(q
         ? {
@@ -103,6 +111,24 @@ export class ExperienceService {
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          description: true,
+          category: true,
+          location: true,
+          duration: true,
+          price: true,
+          status: true,
+          agencyId: true,
+          averageRating: true,
+          reviewCount: true,
+          ageRestriction: true,
+          imageUrl: true,
+          featured: true,
+          popularityRate: true,
+        },
       }),
     ]);
 
@@ -146,24 +172,78 @@ export class ExperienceService {
   async create(dto: CreateExperienceDto, agencyId: string | undefined) {
     await this.ensurePartnerCapability(agencyId);
 
-    const slug = await this.uniqueSlug(slugify(dto.title));
-    const experience = await this.prisma.experience.create({
-      data: {
-        title: dto.title.trim(),
-        slug,
-        description: dto.description.trim(),
-        longDescription: dto.longDescription.trim(),
-        category: dto.category.trim(),
-        location: dto.location.trim(),
-        duration: dto.duration.trim(),
-        price: new Prisma.Decimal(dto.price),
-        currency: dto.currency ?? DEFAULT_CURRENCY,
-        ageRestriction: dto.ageRestriction,
-        imageUrl: dto.imageUrl,
-        meetingPoint: dto.meetingPoint,
-        agencyId: agencyId!,
-        status: 'PENDING_REVIEW',
-      },
+    const safeTitle = this.sanitizePlain(dto.title, 200);
+    const slug = await this.uniqueSlug(slugify(safeTitle));
+    const included = this.sanitizeStringList(dto.included, 50, 200);
+    const notIncluded = this.sanitizeStringList(dto.notIncluded, 50, 200);
+    const highlights = this.sanitizeStringList(dto.highlights, 30, 200);
+    const gallery = this.sanitizeStringList(dto.gallery, 20, 2000);
+
+    const hasDate = Boolean(dto.dateStart && dto.dateEnd);
+    if (hasDate) {
+      const startDate = new Date(dto.dateStart!);
+      const endDate = new Date(dto.dateEnd!);
+      if (
+        Number.isNaN(startDate.getTime()) ||
+        Number.isNaN(endDate.getTime()) ||
+        endDate < startDate
+      ) {
+        throw new BusinessException(
+          'INVALID_DATE_RANGE',
+          'Bitiş tarihi başlangıçtan önce olamaz',
+        );
+      }
+    }
+
+    if (dto.price < 0) {
+      throw new BusinessException('INVALID_PRICE', 'Fiyat negatif olamaz');
+    }
+
+    const experience = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.experience.create({
+        data: {
+          title: safeTitle,
+          slug,
+          description: this.sanitizePlain(dto.description, 5000),
+          longDescription: this.sanitizePlain(dto.longDescription, 20_000),
+          category: this.sanitizePlain(dto.category, 120),
+          location: this.sanitizePlain(dto.location, 200),
+          duration: this.sanitizePlain(dto.duration, 80),
+          price: new Prisma.Decimal(dto.price),
+          currency: (dto.currency ?? DEFAULT_CURRENCY).slice(0, 3),
+          ageRestriction: dto.ageRestriction
+            ? this.sanitizePlain(dto.ageRestriction, 80)
+            : null,
+          imageUrl: dto.imageUrl
+            ? this.sanitizePlain(dto.imageUrl, 2000)
+            : null,
+          gallery,
+          included,
+          notIncluded,
+          highlights,
+          meetingPoint: dto.meetingPoint
+            ? this.sanitizePlain(dto.meetingPoint, 300)
+            : null,
+          agencyId: agencyId!,
+          status: 'PENDING_REVIEW',
+        },
+      });
+
+      if (hasDate) {
+        const seats = dto.dateSeats ?? 12;
+        await tx.activityDate.create({
+          data: {
+            experienceId: created.id,
+            startDate: new Date(dto.dateStart!),
+            endDate: new Date(dto.dateEnd!),
+            price: new Prisma.Decimal(dto.price),
+            availableSeats: seats,
+            remainingCapacity: seats,
+          },
+        });
+      }
+
+      return created;
     });
 
     await this.cache.invalidatePattern('catalog:experiences:*');
@@ -183,23 +263,31 @@ export class ExperienceService {
     const experience = await this.findOwned(experienceId, agencyId, role);
     const data: Prisma.ExperienceUpdateInput = {};
     if (dto.title !== undefined) {
-      data.title = dto.title.trim();
-      data.slug = await this.uniqueSlug(slugify(dto.title), experienceId);
+      const safeTitle = this.sanitizePlain(dto.title, 200);
+      data.title = safeTitle;
+      data.slug = await this.uniqueSlug(slugify(safeTitle), experienceId);
     }
     if (dto.description !== undefined)
-      data.description = dto.description.trim();
+      data.description = this.sanitizePlain(dto.description, 5000);
     if (dto.longDescription !== undefined)
-      data.longDescription = dto.longDescription.trim();
-    if (dto.category !== undefined) data.category = dto.category.trim();
-    if (dto.location !== undefined) data.location = dto.location.trim();
-    if (dto.duration !== undefined) data.duration = dto.duration.trim();
+      data.longDescription = this.sanitizePlain(dto.longDescription, 20_000);
+    if (dto.category !== undefined)
+      data.category = this.sanitizePlain(dto.category, 120);
+    if (dto.location !== undefined)
+      data.location = this.sanitizePlain(dto.location, 200);
+    if (dto.duration !== undefined)
+      data.duration = this.sanitizePlain(dto.duration, 80);
     if (dto.price !== undefined) data.price = new Prisma.Decimal(dto.price);
     if (dto.status !== undefined) data.status = dto.status;
     if (dto.imageUrl !== undefined) data.imageUrl = dto.imageUrl;
     if (dto.meetingPoint !== undefined)
-      data.meetingPoint = dto.meetingPoint?.trim() || null;
+      data.meetingPoint = dto.meetingPoint
+        ? this.sanitizePlain(dto.meetingPoint, 300)
+        : null;
     if (dto.ageRestriction !== undefined)
-      data.ageRestriction = dto.ageRestriction?.trim() || null;
+      data.ageRestriction = dto.ageRestriction
+        ? this.sanitizePlain(dto.ageRestriction, 80)
+        : null;
 
     const updated = await this.prisma.experience.update({
       where: { id: experience.id },
@@ -399,6 +487,28 @@ export class ExperienceService {
         message: 'Bu işlem için EXPERIENCES yetkisi gerekli',
       });
     }
+  }
+
+  /** Strip tags + control chars before persisting partner-authored text. */
+  private sanitizePlain(input: string, max: number): string {
+    return input
+      .replace(/<[^>]*>/g, '')
+      .replace(/[\u0000-\u001F\u007F]/g, '')
+      .trim()
+      .slice(0, max);
+  }
+
+  private sanitizeStringList(
+    input: string[] | undefined,
+    maxItems: number,
+    maxLen: number,
+  ): string[] {
+    if (!Array.isArray(input)) return [];
+    return input
+      .filter((v): v is string => typeof v === 'string')
+      .map((v) => this.sanitizePlain(v, maxLen))
+      .filter(Boolean)
+      .slice(0, maxItems);
   }
 
   private async findOwned(

@@ -5,8 +5,10 @@ import {
   TourStayKind,
   TourStatus,
 } from '@turta/shared-constants';
+import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsNumber,
@@ -17,7 +19,14 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+
+import {
+  CreateTourAccommodationNestedDto,
+  CreateTourDateNestedDto,
+  CreateTourPickupNestedDto,
+} from './create-tour.dto';
 
 export class UpdateTourDto {
   @ApiPropertyOptional()
@@ -35,6 +44,7 @@ export class UpdateTourDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   price?: number;
@@ -57,6 +67,7 @@ export class UpdateTourDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   durationDays?: number;
@@ -94,4 +105,30 @@ export class UpdateTourDto {
   @IsOptional()
   @IsObject()
   extras?: Record<string, unknown>;
+
+  /** When true + pickupPoints provided → soft-delete existing then recreate. */
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  replacePickupPoints?: boolean;
+
+  @ApiPropertyOptional({ type: [CreateTourDateNestedDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateTourDateNestedDto)
+  dates?: CreateTourDateNestedDto[];
+
+  @ApiPropertyOptional({ type: [CreateTourPickupNestedDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateTourPickupNestedDto)
+  pickupPoints?: CreateTourPickupNestedDto[];
+
+  @ApiPropertyOptional({ type: CreateTourAccommodationNestedDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateTourAccommodationNestedDto)
+  accommodation?: CreateTourAccommodationNestedDto;
 }

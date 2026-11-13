@@ -77,6 +77,42 @@ class ListPartnerToursQueryDto {
   pageSize?: number;
 }
 
+class ListPartnerExperiencesQueryDto {
+  @ApiPropertyOptional({ description: 'Search title / category / location' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  q?: string;
+
+  @ApiPropertyOptional({
+    enum: ['DRAFT', 'PENDING_REVIEW', 'PUBLISHED', 'ARCHIVED'],
+  })
+  @IsOptional()
+  @IsIn(['DRAFT', 'PENDING_REVIEW', 'PUBLISHED', 'ARCHIVED'])
+  status?: 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED';
+
+  @ApiPropertyOptional({ description: 'Category contains filter' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  category?: string;
+
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ default: 12 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  pageSize?: number;
+}
+
 class UpdatePartnerProfileDto {
   @ApiPropertyOptional()
   @IsOptional()
@@ -251,14 +287,37 @@ export class PartnerController {
     return this.partnerService.listOwnedTourDates(agencyId, id);
   }
 
+  @Get('tours/:id/edit-bundle')
+  @RequireStaffPermissions('tours')
+  @ApiOperation({
+    summary:
+      'Edit bootstrap: tour + dates/ageRanges + pickups + accommodation (owned)',
+  })
+  async tourEditBundle(
+    @Param('id') id: string,
+    @CurrentUser() user: UserPayload,
+  ) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.partnerService.getTourEditBundle(agencyId, id);
+  }
+
   @Get('experiences')
   @RequireStaffPermissions('tours')
   @ApiOperation({
-    summary: 'List experiences owned by partner (all statuses)',
+    summary: 'List experiences owned by partner (paginated, searchable)',
   })
-  async experiences(@CurrentUser() user: UserPayload) {
+  async experiences(
+    @CurrentUser() user: UserPayload,
+    @Query() query: ListPartnerExperiencesQueryDto,
+  ) {
     const agencyId = await this.sellerAgencyId(user);
-    return this.partnerService.listExperiences(agencyId);
+    return this.partnerService.listExperiences(agencyId, {
+      q: query.q,
+      status: query.status,
+      category: query.category,
+      page: query.page,
+      pageSize: query.pageSize,
+    });
   }
 
   @Get('users')

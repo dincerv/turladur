@@ -42,6 +42,7 @@ export function TourFormBasicStep() {
     handleRemoveLanguage,
     handleSuggestionClick,
     handleRemoveTag,
+    isUpdateMode,
   } = useTourFormUi();
 
   return (
@@ -111,7 +112,7 @@ export function TourFormBasicStep() {
           type="text"
           id="title"
           name="title"
-          data-testid="tour-name-input"
+          data-testid={isUpdateMode ? 'edit-tour-title' : 'tour-name-input'}
           value={formData.title}
           onChange={handleChange}
           className={`block w-full rounded-lg border ${errors.title ? 'border-red-500' : 'border-gray-300'} px-4 py-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-gray-900`}

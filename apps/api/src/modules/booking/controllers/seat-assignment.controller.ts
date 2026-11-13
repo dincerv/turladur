@@ -1,4 +1,12 @@
-import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import {
@@ -10,7 +18,11 @@ import { CurrentUser } from '../../../core/auth/decorators/current-user.decorato
 import { RequireStaffPermissions } from '../../../core/auth/decorators/require-staff-permissions.decorator';
 import { Roles } from '../../../core/auth/decorators/roles.decorator';
 import { UserPayload } from '../../../core/auth/types/auth.types';
-import { AssignSeatManualDto } from '../dto/seat-assignment.dto';
+import {
+  AssignSeatBulkDto,
+  AssignSeatManualDto,
+  SeatMapQueryDto,
+} from '../dto/seat-assignment.dto';
 import { SeatAssignmentService } from '../services/seat-assignment.service';
 
 @ApiTags('Booking - Seat Assignments')
@@ -25,12 +37,14 @@ export class SeatAssignmentController {
   @ApiOperation({ summary: 'Seat map + occupancy + unassigned guests' })
   getMap(
     @Param('tourDateId') tourDateId: string,
+    @Query() query: SeatMapQueryDto,
     @CurrentUser() user: UserPayload,
   ) {
     return this.seatAssignmentService.getSeatMap(
       tourDateId,
       user.agencyId,
       user.role,
+      query.tourId,
     );
   }
 
@@ -48,6 +62,27 @@ export class SeatAssignmentController {
       dto,
       user.agencyId,
       user.role,
+      dto.tourId,
+    );
+  }
+
+  @Post('tour-dates/:tourDateId/seats/assign-bulk')
+  @Roles(...AGENCY_SELLER_ROLES)
+  @RequireStaffPermissions('reservations')
+  @ApiOperation({
+    summary: 'MANUAL bulk seat assign in one Serializable transaction',
+  })
+  assignBulk(
+    @Param('tourDateId') tourDateId: string,
+    @Body() dto: AssignSeatBulkDto,
+    @CurrentUser() user: UserPayload,
+  ) {
+    return this.seatAssignmentService.assignManualBulk(
+      tourDateId,
+      dto.assignments,
+      user.agencyId,
+      user.role,
+      dto.tourId,
     );
   }
 
@@ -57,12 +92,14 @@ export class SeatAssignmentController {
   @ApiOperation({ summary: 'AUTO_FIFO fill free seats by booking order' })
   autoFifo(
     @Param('tourDateId') tourDateId: string,
+    @Body() body: { tourId?: string },
     @CurrentUser() user: UserPayload,
   ) {
     return this.seatAssignmentService.autoFifo(
       tourDateId,
       user.agencyId,
       user.role,
+      body?.tourId,
     );
   }
 

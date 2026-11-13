@@ -276,13 +276,162 @@ export class TourService {
       await this.ensureTourCanBePublished(tour);
     }
 
-    const updated = await this.prisma.tour.update({
-      where: { id: tour.id },
-      data,
+    const nestedDates = dto.dates ?? [];
+    for (const date of nestedDates) {
+      const startDate = new Date(date.startDate);
+      const endDate = new Date(date.endDate);
+      if (
+        Number.isNaN(startDate.getTime()) ||
+        Number.isNaN(endDate.getTime())
+      ) {
+        throw new BusinessException(
+          'INVALID_DATE_RANGE',
+          'Geçersiz tur tarihi',
+        );
+      }
+      if (endDate < startDate) {
+        throw new BusinessException(
+          'INVALID_DATE_RANGE',
+          'Bitiş tarihi başlangıçtan önce olamaz',
+        );
+      }
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.tour.update({
+        where: { id: tour.id },
+        data,
+      });
+
+      if (dto.dates !== undefined) {
+        const existing = await tx.tourDate.findMany({
+          where: { tourId, deletedAt: null, isActive: true },
+          select: { id: true, startDate: true, endDate: true },
+        });
+        const payloadKeys = new Set(
+          nestedDates.map(
+            (d) =>
+              `${this.toDayKey(new Date(d.startDate))}|${this.toDayKey(new Date(d.endDate))}`,
+          ),
+        );
+        const existingKeys = new Set(
+          existing.map(
+            (d) => `${this.toDayKey(d.startDate)}|${this.toDayKey(d.endDate)}`,
+          ),
+        );
+
+        // Soft-delete removed dates (no orphan rows); block if active bookings exist.
+        for (const d of existing) {
+          const key = `${this.toDayKey(d.startDate)}|${this.toDayKey(d.endDate)}`;
+          if (payloadKeys.has(key)) continue;
+
+          const activeBooking = await tx.reservation.findFirst({
+            where: {
+              tourDateId: d.id,
+              deletedAt: null,
+              status: { not: 'CANCELLED' },
+            },
+            select: { id: true },
+          });
+          if (activeBooking) {
+            throw new BusinessException(
+              'TOUR_DATE_HAS_BOOKINGS',
+              'Rezervasyonu olan tarih formdan kaldırılamaz; önce ilgili seferi iptal edin',
+            );
+          }
+
+          await tx.tourDateAgeRange.updateMany({
+            where: { tourDateId: d.id, deletedAt: null },
+            data: { deletedAt: new Date() },
+          });
+          await tx.tourDate.update({
+            where: { id: d.id },
+            data: { deletedAt: new Date(), isActive: false },
+          });
+          existingKeys.delete(key);
+        }
+
+        for (const date of nestedDates) {
+          const startDate = new Date(date.startDate);
+          const endDate = new Date(date.endDate);
+          const key = `${this.toDayKey(startDate)}|${this.toDayKey(endDate)}`;
+          if (existingKeys.has(key)) continue;
+
+          const createdDate = await tx.tourDate.create({
+            data: {
+              tourId,
+              startDate,
+              endDate,
+              capacity: date.capacity,
+              remainingCapacity: date.capacity,
+              priceOverride:
+                date.priceOverride !== undefined
+                  ? new Prisma.Decimal(date.priceOverride)
+                  : null,
+            },
+          });
+          existingKeys.add(key);
+
+          for (const range of date.ageRanges ?? []) {
+            await tx.tourDateAgeRange.create({
+              data: {
+                tourDateId: createdDate.id,
+                minAge: range.minAge,
+                maxAge: range.maxAge ?? null,
+                pricingType: range.pricingType,
+                value: new Prisma.Decimal(range.value),
+              },
+            });
+          }
+        }
+      }
+
+      if (dto.replacePickupPoints === true) {
+        await tx.tourPickupPoint.updateMany({
+          where: { tourId, deletedAt: null },
+          data: { deletedAt: new Date(), isActive: false },
+        });
+        for (const [index, point] of (dto.pickupPoints ?? []).entries()) {
+          await tx.tourPickupPoint.create({
+            data: {
+              tourId,
+              city: sanitizeTourPlainText(point.city, 100),
+              location: sanitizeTourPlainText(point.location, 200),
+              time: sanitizeTourPlainText(point.time, 20),
+              description: point.description
+                ? sanitizeTourPlainText(point.description, 500)
+                : undefined,
+              latitude: point.latitude ?? null,
+              longitude: point.longitude ?? null,
+              order: point.order ?? index,
+            },
+          });
+        }
+      }
+
+      if (dto.accommodation) {
+        const acc = {
+          name: sanitizeTourPlainText(dto.accommodation.name, 200),
+          image: dto.accommodation.image,
+          location: sanitizeTourPlainText(dto.accommodation.location, 120),
+          type: sanitizeTourPlainText(dto.accommodation.type, 80),
+          rating: 0,
+          features: [] as Prisma.InputJsonValue,
+          deletedAt: null as Date | null,
+        };
+        await tx.tourAccommodation.upsert({
+          where: { tourId },
+          create: { tourId, ...acc },
+          update: acc,
+        });
+      }
+
+      return row;
     });
 
     await this.cache.del(`catalog:tour:${tourId}`);
     await this.cache.invalidatePattern('catalog:tours:search:*');
+    await this.cache.del(`partner:dashboard:${tour.agencyId}`);
 
     return {
       success: true,

@@ -24,7 +24,7 @@ export default function TourDateSeatsPage() {
           Tur detayına dön
         </Link>
       </div>
-      <BusSeatMapPanel tourDateId={tourDateId} />
+      <BusSeatMapPanel tourDateId={tourDateId} tourId={tourId} />
     </div>
   );
 }

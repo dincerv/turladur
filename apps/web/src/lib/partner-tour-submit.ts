@@ -14,15 +14,8 @@ import {
 } from '@/lib/partner-tour-helpers';
 import {
   createPartnerTour,
-  createTourDate,
-  createTourDateAgeRange,
-  createTourPickupPoint,
-  deleteTourPickupPoint,
   getPresignedUpload,
-  listPartnerTourDates,
-  listTourPickupPoints,
   updatePartnerTour,
-  upsertTourAccommodation,
   type CreatePartnerTourBody,
 } from '@/services/partner-admin';
 
@@ -239,6 +232,8 @@ export async function persistPartnerTourUpdate(
 
   const body = buildCreateBody(payload, coverUrl, galleryUrls);
 
+  // Single PATCH — server runs Prisma $transaction for tour + dates/pickups/acc.
+  // agencyId never sent; ownership enforced via JWT + findOwnedTour.
   await updatePartnerTour(
     tourId,
     {
@@ -253,55 +248,13 @@ export async function persistPartnerTourUpdate(
       coverUrl: body.coverUrl,
       galleryUrls: body.galleryUrls?.length ? body.galleryUrls : undefined,
       extras: body.extras,
+      replacePickupPoints: true,
+      dates: body.dates,
+      pickupPoints: body.pickupPoints,
+      accommodation: body.accommodation,
     },
     token,
   );
-
-  // Dates: only create NEW windows (avoid duplicating booked dates).
-  const existingDates = await listPartnerTourDates(tourId, token).catch(
-    () => [],
-  );
-  const existingRangeKeys = new Set(
-    existingDates.map(
-      (date) =>
-        `${String(date.startDate).slice(0, 10)}|${String(date.endDate).slice(0, 10)}`,
-    ),
-  );
-
-  for (const date of body.dates ?? []) {
-    const rangeKey = `${date.startDate}|${date.endDate}`;
-    if (existingRangeKeys.has(rangeKey)) continue;
-
-    const created = await createTourDate(
-      tourId,
-      {
-        startDate: date.startDate,
-        endDate: date.endDate,
-        capacity: date.capacity,
-        priceOverride: date.priceOverride,
-      },
-      token,
-    );
-    existingRangeKeys.add(rangeKey);
-
-    for (const range of date.ageRanges ?? []) {
-      await createTourDateAgeRange(tourId, created.id, range, token);
-    }
-  }
-
-  const existingPickups = await listTourPickupPoints(tourId, token).catch(
-    () => [],
-  );
-  for (const existing of existingPickups) {
-    await deleteTourPickupPoint(tourId, existing.id, token);
-  }
-  for (const point of body.pickupPoints ?? []) {
-    await createTourPickupPoint(tourId, point, token);
-  }
-
-  if (body.accommodation) {
-    await upsertTourAccommodation(tourId, body.accommodation, token);
-  }
 }
 
 export function isTourSubmitPayload(

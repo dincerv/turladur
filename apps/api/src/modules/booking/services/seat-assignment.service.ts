@@ -5,12 +5,26 @@ import {
 } from '@nestjs/common';
 import { isPlatformAdminRole } from '../../../core/auth/utils/role-access';
 
+import { Prisma } from '../../../generated/prisma';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { BusinessException } from '../../../shared/exceptions/business.exception';
 import {
   type BusLayoutJson,
   sellableSeatCodes,
 } from '../../../shared/utils/bus-seat-layout';
+import {
+  adjacentSellableCodes,
+  cellUiStatus,
+  gendersConflict,
+  inferGenderFromIdentity,
+  SeatGender,
+  SeatUiStatus,
+} from '../utils/seat-gender';
+
+type ManualAssignmentInput = {
+  seatCode: string;
+  reservationGuestId: string;
+};
 
 @Injectable()
 export class SeatAssignmentService {
@@ -20,8 +34,11 @@ export class SeatAssignmentService {
     tourDateId: string,
     agencyId: string | undefined,
     role: string,
+    expectedTourId?: string,
   ) {
     const tourDate = await this.findOwnedTourDate(tourDateId, agencyId, role);
+    this.assertTourIdMatch(tourDate.tourId, expectedTourId);
+
     if (!tourDate.busSeatLayoutId || !tourDate.busSeatLayout) {
       throw new BusinessException(
         'LAYOUT_REQUIRED',
@@ -35,7 +52,11 @@ export class SeatAssignmentService {
       where: { tourDateId, deletedAt: null },
       include: {
         reservationGuest: {
-          select: { id: true, fullName: true, identityNumber: true },
+          select: {
+            id: true,
+            fullName: true,
+            identityNumber: true,
+          },
         },
         reservation: {
           select: { id: true, bookingNumber: true, status: true },
@@ -50,8 +71,14 @@ export class SeatAssignmentService {
 
     const cells = layoutJson.cells.map((cell) => {
       const assignment = byCode.get(cell.code);
+      const gender = assignment
+        ? inferGenderFromIdentity(assignment.reservationGuest.identityNumber)
+        : SeatGender.UNKNOWN;
+      const status = cellUiStatus(cell, Boolean(assignment));
       return {
         ...cell,
+        status,
+        gender: assignment ? gender : null,
         occupancy: assignment
           ? {
               assignmentId: assignment.id,
@@ -59,6 +86,7 @@ export class SeatAssignmentService {
               fullName: assignment.reservationGuest.fullName,
               bookingNumber: assignment.reservation.bookingNumber,
               source: assignment.source,
+              gender,
             }
           : null,
       };
@@ -71,6 +99,8 @@ export class SeatAssignmentService {
       success: true,
       data: {
         tourDateId,
+        tourId: tourDate.tourId,
+        layoutVersion: tourDate.version,
         layout: {
           id: tourDate.busSeatLayout.id,
           kind: tourDate.busSeatLayout.kind,
@@ -79,43 +109,179 @@ export class SeatAssignmentService {
           legend: layoutJson.legend,
           cells,
         },
-        assignments,
-        unassignedGuests,
+        assignments: assignments.map((row) => ({
+          id: row.id,
+          seatCode: row.seatCode,
+          source: row.source,
+          guestId: row.reservationGuestId,
+          fullName: row.reservationGuest.fullName,
+          bookingNumber: row.reservation.bookingNumber,
+          gender: inferGenderFromIdentity(row.reservationGuest.identityNumber),
+        })),
+        unassignedGuests: unassignedGuests.map((guest) => ({
+          ...guest,
+          gender: inferGenderFromIdentity(guest.identityNumber),
+        })),
       },
       error: null,
     };
   }
 
+  /**
+   * MANUAL assign — Prisma $transaction + partial unique + TourDate.version OCC.
+   * SOLD koltuğa yazım kesinlikle engellenir (P2002 → SEAT_OCCUPIED).
+   */
   async assignManual(
     tourDateId: string,
-    dto: { seatCode: string; reservationGuestId: string },
+    dto: ManualAssignmentInput,
     agencyId: string | undefined,
     role: string | null,
+    expectedTourId?: string,
   ) {
-    const tourDate = await this.findOwnedTourDate(tourDateId, agencyId, role);
-    this.assertLayout(tourDate);
-    const seatCode = dto.seatCode.trim();
-    this.assertSellableSeat(tourDate.busSeatLayout!.layoutJson, seatCode);
-
-    const guest = await this.loadConfirmedGuest(
-      dto.reservationGuestId,
+    const result = await this.assignManualBulk(
       tourDateId,
+      [dto],
+      agencyId,
+      role,
+      expectedTourId,
     );
-    await this.assertSeatFree(tourDateId, seatCode);
-    await this.assertGuestFree(guest.id);
+    return {
+      success: true,
+      data: result.data.assignments[0] ?? null,
+      error: null,
+    };
+  }
 
-    const row = await this.prisma.seatAssignment.create({
-      data: {
-        tourDateId,
-        seatCode,
-        reservationGuestId: guest.id,
-        reservationId: guest.reservationId,
-        assignedByAgencyId: agencyId ?? null,
-        source: 'MANUAL',
-      },
-    });
+  async assignManualBulk(
+    tourDateId: string,
+    items: ManualAssignmentInput[],
+    agencyId: string | undefined,
+    role: string | null,
+    expectedTourId?: string,
+  ) {
+    if (!items.length) {
+      throw new BusinessException('EMPTY_ASSIGNMENTS', 'Atama listesi boş');
+    }
 
-    return { success: true, data: row, error: null };
+    const tourDate = await this.findOwnedTourDate(tourDateId, agencyId, role);
+    this.assertTourIdMatch(tourDate.tourId, expectedTourId);
+    this.assertLayout(tourDate);
+    const layoutJson = tourDate.busSeatLayout!
+      .layoutJson as unknown as BusLayoutJson;
+
+    const seatCodes = new Set<string>();
+    const guestIds = new Set<string>();
+    for (const item of items) {
+      const seatCode = item.seatCode.trim();
+      const guestId = item.reservationGuestId.trim();
+      if (seatCodes.has(seatCode)) {
+        throw new BusinessException(
+          'DUPLICATE_SEAT_IN_PAYLOAD',
+          `Koltuk ${seatCode} payload içinde tekrar ediyor`,
+        );
+      }
+      if (guestIds.has(guestId)) {
+        throw new BusinessException(
+          'DUPLICATE_GUEST_IN_PAYLOAD',
+          'Aynı misafir birden fazla koltuğa atanamaz',
+        );
+      }
+      seatCodes.add(seatCode);
+      guestIds.add(guestId);
+      this.assertSellableSeat(layoutJson, seatCode);
+    }
+
+    try {
+      const created = await this.prisma.$transaction(
+        async (tx) => {
+          // Optimistic concurrency: TourDate.version bump
+          const locked = await tx.tourDate.updateMany({
+            where: {
+              id: tourDateId,
+              deletedAt: null,
+              version: tourDate.version,
+            },
+            data: { version: { increment: 1 } },
+          });
+          if (locked.count !== 1) {
+            throw new BusinessException(
+              'SEAT_MAP_VERSION_CONFLICT',
+              'Koltuk haritası başka bir işlem tarafından güncellendi; yenileyip tekrar deneyin',
+            );
+          }
+
+          const rows = [];
+          for (const item of items) {
+            const seatCode = item.seatCode.trim();
+            const guest = await this.loadConfirmedGuestTx(
+              tx,
+              item.reservationGuestId.trim(),
+              tourDateId,
+            );
+
+            const seatTaken = await tx.seatAssignment.findFirst({
+              where: { tourDateId, seatCode, deletedAt: null },
+              select: { id: true },
+            });
+            if (seatTaken) {
+              throw new BusinessException(
+                'SEAT_OCCUPIED',
+                `Koltuk ${seatCode} dolu (SOLD) — üzerine yazılamaz`,
+              );
+            }
+
+            const guestTaken = await tx.seatAssignment.findFirst({
+              where: {
+                reservationGuestId: guest.id,
+                deletedAt: null,
+              },
+              select: { id: true },
+            });
+            if (guestTaken) {
+              throw new BusinessException(
+                'GUEST_ALREADY_SEATED',
+                'Misafirin zaten koltuğu var',
+              );
+            }
+
+            await this.assertGenderAdjacencyTx(
+              tx,
+              tourDateId,
+              layoutJson,
+              seatCode,
+              inferGenderFromIdentity(guest.identityNumber),
+            );
+
+            const row = await tx.seatAssignment.create({
+              data: {
+                tourDateId,
+                seatCode,
+                reservationGuestId: guest.id,
+                reservationId: guest.reservationId,
+                assignedByAgencyId: agencyId ?? null,
+                source: 'MANUAL',
+              },
+            });
+            rows.push(row);
+          }
+          return rows;
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+
+      return {
+        success: true,
+        data: {
+          assignedCount: created.length,
+          layoutVersion: tourDate.version + 1,
+          assignments: created,
+        },
+        error: null,
+      };
+    } catch (err) {
+      this.rethrowUniqueConflict(err);
+      throw err;
+    }
   }
 
   async unassign(
@@ -128,7 +294,9 @@ export class SeatAssignmentService {
       where: { id: assignmentId, deletedAt: null },
       include: {
         tourDate: {
-          include: { tour: { select: { agencyId: true, deletedAt: true } } },
+          include: {
+            tour: { select: { id: true, agencyId: true, deletedAt: true } },
+          },
         },
       },
     });
@@ -147,83 +315,191 @@ export class SeatAssignmentService {
       assignment.tourDate.tour.deletedAt,
     );
 
-    const updated = await this.prisma.seatAssignment.update({
-      where: { id: assignmentId },
-      data: {
-        deletedAt: new Date(),
-        ...(deletedBy ? { deletedBy } : {}),
-      },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.tourDate.update({
+        where: { id: assignment.tourDateId },
+        data: { version: { increment: 1 } },
+      });
+      return tx.seatAssignment.update({
+        where: { id: assignmentId },
+        data: {
+          deletedAt: new Date(),
+          ...(deletedBy ? { deletedBy } : {}),
+        },
+      });
     });
 
     return { success: true, data: updated, error: null };
   }
 
   /**
-   * Onaylı misafirleri alış sırasıyla (reservation.createdAt, guest.sortOrder)
-   * boş koltuklara 1…N yerleştir.
+   * AUTO_FIFO — tek transaction + createMany; version OCC; cinsiyet uyumlu yerleştirme.
    */
   async autoFifo(
     tourDateId: string,
     agencyId: string | undefined,
     role: string | null,
+    expectedTourId?: string,
   ) {
     const tourDate = await this.findOwnedTourDate(tourDateId, agencyId, role);
+    this.assertTourIdMatch(tourDate.tourId, expectedTourId);
     this.assertLayout(tourDate);
     await this.ensureReservationGuestsMaterialized(tourDateId);
 
-    const codes = sellableSeatCodes(
-      tourDate.busSeatLayout!.layoutJson as unknown as BusLayoutJson,
-    );
-    const occupied = await this.prisma.seatAssignment.findMany({
-      where: { tourDateId, deletedAt: null },
-      select: { seatCode: true, reservationGuestId: true },
-    });
-    const takenSeats = new Set(occupied.map((row) => row.seatCode));
-    const seatedGuests = new Set(occupied.map((row) => row.reservationGuestId));
-    const freeSeats = codes.filter((code) => !takenSeats.has(code));
+    const layoutJson = tourDate.busSeatLayout!
+      .layoutJson as unknown as BusLayoutJson;
+    const codes = sellableSeatCodes(layoutJson);
 
-    const guests = await this.listUnassignedGuestsInternal(tourDateId);
-    const queue = guests.filter((guest) => !seatedGuests.has(guest.id));
+    try {
+      const result = await this.prisma.$transaction(
+        async (tx) => {
+          const locked = await tx.tourDate.updateMany({
+            where: {
+              id: tourDateId,
+              deletedAt: null,
+              version: tourDate.version,
+            },
+            data: { version: { increment: 1 } },
+          });
+          if (locked.count !== 1) {
+            throw new BusinessException(
+              'SEAT_MAP_VERSION_CONFLICT',
+              'Koltuk haritası başka bir işlem tarafından güncellendi; yenileyip tekrar deneyin',
+            );
+          }
 
-    const created: Awaited<
-      ReturnType<typeof this.prisma.seatAssignment.create>
-    >[] = [];
-    const limit = Math.min(freeSeats.length, queue.length);
+          const occupied = await tx.seatAssignment.findMany({
+            where: { tourDateId, deletedAt: null },
+            select: {
+              seatCode: true,
+              reservationGuestId: true,
+              reservationGuest: { select: { identityNumber: true } },
+            },
+          });
+          const takenSeats = new Set(occupied.map((row) => row.seatCode));
+          const seatedGuests = new Set(
+            occupied.map((row) => row.reservationGuestId),
+          );
+          const genderBySeat = new Map<string, SeatGender>();
+          for (const row of occupied) {
+            genderBySeat.set(
+              row.seatCode,
+              inferGenderFromIdentity(row.reservationGuest.identityNumber),
+            );
+          }
 
-    await this.prisma.$transaction(async (tx) => {
-      for (let index = 0; index < limit; index++) {
-        const seatCode = freeSeats[index];
-        const guest = queue[index];
-        const row = await tx.seatAssignment.create({
-          data: {
-            tourDateId,
-            seatCode,
-            reservationGuestId: guest.id,
-            reservationId: guest.reservationId,
-            assignedByAgencyId: agencyId ?? null,
-            source: 'AUTO_FIFO',
-          },
-        });
-        created.push(row);
-      }
-    });
+          const guests = await this.listUnassignedGuestsTx(tx, tourDateId);
+          const queue = guests.filter((guest) => !seatedGuests.has(guest.id));
 
-    return {
-      success: true,
-      data: {
-        assignedCount: created.length,
-        remainingUnassigned: queue.length - created.length,
-        remainingFreeSeats: freeSeats.length - created.length,
-        assignments: created,
-      },
-      error: null,
-    };
+          const freeSeats = codes.filter((code) => !takenSeats.has(code));
+          const rows: Array<{
+            tourDateId: string;
+            seatCode: string;
+            reservationGuestId: string;
+            reservationId: string;
+            assignedByAgencyId: string | null;
+            source: string;
+          }> = [];
+
+          const remainingSeats = [...freeSeats];
+          for (const guest of queue) {
+            const gender = inferGenderFromIdentity(guest.identityNumber);
+            const seatIndex = remainingSeats.findIndex((seatCode) => {
+              const neighbors = adjacentSellableCodes(layoutJson, seatCode);
+              return !neighbors.some((neighbor) => {
+                const neighborGender = genderBySeat.get(neighbor);
+                return (
+                  neighborGender != null &&
+                  gendersConflict(gender, neighborGender)
+                );
+              });
+            });
+            if (seatIndex < 0) continue;
+            const [seatCode] = remainingSeats.splice(seatIndex, 1);
+            genderBySeat.set(seatCode, gender);
+            rows.push({
+              tourDateId,
+              seatCode,
+              reservationGuestId: guest.id,
+              reservationId: guest.reservationId,
+              assignedByAgencyId: agencyId ?? null,
+              source: 'AUTO_FIFO',
+            });
+          }
+
+          if (rows.length > 0) {
+            await tx.seatAssignment.createMany({ data: rows });
+          }
+
+          const created =
+            rows.length > 0
+              ? await tx.seatAssignment.findMany({
+                  where: {
+                    tourDateId,
+                    deletedAt: null,
+                    reservationGuestId: {
+                      in: rows.map((row) => row.reservationGuestId),
+                    },
+                    source: 'AUTO_FIFO',
+                  },
+                })
+              : [];
+
+          return {
+            assignedCount: rows.length,
+            remainingUnassigned: queue.length - rows.length,
+            remainingFreeSeats: freeSeats.length - rows.length,
+            assignments: created,
+            layoutVersion: tourDate.version + 1,
+          };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+
+      return { success: true, data: result, error: null };
+    } catch (err) {
+      this.rethrowUniqueConflict(err);
+      throw err;
+    }
   }
 
-  /**
-   * Legacy rezervasyonlarda guests JSON var, ReservationGuest satırı yok.
-   * SeatAssignment FK için eksik satırları bir kez materialize eder.
-   */
+  private async assertGenderAdjacencyTx(
+    tx: Prisma.TransactionClient,
+    tourDateId: string,
+    layoutJson: BusLayoutJson,
+    seatCode: string,
+    gender: SeatGender,
+  ) {
+    if (gender === SeatGender.UNKNOWN) return;
+
+    const neighbors = adjacentSellableCodes(layoutJson, seatCode);
+    if (neighbors.length === 0) return;
+
+    const neighborRows = await tx.seatAssignment.findMany({
+      where: {
+        tourDateId,
+        seatCode: { in: neighbors },
+        deletedAt: null,
+      },
+      select: {
+        seatCode: true,
+        reservationGuest: { select: { identityNumber: true, fullName: true } },
+      },
+    });
+
+    for (const row of neighborRows) {
+      const neighborGender = inferGenderFromIdentity(
+        row.reservationGuest.identityNumber,
+      );
+      if (gendersConflict(gender, neighborGender)) {
+        throw new BusinessException(
+          'GENDER_ADJACENCY_VIOLATION',
+          `Koltuk ${seatCode}: yanındaki ${row.seatCode} farklı cinsiyet (${row.reservationGuest.fullName}) — atama yapılamaz`,
+        );
+      }
+    }
+  }
+
   private async ensureReservationGuestsMaterialized(tourDateId: string) {
     const reservations = await this.prisma.reservation.findMany({
       where: {
@@ -288,7 +564,14 @@ export class SeatAssignmentService {
   }
 
   private async listUnassignedGuestsInternal(tourDateId: string) {
-    const reservations = await this.prisma.reservation.findMany({
+    return this.listUnassignedGuestsTx(this.prisma, tourDateId);
+  }
+
+  private async listUnassignedGuestsTx(
+    db: Prisma.TransactionClient | PrismaService,
+    tourDateId: string,
+  ) {
+    const reservations = await db.reservation.findMany({
       where: {
         tourDateId,
         deletedAt: null,
@@ -336,8 +619,12 @@ export class SeatAssignmentService {
     return guests;
   }
 
-  private async loadConfirmedGuest(guestId: string, tourDateId: string) {
-    const guest = await this.prisma.reservationGuest.findFirst({
+  private async loadConfirmedGuestTx(
+    tx: Prisma.TransactionClient,
+    guestId: string,
+    tourDateId: string,
+  ) {
+    const guest = await tx.reservationGuest.findFirst({
       where: { id: guestId, deletedAt: null },
       include: {
         reservation: {
@@ -397,23 +684,23 @@ export class SeatAssignmentService {
     }
   }
 
-  private async assertSeatFree(tourDateId: string, seatCode: string) {
-    const existing = await this.prisma.seatAssignment.findFirst({
-      where: { tourDateId, seatCode, deletedAt: null },
-    });
-    if (existing) {
-      throw new BusinessException('SEAT_OCCUPIED', 'Koltuk dolu');
+  private assertTourIdMatch(actualTourId: string, expectedTourId?: string) {
+    if (expectedTourId && expectedTourId !== actualTourId) {
+      throw new ForbiddenException({
+        code: 'TOUR_DATE_MISMATCH',
+        message: 'Tur tarihi bu tura ait değil',
+      });
     }
   }
 
-  private async assertGuestFree(reservationGuestId: string) {
-    const existing = await this.prisma.seatAssignment.findFirst({
-      where: { reservationGuestId, deletedAt: null },
-    });
-    if (existing) {
+  private rethrowUniqueConflict(err: unknown): void {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === 'P2002'
+    ) {
       throw new BusinessException(
-        'GUEST_ALREADY_SEATED',
-        'Misafirin zaten koltuğu var',
+        'SEAT_OCCUPIED',
+        'Koltuk dolu veya misafir zaten oturtulmuş (eşzamanlı çakışma)',
       );
     }
   }
@@ -426,7 +713,7 @@ export class SeatAssignmentService {
     const tourDate = await this.prisma.tourDate.findFirst({
       where: { id: tourDateId, deletedAt: null },
       include: {
-        tour: { select: { agencyId: true, deletedAt: true } },
+        tour: { select: { id: true, agencyId: true, deletedAt: true } },
         busSeatLayout: true,
       },
     });
@@ -445,7 +732,7 @@ export class SeatAssignmentService {
       tourDate.tour.deletedAt,
     );
 
-    return tourDate;
+    return { ...tourDate, tourId: tourDate.tour.id };
   }
 
   private assertTourOwnership(
@@ -469,3 +756,5 @@ export class SeatAssignmentService {
     }
   }
 }
+
+export { SeatGender, SeatUiStatus };

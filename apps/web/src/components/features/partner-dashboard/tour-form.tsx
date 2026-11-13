@@ -26,7 +26,7 @@ import type {
   TourFormProps,
 } from './tour-form/tour-form.types';
 import {
-  tourBasicStepSchema,
+  buildTourBasicStepSchema,
   tourDetailsStepSchema,
   zodErrorsToRecord,
 } from './tour-form/tour-form.schemas';
@@ -518,7 +518,7 @@ export function TourForm({
   };
 
   const validateBasicForm = async (): Promise<boolean> => {
-    const parsed = tourBasicStepSchema.safeParse({
+    const parsed = buildTourBasicStepSchema(isUpdateMode).safeParse({
       stayKind: formData.stayKind || undefined,
       destinationScope: formData.destinationScope || undefined,
       title: formData.title,

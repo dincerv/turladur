@@ -691,6 +691,116 @@ export class PartnerService {
   }
 
   /**
+   * Single round-trip bootstrap for /acente/tours/:id/edit.
+   * Ownership enforced via agencyId filter.
+   */
+  async getTourEditBundle(agencyId: string | undefined, tourId: string) {
+    this.requireAgencyId(agencyId);
+
+    const detail = await this.getTourDetail(agencyId, tourId);
+    const datesResult = await this.listOwnedTourDates(agencyId, tourId);
+    const dates = datesResult.data;
+
+    const dateIds = dates.map((d) => d.id);
+    const ageRanges = dateIds.length
+      ? await this.prisma.tourDateAgeRange.findMany({
+          where: { tourDateId: { in: dateIds }, deletedAt: null },
+          select: {
+            id: true,
+            tourDateId: true,
+            minAge: true,
+            maxAge: true,
+            pricingType: true,
+            value: true,
+          },
+          orderBy: { minAge: 'asc' },
+        })
+      : [];
+
+    const pickups = await this.prisma.tourPickupPoint.findMany({
+      where: { tourId, deletedAt: null, isActive: true },
+      select: {
+        id: true,
+        tourId: true,
+        city: true,
+        location: true,
+        time: true,
+        description: true,
+        latitude: true,
+        longitude: true,
+        order: true,
+        isActive: true,
+      },
+      orderBy: { order: 'asc' },
+    });
+
+    const accommodation = await this.prisma.tourAccommodation.findFirst({
+      where: { tourId, deletedAt: null },
+      select: {
+        id: true,
+        tourId: true,
+        name: true,
+        image: true,
+        location: true,
+        type: true,
+        rating: true,
+        features: true,
+        description: true,
+      },
+    });
+
+    const ageByDate = new Map<string, typeof ageRanges>();
+    for (const row of ageRanges) {
+      const list = ageByDate.get(row.tourDateId) ?? [];
+      list.push(row);
+      ageByDate.set(row.tourDateId, list);
+    }
+
+    return {
+      success: true,
+      data: {
+        tour: detail.data,
+        dates: dates.map((d) => ({
+          ...d,
+          ageRanges: (ageByDate.get(d.id) ?? []).map((r) => ({
+            id: r.id,
+            minAge: r.minAge,
+            maxAge: r.maxAge,
+            pricingType: r.pricingType,
+            value: r.value.toString(),
+          })),
+        })),
+        pickupPoints: pickups.map((p) => ({
+          id: p.id,
+          tourId: p.tourId,
+          city: p.city,
+          location: p.location,
+          time: p.time,
+          description: p.description,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          order: p.order,
+          isActive: p.isActive,
+        })),
+        accommodation: accommodation
+          ? {
+              id: accommodation.id,
+              tourId: accommodation.tourId,
+              name: accommodation.name,
+              image: this.storage.resolvePublicUrl(accommodation.image),
+              location: accommodation.location,
+              type: accommodation.type,
+              rating: accommodation.rating,
+              features: accommodation.features,
+              description: accommodation.description,
+            }
+          : null,
+      },
+      error: null,
+    };
+  }
+
+  /**
    * Owned departure dates for agency panel (all tour statuses).
    * Public `/catalog/tours/:id/dates` only returns PUBLISHED tours.
    */
@@ -854,32 +964,102 @@ export class PartnerService {
     };
   }
 
-  async listExperiences(agencyId: string | undefined) {
+  async listExperiences(
+    agencyId: string | undefined,
+    options?: {
+      q?: string;
+      status?: 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED';
+      category?: string;
+      page?: number;
+      pageSize?: number;
+    },
+  ) {
     this.requireAgencyId(agencyId);
 
-    const experiences = await this.prisma.experience.findMany({
-      where: { agencyId, deletedAt: null },
-      orderBy: { updatedAt: 'desc' },
-    });
+    const page = Math.max(1, options?.page ?? 1);
+    const pageSize = Math.min(50, Math.max(1, options?.pageSize ?? 12));
+    const rawQ = (options?.q ?? '').trim().slice(0, 80);
+    const q = rawQ.replace(/[\u0000-\u001F\u007F]/g, '');
+    const category = (options?.category ?? '')
+      .trim()
+      .slice(0, 120)
+      .replace(/[\u0000-\u001F\u007F]/g, '');
+
+    const where: Prisma.ExperienceWhereInput = {
+      agencyId,
+      deletedAt: null,
+      ...(options?.status ? { status: options.status } : {}),
+      ...(category
+        ? { category: { contains: category, mode: 'insensitive' } }
+        : {}),
+      ...(q
+        ? {
+            OR: [
+              { title: { contains: q, mode: 'insensitive' } },
+              { slug: { contains: q, mode: 'insensitive' } },
+              { category: { contains: q, mode: 'insensitive' } },
+              { location: { contains: q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+
+    const [total, experiences] = await Promise.all([
+      this.prisma.experience.count({ where }),
+      this.prisma.experience.findMany({
+        where,
+        orderBy: { updatedAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          category: true,
+          location: true,
+          price: true,
+          currency: true,
+          status: true,
+          imageUrl: true,
+          duration: true,
+          ageRestriction: true,
+          averageRating: true,
+          reviewCount: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
+
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
     return {
       success: true,
-      data: experiences.map((experience) => ({
-        id: experience.id,
-        title: experience.title,
-        slug: experience.slug,
-        category: experience.category,
-        location: experience.location,
-        price: experience.price.toString(),
-        currency: experience.currency,
-        status: experience.status,
-        imageUrl: this.storage.resolvePublicUrl(experience.imageUrl),
-        duration: experience.duration,
-        averageRating: experience.averageRating.toString(),
-        reviewCount: experience.reviewCount,
-        createdAt: experience.createdAt.toISOString(),
-        updatedAt: experience.updatedAt.toISOString(),
-      })),
+      data: {
+        items: experiences.map((experience) => ({
+          id: experience.id,
+          title: experience.title,
+          slug: experience.slug,
+          category: experience.category,
+          location: experience.location,
+          price: experience.price.toString(),
+          currency: experience.currency,
+          status: experience.status,
+          imageUrl: this.storage.resolvePublicUrl(experience.imageUrl),
+          duration: experience.duration,
+          ageRestriction: experience.ageRestriction,
+          averageRating: experience.averageRating.toString(),
+          reviewCount: experience.reviewCount,
+          createdAt: experience.createdAt.toISOString(),
+          updatedAt: experience.updatedAt.toISOString(),
+        })),
+        meta: {
+          page,
+          pageSize,
+          total,
+          totalPages,
+        },
+      },
       error: null,
     };
   }

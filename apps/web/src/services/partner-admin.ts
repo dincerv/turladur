@@ -442,21 +442,27 @@ export async function createPartnerTour(
   );
 }
 
+export type UpdatePartnerTourBody = {
+  coverUrl?: string;
+  title?: string;
+  description?: string;
+  price?: number;
+  category?: string;
+  durationDays?: number;
+  stayKind?: 'DAY_TRIP' | 'OVERNIGHT';
+  destinationScope?: 'DOMESTIC' | 'INTERNATIONAL';
+  departureCities?: string[];
+  galleryUrls?: string[];
+  extras?: Record<string, unknown>;
+  replacePickupPoints?: boolean;
+  dates?: CreatePartnerTourBody['dates'];
+  pickupPoints?: CreatePartnerTourBody['pickupPoints'];
+  accommodation?: CreatePartnerTourBody['accommodation'];
+};
+
 export async function updatePartnerTour(
   id: string,
-  body: {
-    coverUrl?: string;
-    title?: string;
-    description?: string;
-    price?: number;
-    category?: string;
-    durationDays?: number;
-    stayKind?: 'DAY_TRIP' | 'OVERNIGHT';
-    destinationScope?: 'DOMESTIC' | 'INTERNATIONAL';
-    departureCities?: string[];
-    galleryUrls?: string[];
-    extras?: Record<string, unknown>;
-  },
+  body: UpdatePartnerTourBody,
   token: string,
 ) {
   return apiRequest(`/catalog/tours/${id}`, {
@@ -464,6 +470,51 @@ export async function updatePartnerTour(
     body,
     token,
   });
+}
+
+export type PartnerTourEditBundle = {
+  tour: PartnerTourDetail;
+  dates: Array<
+    PartnerTourDateRow & {
+      ageRanges: Array<{
+        id: string;
+        minAge: number;
+        maxAge: number | null;
+        pricingType: string;
+        value: string;
+      }>;
+    }
+  >;
+  pickupPoints: Array<{
+    id: string;
+    tourId: string;
+    city: string;
+    location: string;
+    time: string;
+    description: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    order: number;
+    isActive: boolean;
+  }>;
+  accommodation: {
+    id: string;
+    tourId: string;
+    name: string;
+    image: string;
+    location: string;
+    type: string;
+    rating: number;
+    features: unknown;
+    description: string | null;
+  } | null;
+};
+
+export async function getPartnerTourEditBundle(tourId: string, token: string) {
+  return apiRequest<PartnerTourEditBundle>(
+    `/partner/tours/${tourId}/edit-bundle`,
+    { token, cache: 'no-store' },
+  );
 }
 
 export type TourCancelReason = 'OPERATIONAL' | 'LOW_PARTICIPANTS' | 'WEATHER';
@@ -557,8 +608,31 @@ export type PartnerExperience = {
   status: string;
   imageUrl?: string | null;
   duration?: string;
+  ageRestriction?: string | null;
   averageRating: string;
   reviewCount: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type PartnerExperienceListMeta = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export type PartnerExperienceListResult = {
+  items: PartnerExperience[];
+  meta: PartnerExperienceListMeta;
+};
+
+export type PartnerExperienceListParams = {
+  q?: string;
+  status?: 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED';
+  category?: string;
+  page?: number;
+  pageSize?: number;
 };
 
 export type CreateExperienceBody = {
@@ -573,10 +647,72 @@ export type CreateExperienceBody = {
   ageRestriction?: string;
   imageUrl?: string;
   meetingPoint?: string;
+  gallery?: string[];
+  included?: string[];
+  notIncluded?: string[];
+  highlights?: string[];
+  dateStart?: string;
+  dateEnd?: string;
+  dateSeats?: number;
 };
 
-export async function listPartnerExperiences(token: string) {
-  return apiRequest<PartnerExperience[]>('/partner/experiences', { token });
+function buildExperienceListQuery(
+  params?: PartnerExperienceListParams,
+): string {
+  if (!params) return '';
+  const sp = new URLSearchParams();
+  if (params.q?.trim()) sp.set('q', params.q.trim().slice(0, 80));
+  if (params.status) sp.set('status', params.status);
+  if (params.category?.trim())
+    sp.set('category', params.category.trim().slice(0, 120));
+  if (params.page && params.page > 1) sp.set('page', String(params.page));
+  if (params.pageSize) sp.set('pageSize', String(params.pageSize));
+  const qs = sp.toString();
+  return qs ? `?${qs}` : '';
+}
+
+export function normalizePartnerExperienceList(
+  data: PartnerExperience[] | PartnerExperienceListResult,
+  fallbackPage = 1,
+  fallbackPageSize = 12,
+): PartnerExperienceListResult {
+  if (Array.isArray(data)) {
+    return {
+      items: data,
+      meta: {
+        page: fallbackPage,
+        pageSize: fallbackPageSize,
+        total: data.length,
+        totalPages: 1,
+      },
+    };
+  }
+  return {
+    items: Array.isArray(data.items) ? data.items : [],
+    meta: {
+      page: data.meta?.page ?? fallbackPage,
+      pageSize: data.meta?.pageSize ?? fallbackPageSize,
+      total: data.meta?.total ?? 0,
+      totalPages: Math.max(1, data.meta?.totalPages ?? 1),
+    },
+  };
+}
+
+export async function listPartnerExperiences(
+  token: string,
+  params?: PartnerExperienceListParams,
+) {
+  const raw = await apiRequest<
+    PartnerExperience[] | PartnerExperienceListResult
+  >(`/partner/experiences${buildExperienceListQuery(params)}`, {
+    token,
+    cache: 'no-store',
+  });
+  return normalizePartnerExperienceList(
+    raw,
+    params?.page ?? 1,
+    params?.pageSize ?? 12,
+  );
 }
 
 export async function createPartnerExperience(
