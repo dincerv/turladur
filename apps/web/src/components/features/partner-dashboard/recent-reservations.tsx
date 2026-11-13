@@ -3,100 +3,84 @@
 import { Calendar, Clock } from 'lucide-react';
 import Link from 'next/link';
 
-interface Reservation {
-  id: string;
-  customerName: string;
-  customerEmail: string;
-  customerInitials: string;
-  activity: string;
-  activityType: string;
-  date: string;
-  time: string;
-  amount: string;
-  status:
-    | 'Onaylandı'
-    | 'Beklemede'
-    | 'İptal Edildi'
-    | 'Tamamlandı'
-    | 'Ödeme Bekliyor'
-    | 'Askıya Alındı';
-}
+import type { DashboardRecentReservation } from '@/components/features/acente-dashboard/types';
+import { ACENTE_ROUTES } from '@/lib/panel-routes';
 
-interface RecentReservationsProps {
-  reservations: Reservation[];
-}
+type RecentReservationsProps = {
+  reservations: DashboardRecentReservation[];
+};
 
-const statusColors: Record<Reservation['status'], string> = {
-  Onaylandı: 'bg-green-100 text-green-700',
-  Beklemede: 'bg-amber-100 text-amber-700',
+const statusColors: Record<DashboardRecentReservation['status'], string> = {
+  Onaylandı: 'bg-emerald-100 text-emerald-700',
+  Beklemede: 'bg-amber-100 text-amber-800',
   'İptal Edildi': 'bg-red-100 text-red-700',
-  Tamamlandı: 'bg-blue-100 text-blue-700',
+  Tamamlandı: 'bg-neutral-200 text-neutral-800',
   'Ödeme Bekliyor': 'bg-yellow-100 text-yellow-800',
   'Askıya Alındı': 'bg-orange-100 text-orange-800',
 };
 
 export function RecentReservations({ reservations }: RecentReservationsProps) {
   return (
-    <div className="bg-white rounded-xl shadow-sm">
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Son Rezervasyonlar
+    <div className="rounded-xl border border-neutral-200 bg-white shadow-sm">
+      <div className="border-b border-neutral-200 p-5">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-base font-semibold text-neutral-900">
+            Son rezervasyonlar
           </h3>
           <Link
-            href="/acente/reservations"
-            className="text-sm font-medium text-blue-600 hover:text-blue-700"
+            href={ACENTE_ROUTES.reservations}
+            className="shrink-0 text-sm font-medium text-neutral-950 underline-offset-2 hover:underline"
           >
-            Tümünü Gör
+            Tümünü gör
           </Link>
         </div>
       </div>
-      <div className="divide-y divide-gray-200">
+      <div className="divide-y divide-neutral-100">
         {reservations.length === 0 ? (
-          <div className="p-6 text-sm text-gray-500">
+          <div className="p-5 text-sm text-neutral-500">
             Henüz rezervasyon bulunmuyor.
           </div>
         ) : (
           reservations.map((reservation) => (
-            <div key={reservation.id} className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold">
+            <div key={reservation.id} className="p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-sm font-semibold text-neutral-800">
                     {reservation.customerInitials}
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-900">
+                  <div className="ml-3 min-w-0">
+                    <p className="truncate text-sm font-medium text-neutral-900">
                       {reservation.customerName}
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className="truncate text-sm text-neutral-500">
                       {reservation.customerEmail}
                     </p>
                   </div>
                 </div>
-                <div
-                  className={`px-3 py-1 rounded-full text-sm font-medium ${statusColors[reservation.status]}`}
+                <span
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${statusColors[reservation.status]}`}
                 >
                   {reservation.status}
-                </div>
+                </span>
               </div>
-              <div className="mt-4">
-                <h4 className="text-sm font-medium text-gray-900">
+              <div className="mt-3 min-w-0">
+                <h4 className="truncate text-sm font-medium text-neutral-900">
                   {reservation.activity}
                 </h4>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-neutral-500">
                   {reservation.activityType}
                 </p>
               </div>
-              <div className="mt-4 flex items-center space-x-4 text-sm text-gray-500">
-                <div className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-1" />
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-neutral-500">
+                <div className="inline-flex items-center">
+                  <Calendar className="mr-1 h-4 w-4" aria-hidden />
                   {reservation.date}
                 </div>
-                <div className="flex items-center">
-                  <Clock className="h-4 w-4 mr-1" />
+                <div className="inline-flex items-center">
+                  <Clock className="mr-1 h-4 w-4" aria-hidden />
                   {reservation.time}
                 </div>
-                <div className="font-medium text-gray-900">
+                <div className="font-semibold tabular-nums text-neutral-900">
                   {reservation.amount}
                 </div>
               </div>

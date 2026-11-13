@@ -65,7 +65,7 @@ export function PopularTours({ tours }: PopularToursProps) {
           </h3>
           <Link
             href="/acente/tours"
-            className="text-sm font-medium text-blue-600 hover:text-blue-700"
+            className="text-sm font-medium text-neutral-950 underline-offset-2 hover:underline"
           >
             Tümünü Gör
           </Link>
@@ -81,11 +81,13 @@ export function PopularTours({ tours }: PopularToursProps) {
             <div className="relative h-48 rounded-lg overflow-hidden">
               <TourImage src={tour.image} alt={tour.title} />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-4">
-                <h4 className="text-lg font-semibold text-white">
+              <div className="absolute right-0 bottom-0 left-0 p-4">
+                <h4 className="truncate text-lg font-semibold text-white">
                   {tour.title}
                 </h4>
-                <p className="text-sm text-white/90">{tour.location}</p>
+                <p className="truncate text-sm text-white/90">
+                  {tour.location}
+                </p>
               </div>
             </div>
             <div className="mt-4">
