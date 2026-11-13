@@ -74,6 +74,21 @@ body {
 
 /* ─── Home / marketing motion (legacy parity — 23.R1) ─── */
 
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0.96;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.28s ease-out both;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;

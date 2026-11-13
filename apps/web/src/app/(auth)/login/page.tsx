@@ -3,7 +3,9 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { FormEvent, Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Eye,
   EyeOff,
@@ -12,14 +14,25 @@ import {
   X,
   AlertCircle,
   ArrowRight,
+  Loader2,
 } from 'lucide-react';
 
 import { BrandLogo } from '@/components/brand/brand-logo';
+import { loginFormSchema, type LoginFormValues } from '@/lib/auth-schemas';
+import { AUTH_LINKS } from '@/lib/site-nav';
 import { ApiError } from '@/services/api-client';
 import { useAuth } from '@/providers/auth-provider';
 
 const LOGIN_VISUAL =
   'https://images.unsplash.com/photo-1522199710521-72d69614c702?q=80&w=2072&auto=format&fit=crop';
+
+const INPUT =
+  'block w-full rounded-lg border py-2.5 pl-9 pr-4 text-sm text-neutral-900 placeholder-neutral-400 shadow-sm transition focus:bg-white focus:outline-none focus:ring-1 focus:ring-offset-0';
+const INPUT_OK =
+  'border-neutral-300 focus:border-neutral-950 focus:ring-neutral-300';
+const INPUT_ERR = 'border-red-300 focus:border-red-500 focus:ring-red-300';
+const LABEL = 'mb-1.5 block text-xs font-medium text-neutral-700';
+const FIELD_ERR = 'mt-1.5 text-xs font-medium text-red-600';
 
 function authErrorMessage(code: string | null): string | null {
   if (!code) return null;
@@ -40,24 +53,29 @@ function LoginForm() {
   const { login } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginFormSchema),
+    defaultValues: { email: '', password: '', rememberMe: false },
+    mode: 'onTouched',
+  });
 
   useEffect(() => {
     const fromQuery = authErrorMessage(searchParams.get('error'));
-    if (fromQuery) setError(fromQuery);
+    if (fromQuery) setFormError(fromQuery);
   }, [searchParams]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    setPending(true);
+  const onSubmit = handleSubmit(async (values) => {
+    if (isSubmitting) return;
+    setFormError(null);
     try {
-      const user = await login(email, password);
+      const user = await login(values.email, values.password);
       const rawCallback = searchParams.get('callbackUrl');
       const safeCallback =
         rawCallback &&
@@ -81,28 +99,18 @@ function LoginForm() {
         router.push('/tours');
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Giriş başarısız oldu');
-    } finally {
-      setPending(false);
+      setFormError(
+        err instanceof ApiError ? err.message : 'Giriş başarısız oldu',
+      );
     }
-  }
-
-  const baseInputClass =
-    'block w-full rounded-lg border text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-offset-0 sm:text-sm transition duration-200 ease-in-out shadow-sm focus:bg-white';
-  const inputPaddingClass = 'py-2.5 px-4';
-  const inputIconPaddingClass = 'pl-9 pr-4';
-  const normalBorderClass =
-    'border-neutral-300 focus:border-neutral-950 focus:ring-neutral-300';
-  const errorBorderClass =
-    'border-red-300 focus:border-red-500 focus:ring-red-300';
-  const labelClass = 'mb-1.5 block text-xs font-medium text-neutral-700';
+  });
 
   return (
     <div className="flex min-h-screen bg-neutral-50">
       <div className="relative hidden lg:block lg:w-1/2">
         <Image
           src={LOGIN_VISUAL}
-          alt="turta"
+          alt=""
           fill
           priority
           className="object-cover"
@@ -115,7 +123,7 @@ function LoginForm() {
             <br />
             Teknolojiyle Buluşturun.
           </h1>
-          <p className="max-w-md text-lg font-light text-neutral-200/90">
+          <p className="max-w-prose text-lg font-light leading-relaxed text-neutral-200/90">
             turta platformuna giriş yaparak tüm seyahat yönetimi araçlarınıza
             erişin.
           </p>
@@ -139,7 +147,7 @@ function LoginForm() {
             <p className="text-xs text-neutral-500">
               Hesabın yok mu?{' '}
               <Link
-                href="/register"
+                href={AUTH_LINKS.register}
                 className="font-medium text-neutral-950 underline-offset-2 transition-colors hover:text-neutral-800 hover:underline"
               >
                 Hemen Oluştur
@@ -147,14 +155,19 @@ function LoginForm() {
             </p>
           </div>
 
-          <form className="space-y-5" onSubmit={handleSubmit}>
-            {error ? (
-              <div className="flex items-start rounded-lg border border-red-200/80 bg-red-50/80 px-4 py-3 text-xs text-red-800 shadow-sm">
+          <form className="space-y-5" onSubmit={onSubmit} noValidate>
+            {formError ? (
+              <div
+                role="alert"
+                className="flex items-start rounded-lg border border-red-200/80 bg-red-50/80 px-4 py-3 text-xs text-red-800 shadow-sm"
+              >
                 <AlertCircle className="mr-2 mt-0.5 h-4 w-4 shrink-0 text-red-500" />
-                <span className="-mt-0.5 flex-1 leading-tight">{error}</span>
+                <span className="-mt-0.5 flex-1 leading-tight">
+                  {formError}
+                </span>
                 <button
                   type="button"
-                  onClick={() => setError(null)}
+                  onClick={() => setFormError(null)}
                   className="-mr-1 ml-2 rounded-full p-0.5 text-red-400 hover:bg-red-100/70 hover:text-red-600"
                   aria-label="Hata mesajını kapat"
                 >
@@ -164,51 +177,57 @@ function LoginForm() {
             ) : null}
 
             <div>
-              <label htmlFor="email" className={labelClass}>
+              <label htmlFor="email" className={LABEL}>
                 E-posta Adresi
               </label>
               <div className="relative">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                  <Mail className="h-4 w-4 text-neutral-400" />
+                  <Mail className="h-4 w-4 text-neutral-400" aria-hidden />
                 </div>
                 <input
                   id="email"
-                  name="email"
                   type="email"
                   autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={`${baseInputClass} ${inputPaddingClass} ${inputIconPaddingClass} ${error ? errorBorderClass : normalBorderClass}`}
+                  aria-invalid={Boolean(errors.email)}
+                  aria-describedby={errors.email ? 'email-error' : undefined}
+                  disabled={isSubmitting}
+                  className={`${INPUT} ${errors.email ? INPUT_ERR : INPUT_OK}`}
                   placeholder="ornek@mail.com"
+                  {...register('email')}
                 />
               </div>
+              {errors.email ? (
+                <p id="email-error" className={FIELD_ERR}>
+                  {errors.email.message}
+                </p>
+              ) : null}
             </div>
 
             <div>
-              <label htmlFor="password" className={labelClass}>
+              <label htmlFor="password" className={LABEL}>
                 Şifre
               </label>
               <div className="relative">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                  <Lock className="h-4 w-4 text-neutral-400" />
+                  <Lock className="h-4 w-4 text-neutral-400" aria-hidden />
                 </div>
                 <input
                   id="password"
-                  name="password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
-                  required
-                  minLength={8}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={`${baseInputClass} ${inputPaddingClass} ${inputIconPaddingClass} pr-10 ${error ? errorBorderClass : normalBorderClass}`}
+                  aria-invalid={Boolean(errors.password)}
+                  aria-describedby={
+                    errors.password ? 'password-error' : undefined
+                  }
+                  disabled={isSubmitting}
+                  className={`${INPUT} pr-10 ${errors.password ? INPUT_ERR : INPUT_OK}`}
                   placeholder="••••••••"
+                  {...register('password')}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute inset-y-0 right-0 flex items-center rounded-r-lg px-3 text-neutral-400 hover:text-neutral-600"
+                  className="absolute inset-y-0 right-0 flex min-w-11 items-center justify-center rounded-r-lg px-3 text-neutral-400 hover:text-neutral-600"
                   aria-label={showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
                 >
                   {showPassword ? (
@@ -218,17 +237,21 @@ function LoginForm() {
                   )}
                 </button>
               </div>
+              {errors.password ? (
+                <p id="password-error" className={FIELD_ERR}>
+                  {errors.password.message}
+                </p>
+              ) : null}
             </div>
 
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <input
                   id="remember-me"
-                  name="remember-me"
                   type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
+                  disabled={isSubmitting}
                   className="h-3.5 w-3.5 rounded border-neutral-300 text-neutral-950 focus:ring-neutral-950 focus:ring-offset-0"
+                  {...register('rememberMe')}
                 />
                 <label
                   htmlFor="remember-me"
@@ -238,7 +261,7 @@ function LoginForm() {
                 </label>
               </div>
               <Link
-                href="/forgot-password"
+                href={AUTH_LINKS.forgotPassword}
                 className="text-xs font-medium text-neutral-950 underline-offset-2 hover:underline"
               >
                 Şifremi Unuttum?
@@ -247,11 +270,11 @@ function LoginForm() {
 
             <button
               type="submit"
-              disabled={pending}
-              className="flex min-h-[40px] w-full items-center justify-center rounded-lg border border-transparent bg-neutral-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-neutral-950 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isSubmitting}
+              className="flex min-h-11 w-full items-center justify-center rounded-lg border border-transparent bg-neutral-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-neutral-950 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {pending ? (
-                <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              {isSubmitting ? (
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
               ) : (
                 'Giriş Yap'
               )}
@@ -260,11 +283,11 @@ function LoginForm() {
 
           <div className="mt-6">
             <Link
-              href="/acente/giris"
-              className="flex items-center justify-center rounded-md bg-neutral-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-neutral-800"
+              href={AUTH_LINKS.partnerLogin}
+              className="flex min-h-11 items-center justify-center rounded-md bg-neutral-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-neutral-800"
             >
               Partner Portalına Git
-              <ArrowRight className="ml-2 h-4 w-4" />
+              <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
             </Link>
           </div>
         </div>

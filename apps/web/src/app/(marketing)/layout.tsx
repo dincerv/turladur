@@ -1,5 +1,5 @@
 import { Footer } from '@/components/layout/footer';
-import { Header } from '@/components/layout/header';
+import { SiteHeader } from '@/components/layout/site-header';
 
 export default function MarketingLayout({
   children,
@@ -8,7 +8,7 @@ export default function MarketingLayout({
 }) {
   return (
     <>
-      <Header />
+      <SiteHeader />
       <main className="min-h-screen">{children}</main>
       <Footer />
     </>

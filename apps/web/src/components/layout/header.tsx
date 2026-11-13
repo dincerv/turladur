@@ -17,6 +17,12 @@ import { BrandLogo } from '@/components/brand/brand-logo';
 import DealsPopup from '@/components/layout/deals-popup';
 import { useAuth } from '@/providers/auth-provider';
 import { getPanelHrefForRole } from '@/lib/panel-routes';
+import {
+  AUTH_LINKS,
+  MOBILE_TOUR_EXTRA_LINKS,
+  NAV_LINKS,
+  TOUR_DROPDOWN_LINKS,
+} from '@/lib/site-nav';
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -125,6 +131,16 @@ export function Header() {
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isMenuOpen]);
+
+  // Menü açıkken body scroll kilidi (CLS / arka plan kayması yok)
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
   }, [isMenuOpen]);
 
   // Arama dışına tıklandığında kapat
@@ -302,65 +318,33 @@ export function Header() {
                 />
               </button>
               {activeDropdown === 'tours' && (
-                <div className="absolute left-0 mt-2 w-56 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 p-1.5 z-50 animate-fadeIn">
-                  {/* Dropdown link stilleri */}
-                  <Link
-                    href="/tours"
-                    className="block px-3 py-1.5 text-sm text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 rounded transition-colors duration-150"
-                  >
-                    Tüm Turlar
-                  </Link>
-                  <div className="border-t border-neutral-100 my-1"></div>
-                  <Link
-                    href="/tour-operator"
-                    className="block px-3 py-1.5 text-sm text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 rounded transition-colors duration-150"
-                  >
-                    Tur Operatörleri
-                  </Link>
-                  <Link
-                    href="/tours?stayKind=DAY_TRIP"
-                    className="block px-3 py-1.5 text-sm text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 rounded transition-colors duration-150"
-                  >
-                    Günübirlik Turlar
-                  </Link>
-                  <Link
-                    href="/tours?duration=7+"
-                    className="block px-3 py-1.5 text-sm text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 rounded transition-colors duration-150"
-                  >
-                    Haftalık Turlar
-                  </Link>
+                <div className="absolute left-0 z-50 mt-2 w-56 animate-fadeIn rounded-lg bg-white p-1.5 shadow-lg ring-1 ring-black/5">
+                  {TOUR_DROPDOWN_LINKS.map((link, index) => (
+                    <span key={link.href}>
+                      {index === 1 ? (
+                        <div className="my-1 border-t border-neutral-100" />
+                      ) : null}
+                      <Link
+                        href={link.href}
+                        className="block rounded px-3 py-1.5 text-sm text-neutral-700 transition-colors duration-150 hover:bg-neutral-100 hover:text-neutral-950"
+                      >
+                        {link.label}
+                      </Link>
+                    </span>
+                  ))}
                 </div>
               )}
             </div>
 
-            <Link
-              href="/routes"
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 ${linkColor} ${linkHoverColor} ${linkBgHoverColor}`}
-            >
-              Rotalar
-            </Link>
-
-            {/* Blog */}
-            <Link
-              href="/blog"
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 ${linkColor} ${linkHoverColor} ${linkBgHoverColor}`}
-            >
-              Blog
-            </Link>
-
-            {/* Diğer Linkler */}
-            <Link
-              href="/about"
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 ${linkColor} ${linkHoverColor} ${linkBgHoverColor}`}
-            >
-              Hakkımızda
-            </Link>
-            <Link
-              href="/contact"
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 ${linkColor} ${linkHoverColor} ${linkBgHoverColor}`}
-            >
-              İletişim
-            </Link>
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-200 ${linkColor} ${linkHoverColor} ${linkBgHoverColor}`}
+              >
+                {link.label}
+              </Link>
+            ))}
 
             {/* Fırsatlar — mevcut popup akışı (navbar davranışı) */}
             <button
@@ -432,13 +416,13 @@ export function Header() {
                   <div className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 p-1.5 z-50 animate-fadeIn dropdown-container">
                     {/* Profil dropdown link stilleri */}
                     <Link
-                      href="/profile"
+                      href={AUTH_LINKS.profile}
                       className="block px-3 py-1.5 text-sm text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 rounded transition-colors duration-150"
                     >
                       Profilim
                     </Link>
                     <Link
-                      href="/bookings"
+                      href={AUTH_LINKS.bookings}
                       className="block px-3 py-1.5 text-sm text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 rounded transition-colors duration-150"
                     >
                       Rezervasyonlarım
@@ -466,14 +450,14 @@ export function Header() {
             ) : (
               <>
                 <Link
-                  href="/login"
+                  href={AUTH_LINKS.login}
                   className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors duration-200 ${buttonSecondaryBorder}`}
                   onClick={handleAuthClick}
                 >
                   Giriş Yap
                 </Link>
                 <Link
-                  href="/register"
+                  href={AUTH_LINKS.register}
                   className={`px-3.5 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 shadow-sm ${buttonPrimaryBg} ${buttonPrimaryText}`}
                   onClick={handleAuthClick}
                 >
@@ -537,258 +521,219 @@ export function Header() {
         </div>
       )}
 
-      {/* Mobile Menu */}
-      {isMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-50">
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={() => setIsMenuOpen(false)}
-          ></div>
-          <div
-            ref={mobileMenuRef}
-            className="relative w-full max-w-xs ml-auto h-screen bg-white shadow-xl flex flex-col animate-slide-in-right z-10 overflow-y-auto"
-          >
-            {/* Mobile Menu Header */}
-            <div className="sticky top-0 flex justify-between items-center px-4 py-3 border-b border-neutral-100 bg-white z-20">
-              <Link
-                href="/"
-                className="flex items-center"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <BrandLogo
-                  variant="wordmark"
-                  surface="light"
-                  href={null}
-                  className="h-7 w-auto"
-                />
-              </Link>
-              <button
-                className="p-1.5 rounded-md text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <XMarkIcon className="w-5 h-5" />
-              </button>
-            </div>
+      {/* Mobile Menu — mounted with transform (no layout jump) */}
+      <div
+        className={`lg:hidden fixed inset-0 z-50 transition-opacity duration-300 ${
+          isMenuOpen
+            ? 'pointer-events-auto opacity-100'
+            : 'pointer-events-none opacity-0'
+        }`}
+        aria-hidden={!isMenuOpen}
+      >
+        <div
+          className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+          onClick={() => setIsMenuOpen(false)}
+        />
+        <div
+          ref={mobileMenuRef}
+          className={`relative z-10 ml-auto flex h-screen w-full max-w-xs flex-col overflow-y-auto bg-white shadow-xl transition-transform duration-300 ease-out ${
+            isMenuOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
+        >
+          {/* Mobile Menu Header */}
+          <div className="sticky top-0 flex justify-between items-center px-4 py-3 border-b border-neutral-100 bg-white z-20">
+            <Link
+              href="/"
+              className="flex items-center"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              <BrandLogo
+                variant="wordmark"
+                surface="light"
+                href={null}
+                className="h-7 w-auto"
+              />
+            </Link>
+            <button
+              className="p-1.5 rounded-md text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              <XMarkIcon className="w-5 h-5" />
+            </button>
+          </div>
 
-            {/* Mobile Menu Content */}
-            <div className="flex-1 py-3 px-3">
-              {isAuthLoading ? (
-                <div className="p-3 space-y-4">
-                  <div className="h-12 bg-neutral-200 animate-pulse rounded-md"></div>
-                  <div className="h-10 bg-neutral-200 animate-pulse rounded-md"></div>
-                  <div className="h-10 bg-neutral-200 animate-pulse rounded-md"></div>
-                </div>
-              ) : authStatus === 'authenticated' &&
-                !!sessionUser &&
-                sessionUser.provider !== 'partner-credentials' ? (
-                <>
+          {/* Mobile Menu Content */}
+          <div className="flex-1 py-3 px-3">
+            {isAuthLoading ? (
+              <div className="p-3 space-y-4">
+                <div className="h-12 bg-neutral-200 animate-pulse rounded-md"></div>
+                <div className="h-10 bg-neutral-200 animate-pulse rounded-md"></div>
+                <div className="h-10 bg-neutral-200 animate-pulse rounded-md"></div>
+              </div>
+            ) : authStatus === 'authenticated' &&
+              !!sessionUser &&
+              sessionUser.provider !== 'partner-credentials' ? (
+              <>
+                <Link
+                  href={AUTH_LINKS.profile}
+                  className="flex items-center space-x-3 p-3 mb-3 rounded-lg hover:bg-neutral-100 transition-colors"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {sessionUser?.image ? (
+                    <Image
+                      src={sessionUser?.image}
+                      alt={sessionUser?.name || 'Profil'}
+                      width={36}
+                      height={36}
+                      className="rounded-full"
+                    />
+                  ) : (
+                    <span className="flex items-center justify-center h-9 w-9 rounded-full bg-neutral-200 text-neutral-800 text-sm font-medium">
+                      {(
+                        sessionUser?.name?.[0] ||
+                        sessionUser?.email?.[0] ||
+                        'U'
+                      ).toUpperCase()}
+                    </span>
+                  )}
+                  <div>
+                    <p className="font-medium text-sm text-neutral-800">
+                      {sessionUser?.name}
+                    </p>
+                    <p className="text-xs text-neutral-500">
+                      Profili Görüntüle
+                    </p>
+                  </div>
+                </Link>
+                {panelHref ? (
                   <Link
-                    href="/profile"
-                    className="flex items-center space-x-3 p-3 mb-3 rounded-lg hover:bg-neutral-100 transition-colors"
+                    href={panelHref}
+                    className="mb-3 block rounded-md px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-950 transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    {sessionUser?.image ? (
-                      <Image
-                        src={sessionUser?.image}
-                        alt={sessionUser?.name || 'Profil'}
-                        width={36}
-                        height={36}
-                        className="rounded-full"
-                      />
-                    ) : (
-                      <span className="flex items-center justify-center h-9 w-9 rounded-full bg-neutral-200 text-neutral-800 text-sm font-medium">
-                        {(
-                          sessionUser?.name?.[0] ||
-                          sessionUser?.email?.[0] ||
-                          'U'
-                        ).toUpperCase()}
-                      </span>
-                    )}
-                    <div>
-                      <p className="font-medium text-sm text-neutral-800">
-                        {sessionUser?.name}
-                      </p>
-                      <p className="text-xs text-neutral-500">
-                        Profili Görüntüle
-                      </p>
-                    </div>
+                    Panele Dön
                   </Link>
-                  {panelHref ? (
-                    <Link
-                      href={panelHref}
-                      className="mb-3 block rounded-md px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-950 transition-colors"
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      Panele Dön
-                    </Link>
-                  ) : null}
-                </>
-              ) : (
-                <div className="grid grid-cols-2 gap-2 mb-4 px-2 pt-1">
-                  <Link
-                    href="/login"
-                    className="px-4 py-2 rounded-md text-sm font-medium text-center border border-neutral-950 text-neutral-800 hover:bg-neutral-100 transition-colors"
-                    onClick={() => {
-                      handleAuthClick();
-                      setIsMenuOpen(false);
-                    }}
-                  >
-                    Giriş Yap
-                  </Link>
-                  <Link
-                    href="/register"
-                    className="px-4 py-2 rounded-md text-sm font-medium text-center bg-neutral-950 text-white hover:bg-neutral-800 transition-colors"
-                    onClick={() => {
-                      handleAuthClick();
-                      setIsMenuOpen(false);
-                    }}
-                  >
-                    Kayıt Ol
-                  </Link>
-                </div>
-              )}
+                ) : null}
+              </>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 mb-4 px-2 pt-1">
+                <Link
+                  href={AUTH_LINKS.login}
+                  className="px-4 py-2 rounded-md text-sm font-medium text-center border border-neutral-950 text-neutral-800 hover:bg-neutral-100 transition-colors"
+                  onClick={() => {
+                    handleAuthClick();
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  Giriş Yap
+                </Link>
+                <Link
+                  href={AUTH_LINKS.register}
+                  className="px-4 py-2 rounded-md text-sm font-medium text-center bg-neutral-950 text-white hover:bg-neutral-800 transition-colors"
+                  onClick={() => {
+                    handleAuthClick();
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  Kayıt Ol
+                </Link>
+              </div>
+            )}
 
-              <div className="space-y-1 border-t border-neutral-100 pt-3">
-                {/* Mobil Turlar Dropdown */}
-                <div className="dropdown-container">
-                  <button
-                    className={`w-full flex justify-between items-center py-2.5 px-3 rounded-md text-left ${activeDropdown === 'tours-mobile' ? 'bg-neutral-100' : ''} text-neutral-700 hover:bg-neutral-100 hover:text-neutral-950 transition-colors`}
-                    onClick={() => toggleDropdown('tours-mobile')}
-                  >
-                    <span className="font-medium text-sm">Turlar</span>
-                    <ChevronDownIcon
-                      className={`w-4 h-4 transition-transform duration-200 ${activeDropdown === 'tours-mobile' ? 'rotate-180 text-neutral-950' : 'text-neutral-400'}`}
-                    />
-                  </button>
-                  <div
-                    className={`overflow-hidden transition-all duration-300 ease-in-out ${activeDropdown === 'tours-mobile' ? 'max-h-96' : 'max-h-0'}`}
-                    style={{
-                      maxHeight:
-                        activeDropdown === 'tours-mobile' ? '500px' : '0px',
-                    }} // Max-height transition
-                  >
-                    <div className="py-1 pl-6 mt-1 space-y-0.5 border-l border-neutral-200 ml-3">
-                      {/* Mobil dropdown link stilleri */}
-                      <Link
-                        href="/tours"
-                        className="block py-1.5 px-2 text-sm text-neutral-600 hover:text-neutral-950 rounded-md hover:bg-neutral-100"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        Tüm Turlar
-                      </Link>
-                      <Link
-                        href="/tour-operator"
-                        className="block py-1.5 px-2 text-sm text-neutral-600 hover:text-neutral-950 rounded-md hover:bg-neutral-100"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        Tur Operatörleri
-                      </Link>
-                      <Link
-                        href="/tours?stayKind=DAY_TRIP"
-                        className="block py-1.5 px-2 text-sm text-neutral-600 hover:text-neutral-950 rounded-md hover:bg-neutral-100"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        Günübirlik
-                      </Link>
-                      <Link
-                        href="/tours?duration=7+"
-                        className="block py-1.5 px-2 text-sm text-neutral-600 hover:text-neutral-950 rounded-md hover:bg-neutral-100"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        Haftalık
-                      </Link>
-                      <Link
-                        href="/tours?featured=true"
-                        className="block py-1.5 px-2 text-sm text-neutral-600 hover:text-neutral-950 rounded-md hover:bg-neutral-100"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        Öne Çıkan
-                      </Link>
-                    </div>
+            <div className="space-y-1 border-t border-neutral-100 pt-3">
+              {/* Mobil Turlar Dropdown */}
+              <div className="dropdown-container">
+                <button
+                  className={`w-full flex justify-between items-center py-2.5 px-3 rounded-md text-left ${activeDropdown === 'tours-mobile' ? 'bg-neutral-100' : ''} text-neutral-700 hover:bg-neutral-100 hover:text-neutral-950 transition-colors`}
+                  onClick={() => toggleDropdown('tours-mobile')}
+                >
+                  <span className="font-medium text-sm">Turlar</span>
+                  <ChevronDownIcon
+                    className={`w-4 h-4 transition-transform duration-200 ${activeDropdown === 'tours-mobile' ? 'rotate-180 text-neutral-950' : 'text-neutral-400'}`}
+                  />
+                </button>
+                <div
+                  className={`overflow-hidden transition-all duration-300 ease-in-out ${activeDropdown === 'tours-mobile' ? 'max-h-96' : 'max-h-0'}`}
+                  style={{
+                    maxHeight:
+                      activeDropdown === 'tours-mobile' ? '500px' : '0px',
+                  }} // Max-height transition
+                >
+                  <div className="mt-1 ml-3 space-y-0.5 border-l border-neutral-200 py-1 pl-6">
+                    {[...TOUR_DROPDOWN_LINKS, ...MOBILE_TOUR_EXTRA_LINKS].map(
+                      (link) => (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          className="block rounded-md px-2 py-1.5 text-sm text-neutral-600 hover:bg-neutral-100 hover:text-neutral-950"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          {link.label}
+                        </Link>
+                      ),
+                    )}
                   </div>
                 </div>
+              </div>
 
+              {NAV_LINKS.map((link) => (
                 <Link
-                  href="/routes"
-                  className="block py-2.5 px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-950 rounded-md transition-colors"
+                  key={link.href}
+                  href={link.href}
+                  className="block rounded-md px-3 py-2.5 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-neutral-950"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  Rotalar
+                  {link.label}
                 </Link>
-
-                {/* Mobil Blog */}
-                <Link
-                  href="/blog"
-                  className="block py-2.5 px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-950 rounded-md transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Blog
-                </Link>
-
-                {/* Mobil Diğer Linkler */}
-                <Link
-                  href="/about"
-                  className="block py-2.5 px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-950 rounded-md transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Hakkımızda
-                </Link>
-                <Link
-                  href="/contact"
-                  className="block py-2.5 px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-950 rounded-md transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  İletişim
-                </Link>
-                <div
-                  role="button"
-                  tabIndex={0}
-                  className="w-full text-left block py-2.5 px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-950 rounded-md transition-colors flex items-center cursor-pointer"
-                  onClick={() => {
+              ))}
+              <div
+                role="button"
+                tabIndex={0}
+                className="w-full text-left block py-2.5 px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-950 rounded-md transition-colors flex items-center cursor-pointer"
+                onClick={() => {
+                  handlePartnerPortalClick();
+                  setIsMenuOpen(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
                     handlePartnerPortalClick();
                     setIsMenuOpen(false);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      handlePartnerPortalClick();
-                      setIsMenuOpen(false);
-                    }
-                  }}
-                >
-                  <BuildingOfficeIcon className="w-4 h-4 mr-1.5" />
-                  Partner Portal
-                </div>
+                  }
+                }}
+              >
+                <BuildingOfficeIcon className="w-4 h-4 mr-1.5" />
+                Partner Portal
+              </div>
+              <button
+                onClick={() => {
+                  openDealsPopup();
+                  setIsMenuOpen(false);
+                }}
+                className="w-full text-left flex items-center py-2.5 px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-950 rounded-md transition-colors"
+              >
+                <TagIcon className="w-4 h-4 mr-2 text-neutral-500" />
+                Fırsatlar
+              </button>
+            </div>
+          </div>
+
+          {/* Mobile Footer Buttons (Authenticated) */}
+          {authStatus === 'authenticated' &&
+            !!sessionUser &&
+            sessionUser.provider !== 'partner-credentials' && (
+              <div className="sticky bottom-0 bg-white border-t border-neutral-100 p-3 mt-auto">
                 <button
-                  onClick={() => {
-                    openDealsPopup();
-                    setIsMenuOpen(false);
-                  }}
-                  className="w-full text-left flex items-center py-2.5 px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-950 rounded-md transition-colors"
+                  type="button"
+                  onClick={handleSignOut}
+                  disabled={isSigningOut}
+                  className="w-full text-center px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-md hover:bg-red-100 transition-colors disabled:opacity-60"
                 >
-                  <TagIcon className="w-4 h-4 mr-2 text-neutral-500" />
-                  Fırsatlar
+                  {isSigningOut ? 'Çıkış yapılıyor...' : 'Çıkış Yap'}
                 </button>
               </div>
-            </div>
-
-            {/* Mobile Footer Buttons (Authenticated) */}
-            {authStatus === 'authenticated' &&
-              !!sessionUser &&
-              sessionUser.provider !== 'partner-credentials' && (
-                <div className="sticky bottom-0 bg-white border-t border-neutral-100 p-3 mt-auto">
-                  <button
-                    type="button"
-                    onClick={handleSignOut}
-                    disabled={isSigningOut}
-                    className="w-full text-center px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-md hover:bg-red-100 transition-colors disabled:opacity-60"
-                  >
-                    {isSigningOut ? 'Çıkış yapılıyor...' : 'Çıkış Yap'}
-                  </button>
-                </div>
-              )}
-          </div>
+            )}
         </div>
-      )}
+      </div>
 
       {mounted && (
         <DealsPopup isOpen={dealsOpen} onClose={() => setDealsOpen(false)} />

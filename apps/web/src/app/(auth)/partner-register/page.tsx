@@ -3,155 +3,148 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FormEvent, useState } from 'react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
   ArrowRight,
   Building2,
   ChevronLeft,
-  FileText,
-  Globe,
+  Eye,
+  EyeOff,
+  Loader2,
   Lock,
   Mail,
   MapPin,
   Phone,
   UserPlus,
+  AlertCircle,
   X,
 } from 'lucide-react';
 
 import { BrandLogo } from '@/components/brand/brand-logo';
+import { MailtoLink } from '@/components/ui/mailto-link';
+import {
+  CUSTOMER_PASSWORD_HINT,
+  partnerRegisterStepOneSchema,
+  partnerRegisterStepTwoSchema,
+  type PartnerRegisterStepOne,
+  type PartnerRegisterStepTwo,
+} from '@/lib/auth-schemas';
+import { AUTH_LINKS } from '@/lib/site-nav';
 import { ApiError } from '@/services/api-client';
 import { registerPartner } from '@/services/identity';
 
 const PARTNER_REGISTER_VISUAL =
   'https://images.unsplash.com/photo-1551632436-cbf8dd35adfa?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80';
 
+const INPUT =
+  'block w-full rounded-lg border border-neutral-300 py-2.5 pl-9 pr-4 text-sm text-neutral-900 placeholder-neutral-400 shadow-sm transition focus:border-neutral-950 focus:outline-none focus:ring-1 focus:ring-neutral-300 disabled:opacity-60';
+const INPUT_ERR = 'border-red-300 focus:border-red-500 focus:ring-red-300';
+const LABEL = 'mb-1.5 block text-xs font-medium text-neutral-700';
+const FIELD_ERR = 'mt-1.5 text-xs font-medium text-red-600';
+
+type StepOneValues = PartnerRegisterStepOne;
+type StepTwoValues = PartnerRegisterStepTwo;
+
 export default function PartnerRegisterPage() {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [formData, setFormData] = useState({
-    companyName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    phone: '',
-    address: '',
-    city: '',
-    country: '',
-    website: '',
-    description: '',
-    termsAccepted: false,
-    role: '',
-    taxNumber: '',
+  const [step, setStep] = useState<1 | 2>(1);
+  const [showPassword, setShowPassword] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [stepOneData, setStepOneData] = useState<StepOneValues | null>(null);
+
+  const stepOne = useForm<StepOneValues>({
+    resolver: zodResolver(partnerRegisterStepOneSchema),
+    defaultValues: {
+      companyName: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+    },
+    mode: 'onTouched',
   });
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError('');
+  const stepTwo = useForm<StepTwoValues>({
+    resolver: zodResolver(partnerRegisterStepTwoSchema),
+    defaultValues: {
+      phone: '',
+      address: '',
+      city: '',
+      country: 'Türkiye',
+      website: '',
+      description: '',
+      taxNumber: '',
+      role: '',
+      termsAccepted: false,
+    },
+    mode: 'onTouched',
+  });
 
-    if (currentStep !== 2 || !isStepTwoComplete()) {
-      setError('Lütfen tüm gerekli alanları doldurun ve şartları kabul edin.');
-      return;
-    }
+  const busy = stepOne.formState.isSubmitting || stepTwo.formState.isSubmitting;
 
-    if (formData.password !== formData.confirmPassword) {
-      setError('Şifreler eşleşmiyor.');
-      return;
-    }
+  const goNext = stepOne.handleSubmit((values) => {
+    setFormError(null);
+    setStepOneData(values);
+    setStep(2);
+  });
 
-    if (!formData.termsAccepted) {
-      setError(
-        'Devam etmek için İş Ortağı Sözleşmesi ve Gizlilik Politikasını kabul etmelisiniz.',
-      );
-      return;
-    }
-
-    setLoading(true);
-
+  const onSubmit = stepTwo.handleSubmit(async (values) => {
+    if (!stepOneData || busy) return;
+    setFormError(null);
     try {
       await registerPartner({
-        companyName: formData.companyName,
-        contactEmail: formData.email,
-        contactPhone: formData.phone || undefined,
-        password: formData.password,
-        taxNumber: formData.taxNumber || undefined,
+        companyName: stepOneData.companyName,
+        contactEmail: stepOneData.email,
+        contactPhone: values.phone || undefined,
+        password: stepOneData.password,
+        taxNumber: values.taxNumber || undefined,
       });
-
       router.push(
-        `/partner-verification?email=${encodeURIComponent(formData.email)}`,
+        `/partner-verification?email=${encodeURIComponent(stepOneData.email)}`,
       );
     } catch (err) {
-      const message =
+      setFormError(
         err instanceof ApiError
           ? err.message
-          : err instanceof Error
-            ? err.message
-            : 'Kayıt sırasında bir hata oluştu. Lütfen tekrar deneyin.';
-      setError(message);
-      setLoading(false);
+          : 'Kayıt sırasında bir hata oluştu. Lütfen tekrar deneyin.',
+      );
     }
-  }
-
-  function nextStep() {
-    setError('');
-    if (currentStep === 1 && isStepOneComplete()) {
-      setCurrentStep(currentStep + 1);
-    } else if (currentStep === 1 && !isStepOneComplete()) {
-      setError('Lütfen bu adımdaki tüm zorunlu alanları doldurun.');
-    }
-  }
-
-  function prevStep() {
-    setError('');
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
-  }
-
-  function isStepOneComplete() {
-    return (
-      formData.companyName &&
-      formData.email &&
-      formData.password &&
-      formData.confirmPassword
-    );
-  }
-
-  function isStepTwoComplete() {
-    return (
-      formData.phone && formData.address && formData.city && formData.country
-    );
-  }
-
-  const inputClass =
-    'block w-full rounded-lg border border-neutral-300 py-2.5 pl-9 pr-4 text-neutral-900 placeholder-neutral-400 shadow-sm transition duration-200 ease-in-out focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-sky-300 focus:ring-offset-0 sm:text-sm';
+  });
 
   return (
     <div className="flex min-h-screen bg-neutral-50">
-      <div className="relative hidden overflow-hidden lg:block lg:w-1/2">
+      <aside className="relative hidden overflow-hidden lg:block lg:w-1/2">
         <Image
           src={PARTNER_REGISTER_VISUAL}
-          alt="İş Ortaklığı Platformu"
+          alt=""
           fill
           className="object-cover"
           priority
           sizes="50vw"
         />
-        <div className="absolute inset-0 z-10 bg-gradient-to-br from-sky-700/90 via-blue-800/85 to-sky-900/90" />
-
-        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-12 text-center">
-          <div className="max-w-lg">
-            <h2 className="mb-5 text-4xl font-bold leading-tight tracking-normal text-white xl:text-5xl">
-              turta Partner Ağına Katılın
-            </h2>
-            <p className="mb-10 text-lg font-light text-sky-100/90">
-              Binlerce turistin seyahat planlarını yönetin, gelirinizi artırın
-              ve işinizi büyütün.
+        <div className="absolute inset-0 z-10 bg-gradient-to-br from-neutral-900/90 via-neutral-900/85 to-neutral-950/90" />
+        <div className="absolute inset-0 z-20 flex flex-col justify-center p-12 text-white">
+          <div className="max-w-prose">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-300">
+              B2B Partner
             </p>
+            <h1 className="mb-4 text-4xl font-bold leading-tight tracking-tight text-balance xl:text-5xl">
+              turta Partner Ağına Katılın
+            </h1>
+            <p className="mb-8 text-lg font-light leading-relaxed text-neutral-200">
+              Kurumsal vitrininiz, rezervasyon yönetimi ve gelir takibi tek
+              panelde. Başvurunuz incelendikten sonra yayınlamaya
+              başlayabilirsiniz.
+            </p>
+            <ul className="space-y-2 text-sm leading-relaxed text-neutral-300">
+              <li>· Şeffaf komisyon ve rezervasyon akışı</li>
+              <li>· Operasyon paneli ve destek kanalları</li>
+              <li>· Türkiye genelinde turist erişimi</li>
+            </ul>
           </div>
         </div>
-      </div>
+      </aside>
 
       <div className="flex w-full items-center justify-center p-6 sm:p-12 lg:w-1/2 lg:p-16">
         <div className="w-full max-w-md">
@@ -166,452 +159,324 @@ export default function PartnerRegisterPage() {
                 href={null}
                 className="transition-opacity group-hover:opacity-90"
               />
-              <span className="text-sm font-semibold text-sky-600">
+              <span className="text-sm font-semibold text-neutral-700">
                 Partner
               </span>
             </Link>
-            <h2 className="mb-3 text-2xl font-bold tracking-tight text-neutral-900 md:text-3xl">
+            <h2 className="mb-2 text-2xl font-bold tracking-tight text-neutral-900 md:text-3xl">
               İş Ortağı Hesabı Oluşturun
             </h2>
-            <p className="text-sm text-neutral-500">
-              turta partner ağına katılarak işinizi büyütün.
+            <p className="max-w-prose text-sm leading-relaxed text-neutral-500">
+              Adım {step}/2 — bilgileriniz güvenli şekilde iletilir. Hesabınız
+              varsa{' '}
+              <Link
+                href={AUTH_LINKS.partnerLogin}
+                className="font-medium text-neutral-950 underline-offset-2 hover:underline"
+              >
+                giriş yapın
+              </Link>
+              .
             </p>
           </div>
 
-          {error ? (
-            <div className="fixed top-4 left-1/2 z-50 mb-5 flex w-full max-w-md -translate-x-1/2 items-start rounded-lg border border-red-200/80 bg-red-50/80 px-4 py-3 text-xs text-red-800 shadow-sm">
-              <X className="mr-2 mt-0.5 h-4 w-4 shrink-0 text-red-500" />
-              <span className="-mt-0.5 flex-1 leading-tight">{error}</span>
+          {formError ? (
+            <div
+              role="alert"
+              className="mb-5 flex items-start rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-800"
+            >
+              <AlertCircle className="mr-2 mt-0.5 h-4 w-4 shrink-0" />
+              <span className="flex-1 leading-tight">{formError}</span>
               <button
                 type="button"
-                onClick={() => setError('')}
-                className="-mr-1 ml-2 rounded-full p-0.5 text-red-400 transition-colors hover:bg-red-100/70 hover:text-red-600"
-                aria-label="Hata mesajını kapat"
+                onClick={() => setFormError(null)}
+                className="rounded-full p-0.5 text-red-400 hover:bg-red-100"
+                aria-label="Kapat"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>
           ) : null}
 
-          <form className="space-y-5" onSubmit={handleSubmit}>
-            {currentStep === 1 ? (
-              <>
-                <div>
-                  <label
-                    htmlFor="companyName"
-                    className="mb-1.5 block text-xs font-medium text-neutral-700"
-                  >
-                    Şirket Adı
-                  </label>
-                  <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                      <Building2 className="h-4 w-4 text-neutral-400" />
-                    </div>
-                    <input
-                      id="companyName"
-                      name="companyName"
-                      type="text"
-                      required
-                      value={formData.companyName}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          companyName: e.target.value,
-                        })
-                      }
-                      className={inputClass}
-                      placeholder="Şirketinizin adı"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="mb-1.5 block text-xs font-medium text-neutral-700"
-                  >
-                    E-posta Adresi
-                  </label>
-                  <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                      <Mail className="h-4 w-4 text-neutral-400" />
-                    </div>
-                    <input
-                      id="email"
-                      name="email"
-                      type="email"
-                      autoComplete="email"
-                      required
-                      value={formData.email}
-                      onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
-                      }
-                      className={inputClass}
-                      placeholder="partner@sirketiniz.com"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="password"
-                    className="mb-1.5 block text-xs font-medium text-neutral-700"
-                  >
-                    Şifre
-                  </label>
-                  <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                      <Lock className="h-4 w-4 text-neutral-400" />
-                    </div>
-                    <input
-                      id="password"
-                      name="password"
-                      type="password"
-                      autoComplete="new-password"
-                      required
-                      minLength={8}
-                      value={formData.password}
-                      onChange={(e) =>
-                        setFormData({ ...formData, password: e.target.value })
-                      }
-                      className={inputClass}
-                      placeholder="••••••••"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="confirmPassword"
-                    className="mb-1.5 block text-xs font-medium text-neutral-700"
-                  >
-                    Şifre Tekrar
-                  </label>
-                  <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                      <Lock className="h-4 w-4 text-neutral-400" />
-                    </div>
-                    <input
-                      id="confirmPassword"
-                      name="confirmPassword"
-                      type="password"
-                      autoComplete="new-password"
-                      required
-                      minLength={8}
-                      value={formData.confirmPassword}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          confirmPassword: e.target.value,
-                        })
-                      }
-                      className={inputClass}
-                      placeholder="••••••••"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="role"
-                    className="mb-1.5 block text-xs font-medium text-neutral-700"
-                  >
-                    Rol
-                  </label>
-                  <select
-                    id="role"
-                    name="role"
-                    required
-                    value={formData.role}
-                    onChange={(e) =>
-                      setFormData({ ...formData, role: e.target.value })
-                    }
-                    className="block w-full rounded-lg border border-neutral-300 py-2.5 pl-3 pr-4 text-neutral-900 placeholder-neutral-400 shadow-sm transition duration-200 ease-in-out focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-sky-300 focus:ring-offset-0 sm:text-sm"
-                  >
-                    <option value="">Rol Seçiniz</option>
-                    <option value="TOUR_OPERATOR">Tur Operatörü</option>
-                    <option value="EXPERIENCE_PROVIDER">
-                      Aktivite Operatörü
-                    </option>
-                  </select>
-                </div>
-              </>
-            ) : (
-              <>
-                <div>
-                  <label
-                    htmlFor="phone"
-                    className="mb-1.5 block text-xs font-medium text-neutral-700"
-                  >
-                    Telefon
-                  </label>
-                  <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                      <Phone className="h-4 w-4 text-neutral-400" />
-                    </div>
-                    <input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      required
-                      value={formData.phone}
-                      onChange={(e) =>
-                        setFormData({ ...formData, phone: e.target.value })
-                      }
-                      className={inputClass}
-                      placeholder="+90 555 555 55 55"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="address"
-                    className="mb-1.5 block text-xs font-medium text-neutral-700"
-                  >
-                    Adres
-                  </label>
-                  <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                      <MapPin className="h-4 w-4 text-neutral-400" />
-                    </div>
-                    <input
-                      id="address"
-                      name="address"
-                      type="text"
-                      required
-                      value={formData.address}
-                      onChange={(e) =>
-                        setFormData({ ...formData, address: e.target.value })
-                      }
-                      className={inputClass}
-                      placeholder="Şirket adresi"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label
-                      htmlFor="city"
-                      className="mb-1.5 block text-xs font-medium text-neutral-700"
-                    >
-                      Şehir
-                    </label>
-                    <div className="relative">
-                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                        <MapPin className="h-4 w-4 text-neutral-400" />
-                      </div>
-                      <input
-                        id="city"
-                        name="city"
-                        type="text"
-                        required
-                        value={formData.city}
-                        onChange={(e) =>
-                          setFormData({ ...formData, city: e.target.value })
-                        }
-                        className={inputClass}
-                        placeholder="Şehir"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="country"
-                      className="mb-1.5 block text-xs font-medium text-neutral-700"
-                    >
-                      Ülke
-                    </label>
-                    <div className="relative">
-                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                        <MapPin className="h-4 w-4 text-neutral-400" />
-                      </div>
-                      <input
-                        id="country"
-                        name="country"
-                        type="text"
-                        required
-                        value={formData.country}
-                        onChange={(e) =>
-                          setFormData({ ...formData, country: e.target.value })
-                        }
-                        className={inputClass}
-                        placeholder="Ülke"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="website"
-                    className="mb-1.5 block text-xs font-medium text-neutral-700"
-                  >
-                    Web Sitesi
-                  </label>
-                  <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                      <Globe className="h-4 w-4 text-neutral-400" />
-                    </div>
-                    <input
-                      id="website"
-                      name="website"
-                      type="url"
-                      value={formData.website}
-                      onChange={(e) =>
-                        setFormData({ ...formData, website: e.target.value })
-                      }
-                      className={inputClass}
-                      placeholder="https://www.sirketiniz.com"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="description"
-                    className="mb-1.5 block text-xs font-medium text-neutral-700"
-                  >
-                    Şirket Açıklaması
-                  </label>
-                  <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-start pl-3 pt-3">
-                      <FileText className="h-4 w-4 text-neutral-400" />
-                    </div>
-                    <textarea
-                      id="description"
-                      name="description"
-                      rows={4}
-                      value={formData.description}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          description: e.target.value,
-                        })
-                      }
-                      className={inputClass}
-                      placeholder="Şirketinizi kısaca tanıtın..."
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center">
+          {step === 1 ? (
+            <form className="space-y-4" onSubmit={goNext} noValidate>
+              <div>
+                <label htmlFor="companyName" className={LABEL}>
+                  Şirket Adı
+                </label>
+                <div className="relative">
+                  <Building2 className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-neutral-400" />
                   <input
-                    id="terms"
-                    name="terms"
-                    type="checkbox"
-                    checked={formData.termsAccepted}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        termsAccepted: e.target.checked,
-                      })
-                    }
-                    className="h-4 w-4 rounded border-neutral-300 text-sky-600 focus:ring-sky-500"
+                    id="companyName"
+                    className={`${INPUT} ${stepOne.formState.errors.companyName ? INPUT_ERR : ''}`}
+                    placeholder="Şirketinizin unvanı"
+                    disabled={busy}
+                    {...stepOne.register('companyName')}
                   />
-                  <label
-                    htmlFor="terms"
-                    className="ml-2 block text-xs text-neutral-700"
-                  >
-                    <span>
-                      <Link
-                        href="/terms"
-                        className="text-sky-600 hover:text-sky-800 hover:underline"
-                      >
-                        İş Ortağı Sözleşmesi
-                      </Link>{' '}
-                      ve{' '}
-                      <Link
-                        href="/privacy"
-                        className="text-sky-600 hover:text-sky-800 hover:underline"
-                      >
-                        Gizlilik Politikası
-                      </Link>
-                      &apos;nı okudum ve kabul ediyorum.
-                    </span>
-                  </label>
                 </div>
-              </>
-            )}
+                {stepOne.formState.errors.companyName ? (
+                  <p className={FIELD_ERR}>
+                    {stepOne.formState.errors.companyName.message}
+                  </p>
+                ) : null}
+              </div>
 
-            <div className="flex items-center justify-between pt-3">
-              {currentStep > 1 ? (
+              <div>
+                <label htmlFor="email" className={LABEL}>
+                  İş e-postası
+                </label>
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                  <input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    className={`${INPUT} ${stepOne.formState.errors.email ? INPUT_ERR : ''}`}
+                    placeholder="partner@sirketiniz.com"
+                    disabled={busy}
+                    {...stepOne.register('email')}
+                  />
+                </div>
+                {stepOne.formState.errors.email ? (
+                  <p className={FIELD_ERR}>
+                    {stepOne.formState.errors.email.message}
+                  </p>
+                ) : null}
+              </div>
+
+              <div>
+                <label htmlFor="password" className={LABEL}>
+                  Şifre
+                </label>
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    className={`${INPUT} pr-11 ${stepOne.formState.errors.password ? INPUT_ERR : ''}`}
+                    disabled={busy}
+                    {...stepOne.register('password')}
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 flex min-w-11 items-center justify-center text-neutral-400"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={
+                      showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'
+                    }
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+                <p className="mt-1.5 text-xs text-neutral-500">
+                  {CUSTOMER_PASSWORD_HINT}
+                </p>
+                {stepOne.formState.errors.password ? (
+                  <p className={FIELD_ERR}>
+                    {stepOne.formState.errors.password.message}
+                  </p>
+                ) : null}
+              </div>
+
+              <div>
+                <label htmlFor="confirmPassword" className={LABEL}>
+                  Şifre tekrarı
+                </label>
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                  <input
+                    id="confirmPassword"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    className={`${INPUT} ${stepOne.formState.errors.confirmPassword ? INPUT_ERR : ''}`}
+                    disabled={busy}
+                    {...stepOne.register('confirmPassword')}
+                  />
+                </div>
+                {stepOne.formState.errors.confirmPassword ? (
+                  <p className={FIELD_ERR}>
+                    {stepOne.formState.errors.confirmPassword.message}
+                  </p>
+                ) : null}
+              </div>
+
+              <button
+                type="submit"
+                disabled={busy}
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-neutral-950 px-4 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:opacity-60"
+              >
+                Devam Et
+                <ArrowRight className="ml-1.5 h-4 w-4" aria-hidden />
+              </button>
+            </form>
+          ) : (
+            <form className="space-y-4" onSubmit={onSubmit} noValidate>
+              <div>
+                <label htmlFor="phone" className={LABEL}>
+                  Telefon
+                </label>
+                <div className="relative">
+                  <Phone className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                  <input
+                    id="phone"
+                    className={`${INPUT} ${stepTwo.formState.errors.phone ? INPUT_ERR : ''}`}
+                    placeholder="+90 5xx xxx xx xx"
+                    disabled={busy}
+                    {...stepTwo.register('phone')}
+                  />
+                </div>
+                {stepTwo.formState.errors.phone ? (
+                  <p className={FIELD_ERR}>
+                    {stepTwo.formState.errors.phone.message}
+                  </p>
+                ) : null}
+              </div>
+
+              <div>
+                <label htmlFor="address" className={LABEL}>
+                  Adres
+                </label>
+                <div className="relative">
+                  <MapPin className="pointer-events-none absolute top-3 left-3 h-4 w-4 text-neutral-400" />
+                  <textarea
+                    id="address"
+                    rows={2}
+                    className={`${INPUT} ${stepTwo.formState.errors.address ? INPUT_ERR : ''}`}
+                    disabled={busy}
+                    {...stepTwo.register('address')}
+                  />
+                </div>
+                {stepTwo.formState.errors.address ? (
+                  <p className={FIELD_ERR}>
+                    {stepTwo.formState.errors.address.message}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="city" className={LABEL}>
+                    Şehir
+                  </label>
+                  <input
+                    id="city"
+                    className={`${INPUT} pl-4 ${stepTwo.formState.errors.city ? INPUT_ERR : ''}`}
+                    disabled={busy}
+                    {...stepTwo.register('city')}
+                  />
+                  {stepTwo.formState.errors.city ? (
+                    <p className={FIELD_ERR}>
+                      {stepTwo.formState.errors.city.message}
+                    </p>
+                  ) : null}
+                </div>
+                <div>
+                  <label htmlFor="country" className={LABEL}>
+                    Ülke
+                  </label>
+                  <input
+                    id="country"
+                    className={`${INPUT} pl-4 ${stepTwo.formState.errors.country ? INPUT_ERR : ''}`}
+                    disabled={busy}
+                    {...stepTwo.register('country')}
+                  />
+                  {stepTwo.formState.errors.country ? (
+                    <p className={FIELD_ERR}>
+                      {stepTwo.formState.errors.country.message}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="taxNumber" className={LABEL}>
+                  Vergi no (opsiyonel)
+                </label>
+                <input
+                  id="taxNumber"
+                  className={`${INPUT} pl-4`}
+                  disabled={busy}
+                  {...stepTwo.register('taxNumber')}
+                />
+              </div>
+
+              <label className="flex items-start gap-2 text-xs text-neutral-600">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 rounded border-neutral-300"
+                  disabled={busy}
+                  {...stepTwo.register('termsAccepted')}
+                />
+                <span>
+                  <Link href="/terms" className="underline underline-offset-2">
+                    Kullanım Şartları
+                  </Link>{' '}
+                  ve{' '}
+                  <Link
+                    href="/privacy"
+                    className="underline underline-offset-2"
+                  >
+                    Gizlilik Politikası
+                  </Link>
+                  ’nı kabul ediyorum.
+                </span>
+              </label>
+              {stepTwo.formState.errors.termsAccepted ? (
+                <p className={FIELD_ERR}>
+                  {stepTwo.formState.errors.termsAccepted.message}
+                </p>
+              ) : null}
+
+              <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={prevStep}
-                  className="inline-flex items-center justify-center rounded-lg border border-neutral-300 bg-white px-4 py-2 text-xs font-medium text-neutral-700 shadow-sm transition-colors duration-200 hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
+                  onClick={() => {
+                    setFormError(null);
+                    setStep(1);
+                  }}
+                  disabled={busy}
+                  className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-neutral-300 bg-white px-4 text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-60"
                 >
-                  <ChevronLeft className="mr-1.5 h-4 w-4" />
+                  <ChevronLeft className="mr-1 h-4 w-4" aria-hidden />
                   Geri
                 </button>
-              ) : (
-                <Link
-                  href="/partner-login"
-                  className="inline-flex items-center justify-center rounded-lg border border-neutral-300 bg-white px-4 py-2 text-xs font-medium text-neutral-700 shadow-sm transition-colors duration-200 hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
-                >
-                  Giriş Yap
-                </Link>
-              )}
-
-              {currentStep === 1 ? (
-                <button
-                  type="button"
-                  onClick={nextStep}
-                  className="inline-flex items-center justify-center rounded-lg border border-transparent bg-sky-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
-                >
-                  Devam Et
-                  <ArrowRight className="ml-1.5 h-4 w-4" />
-                </button>
-              ) : (
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="inline-flex items-center justify-center rounded-lg border border-transparent bg-sky-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={busy}
+                  className="inline-flex min-h-11 flex-[1.4] items-center justify-center rounded-lg bg-neutral-950 px-4 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-60"
                 >
-                  {loading ? (
-                    <svg
-                      className="h-4 w-4 animate-spin text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
+                  {busy ? (
+                    <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
                   ) : (
                     <>
-                      <UserPlus className="mr-1.5 h-4 w-4" />
+                      <UserPlus className="mr-1.5 h-4 w-4" aria-hidden />
                       Hesap Oluştur
                     </>
                   )}
                 </button>
-              )}
-            </div>
-          </form>
+              </div>
+            </form>
+          )}
 
-          <div className="pt-6 text-center">
-            <p className="text-xs text-neutral-500">
-              Sorularınız mı var?{' '}
-              <a
-                href="mailto:partner@turta.com.tr"
-                className="font-medium text-sky-600 underline-offset-2 transition-colors duration-150 hover:text-sky-800 hover:underline"
-              >
-                Destek ile iletişime geçin
-              </a>
+          <div className="mt-8 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-center sm:text-left">
+            <p className="text-sm font-semibold text-neutral-900">
+              Kurumsal destek
             </p>
+            <p className="mt-1 text-xs leading-relaxed text-neutral-600">
+              Başvuru veya sözleşme sorularınız için partner ekibimize yazın.
+            </p>
+            <MailtoLink
+              emailKey="partner"
+              subject="Partner başvuru desteği"
+              className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-neutral-950 px-4 text-sm font-semibold text-white transition hover:bg-neutral-800"
+            >
+              <Mail className="h-4 w-4" aria-hidden />
+              Partner destek e-postası
+            </MailtoLink>
           </div>
         </div>
       </div>

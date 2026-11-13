@@ -66,6 +66,13 @@ export default function RegisterPage() {
     termsAccepted: false,
   });
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{
+    email?: string;
+    password?: string;
+    confirmPassword?: string;
+    identityNumber?: string;
+    address?: string;
+  }>({});
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -100,27 +107,37 @@ export default function RegisterPage() {
   }
 
   function validateForm(): string | null {
+    const next: typeof fieldErrors = {};
+    let phoneMsg: string | null = null;
+    if (
+      !formData.email.trim() ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)
+    ) {
+      next.email = 'Geçerli bir e-posta girin';
+    }
     if (!isValidFullPhone(formData.phoneDial, formData.phoneLocal)) {
-      const msg =
+      phoneMsg =
         getPhoneValidationError(formData.phoneLocal, formData.phoneDial) ??
         'Geçerli bir telefon numarası girin (alan kodu dahil).';
-      setPhoneError(msg);
-      return msg;
     }
-    setPhoneError(null);
+    setPhoneError(phoneMsg);
     const tckn = formData.identityNumber.replace(/\D/g, '');
     if (!tckn || tckn.length !== 11 || !isValidTckn(tckn)) {
-      return 'Geçerli bir TC Kimlik No girin (11 hane).';
+      next.identityNumber = 'Geçerli bir TC Kimlik No girin (11 hane).';
     }
     if (formData.address.trim().length < 5) {
-      return 'Adres en az 5 karakter olmalıdır.';
-    }
-    if (formData.password !== formData.confirmPassword) {
-      return 'Şifreler eşleşmiyor.';
+      next.address = 'Adres en az 5 karakter olmalıdır.';
     }
     const passwordError = getCustomerPasswordError(formData.password);
     if (passwordError) {
-      return passwordError;
+      next.password = passwordError;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      next.confirmPassword = 'Şifreler eşleşmiyor.';
+    }
+    setFieldErrors(next);
+    if (Object.keys(next).length > 0 || phoneMsg) {
+      return Object.values(next)[0] ?? phoneMsg ?? 'Formu kontrol edin.';
     }
     if (!formData.termsAccepted) {
       return 'Devam etmek için Kullanım Şartları ve Gizlilik Politikasını kabul etmelisiniz.';
@@ -251,7 +268,9 @@ export default function RegisterPage() {
   const inputPad = 'px-3 py-2 pl-8';
   const borderOk =
     'border-neutral-300 focus:border-neutral-950 focus:ring-neutral-300';
+  const borderErr = 'border-red-300 focus:border-red-500 focus:ring-red-300';
   const labelClass = 'mb-1 block text-xs font-medium text-neutral-700';
+  const fieldErrClass = 'mt-1.5 text-xs font-medium text-red-600';
 
   return (
     <div className="flex min-h-screen overflow-hidden bg-neutral-50">
@@ -369,10 +388,17 @@ export default function RegisterPage() {
                   required
                   value={formData.email}
                   onChange={(e) => updateField('email', e.target.value)}
-                  className={`${baseInputClass} ${inputPad} ${borderOk}`}
+                  className={`${baseInputClass} ${inputPad} ${fieldErrors.email ? borderErr : borderOk}`}
                   placeholder="ornek@mail.com"
+                  disabled={pending}
+                  aria-invalid={Boolean(fieldErrors.email)}
                 />
               </div>
+              {fieldErrors.email ? (
+                <p className="mt-1.5 text-xs font-medium text-red-600">
+                  {fieldErrors.email}
+                </p>
+              ) : null}
             </div>
 
             <PhoneInput
@@ -451,13 +477,16 @@ export default function RegisterPage() {
                   minLength={8}
                   value={formData.password}
                   onChange={(e) => updateField('password', e.target.value)}
-                  className={`${baseInputClass} ${inputPad} pr-10 ${borderOk}`}
+                  className={`${baseInputClass} ${inputPad} pr-10 ${fieldErrors.password ? borderErr : borderOk}`}
                   placeholder="••••••••"
+                  disabled={pending}
+                  aria-invalid={Boolean(fieldErrors.password)}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute inset-y-0 right-0 flex items-center px-3 text-neutral-400 hover:text-neutral-600"
+                  className="absolute inset-y-0 right-0 flex min-w-11 items-center justify-center px-3 text-neutral-400 hover:text-neutral-600"
+                  aria-label={showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
                 >
                   {showPassword ? (
                     <EyeOff className="h-5 w-5" />
@@ -466,6 +495,12 @@ export default function RegisterPage() {
                   )}
                 </button>
               </div>
+              {fieldErrors.password ? (
+                <p className={fieldErrClass}>{fieldErrors.password}</p>
+              ) : null}
+              {fieldErrors.confirmPassword ? (
+                <p className={fieldErrClass}>{fieldErrors.confirmPassword}</p>
+              ) : null}
               {formData.password ? (
                 <div className="mt-1.5 flex gap-1">
                   {[1, 2, 3, 4, 5].map((level) => (
@@ -540,7 +575,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={pending}
-              className="flex min-h-[40px] w-full items-center justify-center rounded-lg bg-neutral-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-neutral-800 disabled:opacity-60"
+              className="flex min-h-11 w-full items-center justify-center rounded-lg bg-neutral-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {pending ? (
                 <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
