@@ -10,8 +10,8 @@ export const metadata: Metadata = {
 
 export default function FaqPage() {
   return (
-    <div className="pt-8">
-      <FaqSection contactHref="/contact" />
-    </div>
+    <main className="min-h-screen bg-white pt-16 md:pt-20">
+      <FaqSection contactHref="/contact" compact />
+    </main>
   );
 }

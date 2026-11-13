@@ -4,7 +4,6 @@ import { memo } from 'react';
 import Link from 'next/link';
 import {
   Building2,
-  ChevronDown,
   Handshake,
   HelpCircle,
   Mail,
@@ -13,38 +12,12 @@ import {
   User,
 } from 'lucide-react';
 
+import { FaqAccordion } from '@/components/features/faq/faq-accordion';
+import { CONTACT_FAQ_ITEMS } from '@/components/features/faq/faq-data';
 import ContactForm from './contact-form';
 import { ContactInfo } from './contact-info';
 import { ContactMapLazy } from './contact-map-lazy';
 import { COMPANY } from '@/lib/company';
-
-const faqData = [
-  {
-    question: 'Rezervasyon iptali nasıl yapılır?',
-    answer:
-      'Hesabınızdaki Rezervasyonlarım bölümünden iptal talebi oluşturabilirsiniz. İptal koşulları turun kendi politikasına göre değişir; detay rezervasyon onayınızda yer alır.',
-  },
-  {
-    question: 'Ödeme nasıl yapılır?',
-    answer:
-      'Rezervasyon sırasında kredi veya banka kartı ile ödeme alıyoruz. Ödeme altyapısı güvenli ödeme kuruluşu üzerinden çalışır.',
-  },
-  {
-    question: 'Rezervasyon sonrası değişiklik yapabilir miyim?',
-    answer:
-      'Tarih veya kişi sayısı değişikliği, turun müsaitliğine ve acentenin kurallarına bağlıdır. Destek ekibimiz veya acente ile iletişime geçebilirsiniz.',
-  },
-  {
-    question: 'Acente olarak tur yayınlamak istiyorum, ne yapmalıyım?',
-    answer:
-      'Acente başvurusu sayfasından kayıt olun. Başvurunuz incelendikten sonra tur yayınlamaya başlayabilirsiniz.',
-  },
-  {
-    question: 'Ofisinizi ziyaret edebilir miyim?',
-    answer:
-      'Evet. Ankara Çankaya’daki ofisimiz randevu ile ziyaret edilebilir. Form üzerinden veya e-posta ile randevu talep edin.',
-  },
-] as const;
 
 const channels = [
   {
@@ -227,23 +200,8 @@ export default function ContactPageContent() {
               Kısa yanıtlar
             </h2>
           </div>
-          <div className="mx-auto max-w-3xl space-y-3">
-            {faqData.map((faq) => (
-              <details
-                key={faq.question}
-                className="group overflow-hidden rounded-lg border border-neutral-200/80 bg-white"
-              >
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 font-semibold text-neutral-800 hover:bg-neutral-50">
-                  <span className="min-w-0 text-left">{faq.question}</span>
-                  <ChevronDown className="h-5 w-5 shrink-0 text-neutral-500 transition-transform group-open:rotate-180" />
-                </summary>
-                <div className="border-t border-neutral-200/60 px-5 pt-3 pb-5">
-                  <p className="text-sm leading-relaxed text-neutral-600">
-                    {faq.answer}
-                  </p>
-                </div>
-              </details>
-            ))}
+          <div className="mx-auto max-w-3xl">
+            <FaqAccordion items={CONTACT_FAQ_ITEMS} />
           </div>
         </div>
       </section>

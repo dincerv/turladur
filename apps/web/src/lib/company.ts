@@ -15,9 +15,29 @@ export const COMPANY = {
   emails: {
     info: 'info@turta.com.tr',
     support: 'destek@turta.com.tr',
+    /** Privacy / KVKK requests */
+    privacy: 'privacy@turta.com.tr',
     partner: 'partner@turta.com.tr',
+    /** Alias used on partner login CTAs */
+    partners: 'partner@turta.com.tr',
   },
 } as const;
+
+export type CompanyEmailKey = keyof typeof COMPANY.emails;
+
+export function getCompanyEmail(key: CompanyEmailKey = 'info'): string {
+  return COMPANY.emails[key];
+}
+
+/** mailto: with optional subject — single source for legal/support links. */
+export function getCompanyMailto(
+  key: CompanyEmailKey = 'info',
+  subject?: string,
+): string {
+  const address = getCompanyEmail(key);
+  if (!subject) return `mailto:${address}`;
+  return `mailto:${address}?subject=${encodeURIComponent(subject)}`;
+}
 
 export function getCompanyAddressLines(): string[] {
   return [

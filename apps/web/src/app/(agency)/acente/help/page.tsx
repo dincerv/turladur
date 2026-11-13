@@ -90,7 +90,7 @@ export default function PartnerHelpPage() {
         <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
           <Mail className="mb-3 h-6 w-6 text-blue-600" />
           <h3 className="font-semibold text-gray-900">E-posta</h3>
-          <p className="mt-1 text-sm text-gray-600">destek@turta.com</p>
+          <p className="mt-1 text-sm text-gray-600">destek@turta.com.tr</p>
         </div>
         <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
           <Phone className="mb-3 h-6 w-6 text-green-600" />

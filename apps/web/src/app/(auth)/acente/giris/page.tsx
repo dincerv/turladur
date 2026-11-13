@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 
 import { BrandLogo } from '@/components/brand/brand-logo';
+import { getCompanyMailto } from '@/lib/company';
 import { useAuth } from '@/providers/auth-provider';
 import { ApiError } from '@/services/api-client';
 import { isSellerPanelRole } from '@/lib/partner-permissions';
@@ -437,7 +438,7 @@ export default function PartnerLoginPage() {
               <p className="text-xs text-neutral-500">
                 Sorun mu yaşıyorsunuz?{' '}
                 <a
-                  href="mailto:partners@turta.com"
+                  href={getCompanyMailto('partner', 'Acente giriş desteği')}
                   className="font-medium text-neutral-950 underline-offset-2 transition-colors duration-150 hover:text-neutral-800 hover:underline"
                 >
                   Destek ile iletişime geçin
