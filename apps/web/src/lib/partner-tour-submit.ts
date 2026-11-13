@@ -12,7 +12,6 @@ import {
   mapLegacyTourCategory,
   uploadTourImageFile,
 } from '@/lib/partner-tour-helpers';
-import { getTourDates } from '@/services/catalog';
 import {
   createPartnerTour,
   createTourDate,
@@ -20,6 +19,7 @@ import {
   createTourPickupPoint,
   deleteTourPickupPoint,
   getPresignedUpload,
+  listPartnerTourDates,
   listTourPickupPoints,
   updatePartnerTour,
   upsertTourAccommodation,
@@ -258,7 +258,9 @@ export async function persistPartnerTourUpdate(
   );
 
   // Dates: only create NEW windows (avoid duplicating booked dates).
-  const existingDates = await getTourDates(tourId).catch(() => []);
+  const existingDates = await listPartnerTourDates(tourId, token).catch(
+    () => [],
+  );
   const existingRangeKeys = new Set(
     existingDates.map(
       (date) =>

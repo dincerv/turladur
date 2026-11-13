@@ -10,13 +10,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { getTourDates, type TourDateRow } from '@/services/catalog';
 import {
+  listPartnerTourDates,
   TOUR_CANCEL_REASON_OPTIONS,
   type PartnerTour,
+  type PartnerTourDateRow,
   type TourCancelReason,
 } from '@/services/partner-admin';
 import { ApiError } from '@/services/api-client';
+import { useAuth } from '@/providers/auth-provider';
 
 import { sanitizeTourText } from './tours-query';
 
@@ -51,7 +53,8 @@ export function TourCancelDialog({
   onOpenChange,
   onConfirm,
 }: TourCancelDialogProps) {
-  const [cancelDates, setCancelDates] = useState<TourDateRow[]>([]);
+  const { accessToken } = useAuth();
+  const [cancelDates, setCancelDates] = useState<PartnerTourDateRow[]>([]);
   const [selectedDateIds, setSelectedDateIds] = useState<string[]>([]);
   const [datesLoading, setDatesLoading] = useState(false);
   const [datesLoadFailed, setDatesLoadFailed] = useState(false);
@@ -61,7 +64,7 @@ export function TourCancelDialog({
   const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open || !tour) {
+    if (!open || !tour || !accessToken) {
       setCancelDates([]);
       setSelectedDateIds([]);
       setDatesLoadFailed(false);
@@ -76,7 +79,7 @@ export function TourCancelDialog({
     setCancelNote('');
     setLocalError(null);
 
-    void getTourDates(tour.id)
+    void listPartnerTourDates(tour.id, accessToken)
       .then((dates) => {
         if (cancelled) return;
         setCancelDates(dates);
@@ -100,7 +103,7 @@ export function TourCancelDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, tour]);
+  }, [open, tour, accessToken]);
 
   const allDatesSelected =
     cancelDates.length > 0 && selectedDateIds.length === cancelDates.length;
@@ -191,11 +194,11 @@ export function TourCancelDialog({
                   type="button"
                   disabled={busy}
                   onClick={() => {
-                    if (!tour) return;
+                    if (!tour || !accessToken) return;
                     setDatesLoading(true);
                     setDatesLoadFailed(false);
                     setLocalError(null);
-                    void getTourDates(tour.id)
+                    void listPartnerTourDates(tour.id, accessToken)
                       .then((dates) => {
                         setCancelDates(dates);
                         setSelectedDateIds(dates.map((d) => d.id));

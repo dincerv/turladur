@@ -13,11 +13,12 @@ export default function TourDateSeatsPage() {
   const tourDateId = params.tourDateId;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="tour-date-seats-page">
       <div className="flex items-center gap-3">
         <Link
           href={`${ACENTE_ROUTES.tours}/${tourId}`}
-          className="inline-flex items-center text-sm font-medium text-gray-600 hover:text-gray-900"
+          data-testid="seats-back-to-tour"
+          className="inline-flex min-h-11 items-center text-sm font-medium text-gray-600 hover:text-gray-900"
         >
           <ArrowLeft className="mr-1 h-4 w-4" />
           Tur detayına dön

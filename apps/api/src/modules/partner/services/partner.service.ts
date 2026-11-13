@@ -11,6 +11,10 @@ import { CacheService } from '../../../core/cache/cache.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { StorageService } from '../../../core/storage/storage.service';
 import { BusinessException } from '../../../shared/exceptions/business.exception';
+import {
+  sanitizeTourExtras,
+  sanitizeTourPlainText,
+} from '../../catalog/utils/sanitize-tour-text';
 
 const DASHBOARD_CACHE_TTL_SECONDS = 60;
 
@@ -686,6 +690,56 @@ export class PartnerService {
     };
   }
 
+  /**
+   * Owned departure dates for agency panel (all tour statuses).
+   * Public `/catalog/tours/:id/dates` only returns PUBLISHED tours.
+   */
+  async listOwnedTourDates(agencyId: string | undefined, tourId: string) {
+    this.requireAgencyId(agencyId);
+
+    const tour = await this.prisma.tour.findFirst({
+      where: { id: tourId, agencyId, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (!tour) {
+      throw new NotFoundException({
+        code: 'TOUR_NOT_FOUND',
+        message: 'Tur bulunamadı',
+      });
+    }
+
+    const dates = await this.prisma.tourDate.findMany({
+      where: { tourId, deletedAt: null, isActive: true },
+      select: {
+        id: true,
+        tourId: true,
+        startDate: true,
+        endDate: true,
+        capacity: true,
+        remainingCapacity: true,
+        priceOverride: true,
+        isActive: true,
+      },
+      orderBy: { startDate: 'asc' },
+    });
+
+    return {
+      success: true,
+      data: dates.map((d) => ({
+        id: d.id,
+        tourId: d.tourId,
+        startDate: d.startDate.toISOString().slice(0, 10),
+        endDate: d.endDate.toISOString().slice(0, 10),
+        capacity: d.capacity,
+        remainingCapacity: d.remainingCapacity,
+        priceOverride: d.priceOverride?.toString() ?? null,
+        isActive: d.isActive,
+      })),
+      error: null,
+    };
+  }
+
   async getTourDetail(agencyId: string | undefined, tourId: string) {
     this.requireAgencyId(agencyId);
 
@@ -765,20 +819,21 @@ export class PartnerService {
       });
     }
 
-    const extras =
+    const rawExtras =
       tour.extras &&
       typeof tour.extras === 'object' &&
       !Array.isArray(tour.extras)
         ? (tour.extras as Record<string, unknown>)
         : {};
+    const extras = sanitizeTourExtras(rawExtras);
 
     return {
       success: true,
       data: {
         id: tour.id,
-        title: tour.title,
+        title: sanitizeTourPlainText(tour.title, 200),
         slug: tour.slug,
-        description: tour.description,
+        description: sanitizeTourPlainText(tour.description, 20_000),
         coverUrl: this.storage.resolvePublicUrl(tour.coverUrl),
         galleryUrls: this.storage.resolvePublicUrlList(tour.galleryUrls ?? []),
         extras,

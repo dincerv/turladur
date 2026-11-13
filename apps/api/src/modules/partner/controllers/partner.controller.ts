@@ -240,6 +240,17 @@ export class PartnerController {
     return this.partnerService.getTourDetail(agencyId, id);
   }
 
+  @Get('tours/:id/dates')
+  @RequireStaffPermissions('tours')
+  @ApiOperation({
+    summary:
+      'List owned tour dates (all statuses) — agency-scoped; not the public catalog endpoint',
+  })
+  async tourDates(@Param('id') id: string, @CurrentUser() user: UserPayload) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.partnerService.listOwnedTourDates(agencyId, id);
+  }
+
   @Get('experiences')
   @RequireStaffPermissions('tours')
   @ApiOperation({

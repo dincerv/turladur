@@ -170,21 +170,52 @@ export async function listPartnerTours(
   );
 }
 
+export type PartnerTourDetail = PartnerTour & {
+  description: string;
+  galleryUrls: string[];
+  extras: Record<string, unknown>;
+  stayKind?: string;
+  destinationScope?: string;
+  departureCities?: string[];
+  agencyId?: string;
+  agency?: {
+    id: string;
+    companyName: string;
+    logo: string | null;
+  };
+  partner?: {
+    id: string;
+    companyName: string;
+    logo: string | null;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type PartnerTourDateRow = {
+  id: string;
+  tourId: string;
+  startDate: string;
+  endDate: string;
+  capacity: number;
+  remainingCapacity: number;
+  priceOverride: string | null;
+  isActive: boolean;
+};
+
 export async function getPartnerTourById(id: string, token: string) {
-  return apiRequest<
-    PartnerTour & {
-      description: string;
-      galleryUrls: string[];
-      extras: Record<string, unknown>;
-      partner?: {
-        id: string;
-        companyName: string;
-        logo: string | null;
-      };
-      createdAt?: string;
-      updatedAt?: string;
-    }
-  >(`/partner/tours/${id}`, { token });
+  return apiRequest<PartnerTourDetail>(`/partner/tours/${id}`, {
+    token,
+    cache: 'no-store',
+  });
+}
+
+/** Agency-scoped dates (works for DRAFT / PENDING_REVIEW). */
+export async function listPartnerTourDates(tourId: string, token: string) {
+  return apiRequest<PartnerTourDateRow[]>(`/partner/tours/${tourId}/dates`, {
+    token,
+    cache: 'no-store',
+  });
 }
 
 export async function listPartnerReservations(token: string) {

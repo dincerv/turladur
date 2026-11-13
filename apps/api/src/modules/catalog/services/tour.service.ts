@@ -825,8 +825,10 @@ export class TourService {
   }
 
   async listTourDates(tourId: string) {
+    // Public catalog: only PUBLISHED tours expose departure windows (IDOR).
     const tour = await this.prisma.tour.findFirst({
-      where: { id: tourId, deletedAt: null },
+      where: { id: tourId, deletedAt: null, status: 'PUBLISHED' },
+      select: { id: true },
     });
 
     if (!tour) {
@@ -841,6 +843,16 @@ export class TourService {
 
     const dates = await this.prisma.tourDate.findMany({
       where: { tourId, deletedAt: null, isActive: true },
+      select: {
+        id: true,
+        tourId: true,
+        startDate: true,
+        endDate: true,
+        capacity: true,
+        remainingCapacity: true,
+        priceOverride: true,
+        isActive: true,
+      },
       orderBy: { startDate: 'asc' },
     });
 

@@ -20,10 +20,10 @@ import {
   getPartnerTourById,
   getPresignedUpload,
   getTourAccommodation,
+  listPartnerTourDates,
   listTourDateAgeRanges,
   listTourPickupPoints,
 } from '@/services/partner-admin';
-import { getTourDates } from '@/services/catalog';
 import {
   isTourSubmitPayload,
   persistPartnerTourUpdate,
@@ -64,7 +64,7 @@ export default function PartnerTourEditPage() {
 
         const [tour, dates, pickups, accommodation] = await Promise.all([
           getPartnerTourById(tourId, accessToken),
-          getTourDates(tourId),
+          listPartnerTourDates(tourId, accessToken),
           listTourPickupPoints(tourId, accessToken).catch(() => []),
           getTourAccommodation(tourId).catch(() => null),
         ]);
