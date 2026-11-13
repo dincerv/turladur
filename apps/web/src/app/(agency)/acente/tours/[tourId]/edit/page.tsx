@@ -268,6 +268,7 @@ export default function PartnerTourEditPage() {
                 initialData={formData}
                 onSubmit={handleUpdate}
                 onFormDataChange={(data) => setFormData(data)}
+                onStepChange={setFormStep}
                 isSubmitting={isSubmitting}
                 currentStep={formStep}
                 partnerId={partnerId || undefined}

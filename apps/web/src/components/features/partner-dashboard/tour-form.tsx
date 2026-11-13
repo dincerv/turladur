@@ -32,6 +32,7 @@ export function TourForm({
   initialData,
   onSubmit,
   onFormDataChange,
+  onStepChange,
   currentStep: initialStep = 'basic',
   partnerId,
   isUpdateMode = false,
@@ -127,10 +128,23 @@ export function TourForm({
     }
     return defaultFormData;
   });
-  const [step, setStep] = useState(initialStep);
+  const [step, setStepState] = useState(initialStep);
+
+  const setStep = (
+    next:
+      | 'basic'
+      | 'details'
+      | ((prev: 'basic' | 'details') => 'basic' | 'details'),
+  ) => {
+    setStepState((prev) => {
+      const resolved = typeof next === 'function' ? next(prev) : next;
+      if (resolved !== prev) onStepChange?.(resolved);
+      return resolved;
+    });
+  };
 
   useEffect(() => {
-    setStep(initialStep);
+    setStepState(initialStep);
   }, [initialStep]);
   const [newInclude, setNewInclude] = useState('');
   const [newExclude, setNewExclude] = useState('');
@@ -541,7 +555,7 @@ export function TourForm({
     if (!formData.stayKind) {
       newErrors.stayKind = 'Turun türünü seçmelisiniz';
     }
-    if (!formData.destinationScope) {
+    if (formData.stayKind && !formData.destinationScope) {
       newErrors.destinationScope = 'Yurtiçi / yurtdışı seçmelisiniz';
     }
     if (!formData.tourType?.trim()) newErrors.tourType = 'Tur tipi gerekli';
@@ -568,15 +582,14 @@ export function TourForm({
       newErrors.accommodationType = 'Konaklama tipi gerekli';
     }
 
-    // Opsiyonel alanlar (uyarı ver ama engelleme)
+    if (formData.images.length === 0) {
+      newErrors.images = 'En az bir tur görseli yüklemelisiniz';
+    }
     if (!formData.mainImage) {
-      console.warn('Ana görsel yüklenmemiş');
+      newErrors.mainImage = 'Ana görsel gerekli';
     }
     if (formData.galleryImages.length < 3) {
-      console.warn('En az 3 galeri görseli önerilir');
-    }
-    if (formData.images.length === 0) {
-      console.warn('Tur görselleri yüklenmemiş');
+      newErrors.galleryImages = 'En az 3 galeri görseli yüklemelisiniz';
     }
 
     setErrors(newErrors);
@@ -1510,15 +1523,15 @@ export function TourForm({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form id="tour-form" onSubmit={handleSubmit} className="space-y-6">
           {/* Temel Bilgiler */}
           {step === 'basic' && <TourFormBasicStep />}
 
           {/* Detaylar */}
           {step === 'details' && <TourFormDetailsStep />}
 
-          {/* Tur Tarihleri */}
-          <TourFormDatesSection />
+          {/* Tur tarihleri yalnızca detay adımında */}
+          {step === 'details' ? <TourFormDatesSection /> : null}
 
           {/* Form Gönderme */}
           <TourFormFooter />

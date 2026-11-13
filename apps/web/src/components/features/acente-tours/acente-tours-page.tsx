@@ -282,9 +282,14 @@ export function AcenteToursPage() {
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div
+          className="mt-3 flex flex-wrap gap-2"
+          role="group"
+          aria-label="Durum filtresi"
+        >
           <button
             type="button"
+            aria-pressed={!filters.status}
             onClick={() => replaceFilters({ status: undefined, page: 1 })}
             className={`rounded-full px-3 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 ${
               !filters.status
@@ -298,6 +303,7 @@ export function AcenteToursPage() {
             <button
               key={status}
               type="button"
+              aria-pressed={filters.status === status}
               onClick={() => replaceFilters({ status, page: 1 })}
               className={`rounded-full px-3 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 ${
                 filters.status === status

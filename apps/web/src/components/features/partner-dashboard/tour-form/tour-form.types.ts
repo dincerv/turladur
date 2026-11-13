@@ -112,6 +112,7 @@ export interface TourFormProps {
     data: TourFormData | Record<string, unknown>,
   ) => void | Promise<void>;
   onFormDataChange?: (data: TourFormData) => void;
+  onStepChange?: (step: 'basic' | 'details') => void;
   isSubmitting?: boolean;
   currentStep?: 'basic' | 'details';
   partnerId?: string;

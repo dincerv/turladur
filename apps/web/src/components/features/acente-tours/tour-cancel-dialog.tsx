@@ -54,6 +54,7 @@ export function TourCancelDialog({
   const [cancelDates, setCancelDates] = useState<TourDateRow[]>([]);
   const [selectedDateIds, setSelectedDateIds] = useState<string[]>([]);
   const [datesLoading, setDatesLoading] = useState(false);
+  const [datesLoadFailed, setDatesLoadFailed] = useState(false);
   const [cancelReason, setCancelReason] =
     useState<TourCancelReason>('OPERATIONAL');
   const [cancelNote, setCancelNote] = useState('');
@@ -63,12 +64,14 @@ export function TourCancelDialog({
     if (!open || !tour) {
       setCancelDates([]);
       setSelectedDateIds([]);
+      setDatesLoadFailed(false);
       setLocalError(null);
       return;
     }
 
     let cancelled = false;
     setDatesLoading(true);
+    setDatesLoadFailed(false);
     setCancelReason('OPERATIONAL');
     setCancelNote('');
     setLocalError(null);
@@ -78,6 +81,7 @@ export function TourCancelDialog({
         if (cancelled) return;
         setCancelDates(dates);
         setSelectedDateIds(dates.map((d) => d.id));
+        setDatesLoadFailed(false);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -85,6 +89,7 @@ export function TourCancelDialog({
           code: err instanceof ApiError ? err.code : 'UNKNOWN',
         });
         setLocalError('Tarihler yüklenemedi. Lütfen tekrar deneyin.');
+        setDatesLoadFailed(true);
         setCancelDates([]);
         setSelectedDateIds([]);
       })
@@ -99,9 +104,11 @@ export function TourCancelDialog({
 
   const allDatesSelected =
     cancelDates.length > 0 && selectedDateIds.length === cancelDates.length;
+  // Tarih yükleme hatasında boş listeyle "tam iptal"e düşmeyi engelle.
   const canSubmit =
     !busy &&
     !datesLoading &&
+    !datesLoadFailed &&
     (cancelDates.length === 0 || selectedDateIds.length > 0);
 
   function toggleDate(id: string) {
@@ -175,6 +182,47 @@ export function TourCancelDialog({
               <p className="mt-2 text-sm text-neutral-500">
                 Tarihler yükleniyor…
               </p>
+            ) : datesLoadFailed ? (
+              <div className="mt-2 space-y-2">
+                <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                  Tarihler yüklenemedi. İptal işlemi için tekrar deneyin.
+                </p>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    if (!tour) return;
+                    setDatesLoading(true);
+                    setDatesLoadFailed(false);
+                    setLocalError(null);
+                    void getTourDates(tour.id)
+                      .then((dates) => {
+                        setCancelDates(dates);
+                        setSelectedDateIds(dates.map((d) => d.id));
+                        setDatesLoadFailed(false);
+                      })
+                      .catch((err: unknown) => {
+                        console.error(
+                          '[tour-cancel-dialog] dates retry failed',
+                          {
+                            code:
+                              err instanceof ApiError ? err.code : 'UNKNOWN',
+                          },
+                        );
+                        setLocalError(
+                          'Tarihler yüklenemedi. Lütfen tekrar deneyin.',
+                        );
+                        setDatesLoadFailed(true);
+                        setCancelDates([]);
+                        setSelectedDateIds([]);
+                      })
+                      .finally(() => setDatesLoading(false));
+                  }}
+                  className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+                >
+                  Tekrar dene
+                </button>
+              </div>
             ) : cancelDates.length === 0 ? (
               <p className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
                 Bu turda aktif tarih yok. Onaylarsanız tur tamamen ilandan
