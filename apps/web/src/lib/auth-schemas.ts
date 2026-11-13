@@ -24,6 +24,10 @@ export const loginFormSchema = z.object({
 
 export type LoginFormValues = z.infer<typeof loginFormSchema>;
 
+/** Partner / acente panel login — same field rules as customer login. */
+export const partnerLoginFormSchema = loginFormSchema;
+export type PartnerLoginFormValues = LoginFormValues;
+
 export const partnerRegisterStepOneSchema = z
   .object({
     companyName: z
