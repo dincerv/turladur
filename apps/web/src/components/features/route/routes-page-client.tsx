@@ -1,63 +1,48 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
-import Image from 'next/image';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentType,
+} from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
+  AlertTriangle as AlertTriangleIcon,
   ArrowRight as ArrowRightIcon,
+  Building2 as BuildingOfficeIcon,
   Globe as GlobeAltIcon,
   Heart as HeartIcon,
   Map as MapIcon,
   MapPin as MapPinIcon,
   Mountain as MountainIcon,
-  Building2 as BuildingOfficeIcon,
+  RotateCw as RotateCwIcon,
   Star as StarIcon,
   Users as UserGroupIcon,
 } from 'lucide-react';
 
 import { Hero } from '@/components/features/home/hero';
-import { RouteCard } from '@/components/features/route/route-card';
+import { RoutesExplorer } from '@/components/features/route/routes-page/routes-explorer';
+import { toRouteListItem } from '@/components/features/route/routes-page/routes-explorer.helpers';
 import {
   mergeRouteWithOverlay,
   routeOverlaysByKey,
 } from '@/lib/route-page-overlay';
 import { listRoutePageOverlays } from '@/services/content';
-import {
-  listRoutes,
-  type RouteWithStats,
-  type RoutesListResponse,
-} from '@/services/route';
+import { listRoutes, type RoutesListResponse } from '@/services/route';
 
-interface RoutesApiResponse {
-  routes: RouteWithStats[];
-  categories: Array<{
-    key: string;
-    name: string;
-    description: string;
-    color: string;
-    count: number;
-  }>;
-  stats: {
-    routeCount: number;
-    tourCount: number;
-    operatorCount: number;
-    avgRating: number | null;
-  };
-}
+type IconComponent = ComponentType<{ className?: string }>;
 
 /** Tour.category keys — partner Tur Tipi feed. Legacy keys still resolve on API. */
-const CATEGORY_ICONS: Record<
-  string,
-  React.ComponentType<{ className?: string }>
-> = {
+const CATEGORY_ICONS: Record<string, IconComponent> = {
   CULTURAL: GlobeAltIcon,
   NATURE: MapIcon,
   BEACH: HeartIcon,
   GASTRONOMY: MapPinIcon,
   ADVENTURE: MountainIcon,
   CITY: BuildingOfficeIcon,
-  // legacy bookmarks
   historical: GlobeAltIcon,
   nature: MapIcon,
   beach: HeartIcon,
@@ -65,20 +50,23 @@ const CATEGORY_ICONS: Record<
   family: BuildingOfficeIcon,
 };
 
-function RouteCardSkeleton() {
+const FILTER_KEYS = ['search', 'category', 'duration', 'season'] as const;
+
+type LoadState =
+  | { status: 'loading'; data: RoutesListResponse | null }
+  | { status: 'ready'; data: RoutesListResponse }
+  | { status: 'error'; data: RoutesListResponse | null };
+
+function CategoryCardSkeleton() {
   return (
-    <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
-      <div className="aspect-[16/10] animate-pulse bg-neutral-200" />
-      <div className="space-y-3 p-4">
-        <div className="h-3 w-24 animate-pulse rounded bg-neutral-200" />
-        <div className="h-5 w-3/4 animate-pulse rounded bg-neutral-200" />
-        <div className="h-4 w-full animate-pulse rounded bg-neutral-100" />
-        <div className="h-4 w-2/3 animate-pulse rounded bg-neutral-100" />
-        <div className="flex justify-between pt-2">
-          <div className="h-4 w-20 animate-pulse rounded bg-neutral-200" />
-          <div className="h-9 w-20 animate-pulse rounded-lg bg-neutral-200" />
-        </div>
-      </div>
+    <div
+      className="rounded-xl border border-neutral-200 bg-white p-6"
+      aria-hidden
+    >
+      <div className="mb-5 h-12 w-12 animate-pulse rounded-full bg-neutral-200" />
+      <div className="mb-2 h-5 w-1/2 animate-pulse rounded bg-neutral-200" />
+      <div className="mb-5 h-4 w-full animate-pulse rounded bg-neutral-100" />
+      <div className="h-4 w-16 animate-pulse rounded bg-neutral-100" />
     </div>
   );
 }
@@ -86,56 +74,67 @@ function RouteCardSkeleton() {
 export default function RoutesPageClient() {
   const searchParams = useSearchParams();
   const activeCategory = searchParams.get('category');
-  const [data, setData] = useState<RoutesApiResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const fetchRoutes = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [body, overlays] = await Promise.all([
-        listRoutes({
-          search: searchParams.get('search') ?? undefined,
-          category: searchParams.get('category') ?? undefined,
-          duration: searchParams.get('duration') ?? undefined,
-          season: searchParams.get('season') ?? undefined,
-        }),
-        listRoutePageOverlays().catch(() => []),
-      ]);
-      const overlayMap = routeOverlaysByKey(overlays);
-      const mergedBody = {
-        ...(body as RoutesListResponse),
-        routes: (body as RoutesListResponse).routes.map((route) =>
-          mergeRouteWithOverlay(route, overlayMap.get(route.id)),
-        ),
-      };
-      setData(mergedBody as RoutesListResponse);
-    } catch (error) {
-      console.error('Routes fetch error:', error);
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [searchParams]);
+  const filterKey = searchParams.toString();
+  const [state, setState] = useState<LoadState>({
+    status: 'loading',
+    data: null,
+  });
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
-    fetchRoutes();
-  }, [fetchRoutes]);
+    let cancelled = false;
+    const params = new URLSearchParams(filterKey);
+    setState((prev) => ({ status: 'loading', data: prev.data }));
 
-  const routes = data?.routes ?? [];
+    Promise.all([
+      listRoutes({
+        search: params.get('search') ?? undefined,
+        category: params.get('category') ?? undefined,
+        duration: params.get('duration') ?? undefined,
+        season: params.get('season') ?? undefined,
+      }),
+      listRoutePageOverlays().catch(() => []),
+    ])
+      .then(([body, overlays]) => {
+        if (cancelled) return;
+        const overlayMap = routeOverlaysByKey(overlays);
+        setState({
+          status: 'ready',
+          data: {
+            ...body,
+            routes: (body.routes ?? []).map((route) =>
+              mergeRouteWithOverlay(route, overlayMap.get(route.id)),
+            ),
+            categories: body.categories ?? [],
+          },
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setState((prev) => ({ status: 'error', data: prev.data }));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filterKey, reloadToken]);
+
+  const retry = useCallback(() => setReloadToken((token) => token + 1), []);
+
+  const data = state.data;
+  const items = useMemo(
+    () => (data?.routes ?? []).map(toRouteListItem),
+    [data],
+  );
   const categories = data?.categories ?? [];
   const stats = data?.stats;
-  const hasActiveFilters = Boolean(
-    searchParams.get('search') ||
-    searchParams.get('category') ||
-    searchParams.get('duration') ||
-    searchParams.get('season'),
-  );
+  const initialLoading = state.status === 'loading' && data === null;
+  const hasActiveFilters = FILTER_KEYS.some((key) => searchParams.get(key));
 
   return (
     <div className="bg-white text-neutral-800">
       <Hero variant="routes" />
 
-      {/* Rota Kategorileri */}
       <section className="border-t border-neutral-100 bg-neutral-50 py-14 md:py-16">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mx-auto mb-10 max-w-3xl text-center md:mb-12">
@@ -149,98 +148,115 @@ export default function RoutesPageClient() {
           </div>
 
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6 lg:grid-cols-3">
-            {categories.map((category) => {
-              const Icon = CATEGORY_ICONS[category.key] ?? MapIcon;
-              const isActive = activeCategory === category.key;
-              return (
-                <Link
-                  key={category.key}
-                  href={`/routes?category=${category.key}#popular-routes`}
-                  className={`rounded-xl border bg-white p-6 shadow-sm transition hover:shadow-md ${
-                    isActive
-                      ? 'border-neutral-950 ring-1 ring-neutral-950'
-                      : 'border-neutral-200'
-                  }`}
-                >
-                  <div
-                    className={`mb-5 flex h-12 w-12 items-center justify-center rounded-full ${category.color}`}
-                  >
-                    <Icon className="h-6 w-6" />
-                  </div>
-                  <h3 className="mb-2 text-xl font-semibold text-neutral-950">
-                    {category.name}
-                  </h3>
-                  <p className="mb-5 text-sm leading-relaxed text-neutral-600">
-                    {category.description}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-neutral-700">
-                      {category.count} tur
-                    </span>
-                    <span className="inline-flex items-center text-sm font-semibold text-neutral-950">
-                      Keşfet
-                      <ArrowRightIcon className="ml-1 h-4 w-4" />
-                    </span>
-                  </div>
-                </Link>
-              );
-            })}
+            {initialLoading
+              ? Array.from({ length: 6 }, (_, index) => (
+                  <CategoryCardSkeleton key={index} />
+                ))
+              : categories.map((category) => {
+                  const Icon = CATEGORY_ICONS[category.key] ?? MapIcon;
+                  const isActive = activeCategory === category.key;
+                  return (
+                    <Link
+                      key={category.key}
+                      href={`/routes?category=${encodeURIComponent(category.key)}#popular-routes`}
+                      aria-current={isActive ? 'true' : undefined}
+                      className={`rounded-xl border bg-white p-6 shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 ${
+                        isActive
+                          ? 'border-neutral-950 ring-1 ring-neutral-950'
+                          : 'border-neutral-200'
+                      }`}
+                    >
+                      <div
+                        className={`mb-5 flex h-12 w-12 items-center justify-center rounded-full ${category.color}`}
+                      >
+                        <Icon className="h-6 w-6" />
+                      </div>
+                      <h3 className="mb-2 line-clamp-1 text-xl font-semibold text-neutral-950">
+                        {category.name}
+                      </h3>
+                      <p className="mb-5 line-clamp-2 text-sm leading-relaxed text-neutral-600">
+                        {category.description}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-neutral-700">
+                          {category.count} tur
+                        </span>
+                        <span className="inline-flex items-center text-sm font-semibold text-neutral-950">
+                          Keşfet
+                          <ArrowRightIcon className="ml-1 h-4 w-4" />
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                })}
           </div>
         </div>
       </section>
 
-      {/* Popüler Rotalar */}
-      <section id="popular-routes" className="py-14 md:py-16">
+      <section id="popular-routes" className="scroll-mt-20 py-14 md:py-16">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mx-auto mb-10 max-w-3xl text-center md:mb-12">
-            <h2 className="mb-3 text-3xl font-bold tracking-tight text-neutral-950 md:mb-4">
-              Popüler Rotalar
-            </h2>
-            <p className="text-base text-neutral-600 md:text-lg">
-              Türkiye&apos;nin en çok tercih edilen destinasyonları ve gezi
-              rotaları
-            </p>
-            {hasActiveFilters ? (
-              <p className="mt-4">
-                <Link
-                  href="/routes#popular-routes"
-                  className="text-sm font-medium text-neutral-950 underline-offset-2 hover:underline"
-                >
-                  Filtreleri temizle
-                </Link>
+          <div className="mb-8 flex flex-col gap-3 md:mb-10 md:flex-row md:items-end md:justify-between">
+            <div className="max-w-2xl">
+              <h2 className="mb-2 text-3xl font-bold tracking-tight text-neutral-950">
+                Popüler Rotalar
+              </h2>
+              <p className="text-base text-neutral-600 md:text-lg">
+                Türkiye&apos;nin en çok tercih edilen destinasyonları ve gezi
+                rotaları
               </p>
+            </div>
+            {hasActiveFilters ? (
+              <Link
+                href="/routes#popular-routes"
+                className="text-sm font-semibold text-neutral-950 underline-offset-2 hover:underline"
+              >
+                Filtreleri temizle
+              </Link>
             ) : null}
           </div>
 
-          {loading ? (
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {[...Array(6)].map((_, index) => (
-                <RouteCardSkeleton key={index} />
-              ))}
+          {state.status === 'error' ? (
+            <div
+              role="alert"
+              className="mb-6 flex flex-col items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <p className="flex items-center gap-2">
+                <AlertTriangleIcon className="h-4 w-4 shrink-0" aria-hidden />
+                Rotalar şu anda yüklenemedi. Lütfen tekrar deneyin.
+              </p>
+              <button
+                type="button"
+                onClick={retry}
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-red-700 px-3 font-semibold text-white transition hover:bg-red-800"
+              >
+                <RotateCwIcon className="h-4 w-4" aria-hidden />
+                Tekrar dene
+              </button>
             </div>
-          ) : routes.length === 0 ? (
+          ) : null}
+
+          {state.status === 'ready' && items.length === 0 ? (
             <div className="mx-auto max-w-md rounded-xl border border-neutral-200 bg-neutral-50 px-6 py-12 text-center">
               <p className="mb-4 text-neutral-600">
                 Arama kriterlerinize uygun rota bulunamadı.
               </p>
               <Link
-                href="/routes"
+                href="/routes#popular-routes"
                 className="inline-flex rounded-lg bg-neutral-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-neutral-800"
               >
                 Filtreleri temizle
               </Link>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {routes.map((route) => (
-                <RouteCard key={route.id} route={route} />
-              ))}
-            </div>
+          ) : state.status === 'error' && data === null ? null : (
+            <RoutesExplorer
+              items={items}
+              initialLoading={initialLoading}
+              refreshing={state.status === 'loading' && data !== null}
+            />
           )}
         </div>
       </section>
 
-      {/* İstatistikler */}
       {stats ? (
         <section className="bg-neutral-950 py-14 text-white md:py-16">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -272,70 +288,31 @@ export default function RoutesPageClient() {
                 },
                 {
                   number:
-                    stats.avgRating !== null ? stats.avgRating.toFixed(1) : '—',
+                    typeof stats.avgRating === 'number'
+                      ? stats.avgRating.toFixed(1)
+                      : '—',
                   label: 'Ortalama Puan',
                   icon: StarIcon,
                 },
               ].map((stat) => (
                 <div key={stat.label} className="text-center">
-                  <div className="mb-4 flex justify-center">
+                  <div className="mb-4 flex justify-center" aria-hidden>
                     <div className="rounded-full bg-white/10 p-3">
                       <stat.icon className="h-7 w-7" />
                     </div>
                   </div>
-                  <div className="mb-1 text-3xl font-bold md:text-4xl">
+                  <p className="mb-1 text-3xl font-bold md:text-4xl">
                     {stat.number}
-                  </div>
-                  <div className="text-sm text-neutral-400 md:text-base">
+                  </p>
+                  <p className="text-sm text-neutral-400 md:text-base">
                     {stat.label}
-                  </div>
+                  </p>
                 </div>
               ))}
             </div>
           </div>
         </section>
       ) : null}
-
-      {/* Rota Rehberi CTA */}
-      <section className="bg-white py-14 md:py-16">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50">
-            <div className="grid grid-cols-1 lg:grid-cols-2">
-              <div className="flex flex-col justify-center p-8 md:p-12 lg:p-16">
-                <h2 className="mb-4 text-3xl font-bold tracking-tight text-neutral-950">
-                  Ücretsiz Rota Rehberi İndirin
-                </h2>
-                <p className="mb-8 text-base leading-relaxed text-neutral-600 md:text-lg">
-                  Türkiye&apos;nin en popüler rotalarını, gizli kalmış
-                  destinasyonlarını ve seyahat ipuçlarını içeren kapsamlı
-                  rehberimizi hemen indirin.
-                </p>
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <input
-                    type="email"
-                    placeholder="E-posta adresiniz"
-                    className="h-11 flex-1 rounded-lg border border-neutral-300 bg-white px-3 outline-none ring-neutral-950 focus:ring-2"
-                  />
-                  <button
-                    type="button"
-                    className="h-11 rounded-lg bg-neutral-950 px-5 text-sm font-semibold text-white hover:bg-neutral-800"
-                  >
-                    Rehberi İndir
-                  </button>
-                </div>
-              </div>
-              <div className="relative h-64 lg:h-auto lg:min-h-[320px]">
-                <Image
-                  src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1170&q=80"
-                  alt="Rota Rehberi"
-                  fill
-                  className="object-cover"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }

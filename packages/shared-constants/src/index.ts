@@ -374,6 +374,58 @@ export function isValidGeoCoordinate(
   );
 }
 
+export interface CuratedRouteStop {
+  name: string;
+  latitude: number;
+  longitude: number;
+}
+
+/** Ordered stops for curated routes, keyed by route definition id. */
+export const CURATED_ROUTE_STOPS: Readonly<
+  Record<string, readonly CuratedRouteStop[]>
+> = {
+  kapadokya: [
+    { name: 'Uçhisar Kalesi', latitude: 38.6301, longitude: 34.8053 },
+    { name: 'Göreme Açık Hava Müzesi', latitude: 38.6398, longitude: 34.8448 },
+    { name: 'Avanos', latitude: 38.715, longitude: 34.8467 },
+    { name: 'Ürgüp', latitude: 38.6316, longitude: 34.911 },
+    { name: 'Derinkuyu Yeraltı Şehri', latitude: 38.3736, longitude: 34.7345 },
+  ],
+  'likya-yolu': [
+    { name: 'Ovacık (Başlangıç)', latitude: 36.5723, longitude: 29.1585 },
+    { name: 'Patara', latitude: 36.2611, longitude: 29.3149 },
+    { name: 'Kalkan', latitude: 36.2652, longitude: 29.414 },
+    { name: 'Kaş', latitude: 36.2018, longitude: 29.6377 },
+    { name: 'Demre (Myra)', latitude: 36.2591, longitude: 29.985 },
+    { name: 'Olimpos', latitude: 36.3962, longitude: 30.473 },
+  ],
+  pamukkale: [
+    { name: 'Pamukkale Travertenleri', latitude: 37.9215, longitude: 29.1206 },
+    { name: 'Kleopatra Havuzu', latitude: 37.9257, longitude: 29.1262 },
+    { name: 'Hierapolis Tiyatrosu', latitude: 37.9277, longitude: 29.1288 },
+  ],
+  efes: [
+    { name: 'Devlet Agorası', latitude: 37.9373, longitude: 27.3433 },
+    { name: 'Hadrian Tapınağı', latitude: 37.9386, longitude: 27.3415 },
+    { name: 'Celsus Kütüphanesi', latitude: 37.9393, longitude: 27.3403 },
+    { name: 'Büyük Tiyatro', latitude: 37.9412, longitude: 27.3419 },
+    { name: 'Artemis Tapınağı', latitude: 37.9497, longitude: 27.3639 },
+  ],
+  'fethiye-oludeniz': [
+    { name: 'Fethiye Limanı', latitude: 36.623, longitude: 29.108 },
+    { name: 'Babadağ', latitude: 36.533, longitude: 29.185 },
+    { name: 'Ölüdeniz Plajı', latitude: 36.549, longitude: 29.115 },
+    { name: 'Kelebekler Vadisi', latitude: 36.5236, longitude: 29.1015 },
+  ],
+  istanbul: [
+    { name: 'Ayasofya', latitude: 41.0086, longitude: 28.9802 },
+    { name: 'Topkapı Sarayı', latitude: 41.0115, longitude: 28.9834 },
+    { name: 'Kapalıçarşı', latitude: 41.0107, longitude: 28.9681 },
+    { name: 'Eminönü İskelesi', latitude: 41.017, longitude: 28.974 },
+    { name: 'Ortaköy', latitude: 41.0475, longitude: 29.027 },
+  ],
+};
+
 /** Email-safe map link. Do not embed Leaflet in Resend HTML. */
 export function buildOsmMapsUrl(latitude: number, longitude: number): string {
   return `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=16/${latitude}/${longitude}`;
