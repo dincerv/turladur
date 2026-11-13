@@ -11,6 +11,15 @@ export type BlogPostListItem = {
   categories: Array<{ name: string; slug: string }>;
 };
 
+/** Detail page shape — content is sanitized / parsed before render. */
+export type BlogPostDetail = BlogPostListItem & {
+  content: string;
+  authorId: string;
+  authorName: string;
+  updatedAt: string | null;
+  tags: Array<{ name: string; slug: string }>;
+};
+
 export type BlogCategoryOption = {
   slug: string;
   label: string;
@@ -45,5 +54,26 @@ export function toBlogPostListItem(
       name: category.name,
       slug: category.slug,
     })),
+  };
+}
+
+export function toBlogPostDetail(
+  post: Post & {
+    content: string;
+    coverImage?: string | null;
+    categories?: Category[];
+  },
+): BlogPostDetail {
+  const categories = (post.categories ?? []).map((category) => ({
+    name: category.name,
+    slug: category.slug,
+  }));
+  return {
+    ...toBlogPostListItem(post),
+    content: post.content,
+    authorId: post.authorId,
+    authorName: 'turta',
+    updatedAt: post.updatedAt ?? null,
+    tags: categories,
   };
 }

@@ -66,3 +66,18 @@ export function categoryLabel(slug: string | undefined): string | null {
     toSafeSearchLabel(slug, 64)
   );
 }
+
+/** ~200 wpm TR reading estimate from plain text. */
+export function estimateReadingMinutes(raw: string | null | undefined): number {
+  const plain = toPlainExcerpt(raw, Number.MAX_SAFE_INTEGER);
+  const words = plain.split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.ceil(words / 200));
+}
+
+export function looksLikeHtml(raw: string): boolean {
+  return /<\/?[a-z][\s\S]*>/i.test(raw);
+}
+
+export function toJsonLdScript(payload: unknown): string {
+  return JSON.stringify(payload).replace(/</g, '\\u003c');
+}
