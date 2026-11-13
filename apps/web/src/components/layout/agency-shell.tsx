@@ -3,23 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
-import {
-  BarChart3,
-  Calendar,
-  CircleHelp,
-  ClipboardList,
-  Cog,
-  Globe,
-  Home,
-  LogOut,
-  Menu,
-  MessageSquare,
-  Search,
-  ShieldCheck,
-  Users,
-  Wallet,
-  X,
-} from 'lucide-react';
+import { CircleHelp, LogOut, Menu, Search, ShieldCheck, X } from 'lucide-react';
 
 import { BrandLogo } from '@/components/brand/brand-logo';
 import { NotificationBell } from '@/components/layout/notification-bell';
@@ -28,6 +12,7 @@ import {
   type MembershipTier,
 } from '@/components/features/partner-dashboard/membership-badge';
 import { PartnerForbidden } from '@/components/features/partner-dashboard/partner-forbidden';
+import { ACENTE_SIDEBAR_LINKS, type AcenteSidebarLink } from '@/lib/acente-nav';
 import { resolveMediaUrl } from '@/lib/media';
 import { getPartnerProfile } from '@/services/partner-admin';
 import { useAuth } from '@/providers/auth-provider';
@@ -47,94 +32,6 @@ import {
   ACENTE_ROUTES,
 } from '@/lib/panel-routes';
 import { cn } from '@/lib/utils';
-
-type SidebarLink = {
-  name: string;
-  href: string;
-  icon: React.ElementType;
-  description?: string;
-  /** null = always; owner = partner only; else staff permission key */
-  permission: PartnerNavPermission;
-};
-
-const SIDEBAR_LINKS: SidebarLink[] = [
-  {
-    name: 'Genel Bakış',
-    href: ACENTE_ROUTES.dashboard,
-    icon: Home,
-    permission: null,
-  },
-  {
-    name: 'Turlar',
-    href: ACENTE_ROUTES.tours,
-    icon: Globe,
-    permission: 'tours',
-  },
-  {
-    name: 'Aktiviteler',
-    href: ACENTE_ROUTES.experiences,
-    icon: Globe,
-    permission: 'tours',
-  },
-  {
-    name: 'Rezervasyonlar',
-    href: ACENTE_ROUTES.reservations,
-    icon: Calendar,
-    permission: 'reservations',
-  },
-  {
-    name: 'Atamalar',
-    href: ACENTE_ROUTES.assignments,
-    icon: ClipboardList,
-    description: 'Rehber / otobüs davetleri',
-    permission: 'tours',
-  },
-  {
-    name: 'Müşteriler',
-    href: ACENTE_ROUTES.customers,
-    icon: Users,
-    permission: 'customers',
-  },
-  {
-    name: 'Finansal Durum',
-    href: ACENTE_ROUTES.financials,
-    icon: Wallet,
-    description: 'Gelir ve ödemeler',
-    permission: 'reports',
-  },
-  {
-    name: 'Raporlar',
-    href: ACENTE_ROUTES.reports,
-    icon: BarChart3,
-    permission: 'reports',
-  },
-  {
-    name: 'Kullanıcılar',
-    href: ACENTE_ROUTES.users,
-    icon: Users,
-    permission: 'owner',
-  },
-  {
-    name: 'Yorumlar',
-    href: ACENTE_ROUTES.reviews,
-    icon: MessageSquare,
-    description: 'Müşteri değerlendirmeleri',
-    permission: 'customers',
-  },
-  {
-    name: 'Ayarlar',
-    href: ACENTE_ROUTES.settings,
-    icon: Cog,
-    permission: 'owner',
-  },
-  {
-    name: 'Yardım',
-    href: ACENTE_ROUTES.help,
-    icon: CircleHelp,
-    description: 'Destek ve yardım',
-    permission: null,
-  },
-];
 
 function displayName(user: {
   firstName?: string | null;
@@ -229,7 +126,7 @@ export function AgencyShell({ children }: { children: ReactNode }) {
     return canAccessStaffPermission(user.role, user.permissions, permission);
   };
 
-  const visibleLinks = SIDEBAR_LINKS.filter((link) =>
+  const visibleLinks = ACENTE_SIDEBAR_LINKS.filter((link) =>
     canSeeNavLink(link.permission),
   );
   const primaryLinks = visibleLinks.filter((link) =>
@@ -300,9 +197,11 @@ export function AgencyShell({ children }: { children: ReactNode }) {
   }, [accessToken, user?.role, logout, router]);
 
   useEffect(() => {
-    document.body.style.overflow = sidebarOpen ? 'hidden' : 'auto';
+    if (!sidebarOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     return () => {
-      document.body.style.overflow = 'auto';
+      document.body.style.overflow = previous;
     };
   }, [sidebarOpen]);
 
@@ -362,27 +261,28 @@ export function AgencyShell({ children }: { children: ReactNode }) {
     (href !== ACENTE_DASHBOARD && pathname.startsWith(href));
 
   const pageTitle =
-    SIDEBAR_LINKS.find((link) => isActive(link.href))?.name || 'Acente Paneli';
+    ACENTE_SIDEBAR_LINKS.find((link) => isActive(link.href))?.name ||
+    'Acente Paneli';
 
-  const renderNavItem = (item: SidebarLink) => {
+  const renderNavItem = (item: AcenteSidebarLink) => {
     const active = isActive(item.href);
     return (
       <Link
-        key={item.name}
+        key={item.href}
         href={item.href}
         className={cn(
           'group flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150',
           active
-            ? 'bg-blue-50 text-blue-700'
-            : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900',
+            ? 'bg-neutral-950 text-white shadow-sm'
+            : 'text-neutral-700 hover:bg-neutral-100 hover:text-neutral-950',
         )}
       >
         <item.icon
           className={cn(
             'mr-3 h-5 w-5 transition-colors duration-150',
             active
-              ? 'text-blue-600'
-              : 'text-gray-400 group-hover:text-gray-500',
+              ? 'text-white'
+              : 'text-neutral-400 group-hover:text-neutral-600',
           )}
         />
         <span className="truncate">{item.name}</span>
@@ -391,19 +291,25 @@ export function AgencyShell({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
-      {sidebarOpen ? (
-        <div
-          className="fixed inset-0 z-40 bg-gray-600 bg-opacity-75 transition-opacity lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      ) : null}
-
+    <div className="flex min-h-screen bg-neutral-50">
+      {/* Mobile drawer backdrop — always mounted for smooth fade */}
       <div
         className={cn(
-          'fixed inset-y-0 left-0 z-50 w-64 transform bg-white border-r border-gray-200 transition duration-300 ease-in-out lg:static lg:inset-0 lg:translate-x-0',
+          'fixed inset-0 z-40 bg-neutral-950/50 backdrop-blur-[1px] transition-opacity duration-300 lg:hidden',
+          sidebarOpen
+            ? 'pointer-events-auto opacity-100'
+            : 'pointer-events-none opacity-0',
+        )}
+        aria-hidden={!sidebarOpen}
+        onClick={() => setSidebarOpen(false)}
+      />
+
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 flex w-64 max-w-[85vw] flex-col border-r border-neutral-200 bg-white transition-transform duration-300 ease-out lg:static lg:translate-x-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}
+        aria-label="Acente ana menü"
       >
         <div className="flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-2">
@@ -446,11 +352,11 @@ export function AgencyShell({ children }: { children: ReactNode }) {
 
         <div className="flex flex-1 flex-col overflow-y-auto pb-4 pt-5">
           <div className="mb-6 px-4">
-            <div className="flex items-center rounded-lg bg-blue-50 p-3">
+            <div className="flex items-center rounded-lg bg-neutral-100 p-3">
               <AgencyAvatar
                 name={name}
                 logoUrl={agencyLogo}
-                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-semibold"
+                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-neutral-200 font-semibold text-neutral-800"
               />
               <div className="ml-3 min-w-0">
                 <div className="flex items-center gap-1.5">
@@ -487,13 +393,13 @@ export function AgencyShell({ children }: { children: ReactNode }) {
           ) : null}
 
           <div className="mt-6 px-3">
-            <div className="rounded-lg bg-blue-50 p-4">
+            <div className="rounded-lg bg-neutral-100 p-4">
               <div className="flex">
-                <ShieldCheck className="h-6 w-6 text-blue-600" />
-                <span className="ml-2 text-sm font-medium text-gray-900">
+                <ShieldCheck className="h-6 w-6 text-neutral-800" />
+                <span className="ml-2 text-sm font-medium text-neutral-900">
                   Premium
                 </span>
-                <span className="ml-1.5 rounded bg-blue-100 px-1.5 py-0.5 text-xs font-semibold text-blue-800">
+                <span className="ml-1.5 rounded bg-neutral-200 px-1.5 py-0.5 text-xs font-semibold text-neutral-800">
                   Aktif
                 </span>
               </div>
@@ -504,9 +410,9 @@ export function AgencyShell({ children }: { children: ReactNode }) {
             </div>
           </div>
         </div>
-      </div>
+      </aside>
 
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <header className="border-b border-gray-200 bg-white shadow-sm">
           <div className="flex h-16 items-center justify-between px-4 md:px-6">
             <div className="flex items-center lg:hidden">
@@ -563,7 +469,7 @@ export function AgencyShell({ children }: { children: ReactNode }) {
                   <AgencyAvatar
                     name={name}
                     logoUrl={agencyLogo}
-                    className="mr-1 flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 font-semibold text-blue-700"
+                    className="mr-1 flex h-8 w-8 items-center justify-center rounded-full bg-neutral-200 font-semibold text-neutral-800"
                   />
                   <span className="hidden items-center gap-1.5 text-sm font-medium md:flex">
                     {name}
@@ -630,7 +536,7 @@ export function AgencyShell({ children }: { children: ReactNode }) {
                         type="button"
                         onClick={() => {
                           logout();
-                          router.replace('/login');
+                          router.replace(ACENTE_LOGIN);
                         }}
                         className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       >

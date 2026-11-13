@@ -30,10 +30,10 @@ export default function PartnerRegisterPage() {
         <div className="absolute inset-0 z-20 flex flex-col justify-center p-12 text-white">
           <div className="max-w-prose">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-300">
-              B2B Partner
+              B2B Acente
             </p>
             <h1 className="mb-4 text-balance text-4xl font-bold leading-tight tracking-tight xl:text-5xl">
-              turta Partner Ağına Katılın
+              turta Acente Ağına Katılın
             </h1>
             <p className="mb-8 text-lg font-light leading-relaxed text-neutral-200">
               Kurumsal vitrininiz, rezervasyon yönetimi ve gelir takibi tek

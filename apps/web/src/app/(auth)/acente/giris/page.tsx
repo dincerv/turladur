@@ -22,7 +22,7 @@ const FEATURES = [
   {
     icon: Clock,
     title: 'Kurumsal Destek',
-    desc: 'Partner ekibimiz iş günü boyunca yanınızda.',
+    desc: 'Acente destek ekibimiz iş günü boyunca yanınızda.',
   },
 ] as const;
 
@@ -43,7 +43,7 @@ export default function PartnerLoginPage() {
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-12 text-center">
           <div className="max-w-prose space-y-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-neutral-300">
-              B2B Partner Portal
+              B2B Acente Portalı
             </p>
             <h1 className="text-balance text-4xl font-bold leading-tight tracking-tight text-white xl:text-5xl">
               Acente Portalına Hoş Geldiniz

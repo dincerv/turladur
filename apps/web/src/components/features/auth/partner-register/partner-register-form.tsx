@@ -178,15 +178,15 @@ export function PartnerRegisterForm() {
           Kurumsal destek
         </p>
         <p className="mt-1 text-xs leading-relaxed text-neutral-600">
-          Başvuru veya sözleşme sorularınız için partner ekibimize yazın.
+          Başvuru veya sözleşme sorularınız için acente destek ekibimize yazın.
         </p>
         <MailtoLink
           emailKey="partner"
-          subject="Partner başvuru desteği"
+          subject="Acente başvuru desteği"
           className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-neutral-950 px-4 text-sm font-semibold text-white transition hover:bg-neutral-800"
         >
           <Mail className="h-4 w-4" aria-hidden />
-          Partner destek e-postası
+          Acente destek e-postası
         </MailtoLink>
       </div>
     </div>
