@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import { createPortal } from 'react-dom';
 import {
   User as UserIcon,
   ArrowRight as ArrowRightIcon,
@@ -136,6 +137,8 @@ export default function BottomBookingBar({
   >(initialSelectedDate);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => setPortalReady(true), []);
 
   // Tour specific state
   const [selectedDateAgeRanges, setSelectedDateAgeRanges] = useState<
@@ -761,7 +764,11 @@ export default function BottomBookingBar({
     ? formatPrice(totalPrice > 0 ? totalPrice : collapsedUnitPrice)
     : formatPrice(collapsedUnitPrice);
 
-  return (
+  if (!portalReady) return null;
+
+  // Portaled: callers often render this inside sticky / transformed sidebars,
+  // whose stacking context would let later page content paint over the panel.
+  return createPortal(
     <>
       {/* Desktop: compact tab to open full panel */}
       {!mobileOnly ? (
@@ -822,7 +829,7 @@ export default function BottomBookingBar({
 
       {expanded ? (
         <div
-          className="fixed inset-0 z-[100] bg-black/50 md:hidden"
+          className={`fixed inset-0 z-[100] bg-black/50 ${mobileOnly ? 'md:hidden' : 'md:bg-black/30'}`}
           onClick={handleExpandClick}
           aria-hidden="true"
         />
@@ -834,7 +841,7 @@ export default function BottomBookingBar({
         aria-modal="true"
         aria-labelledby="booking-panel-title"
         onClick={(e) => e.stopPropagation()}
-        className={`fixed inset-x-0 bottom-0 top-12 z-[101] flex min-h-0 flex-col rounded-t-2xl border-t border-neutral-200/80 bg-white shadow-lg backdrop-blur-sm transition-transform duration-500 ease-out ${mobileOnly ? '' : 'md:inset-x-0 md:bottom-0 md:top-auto md:z-50 md:rounded-none md:bg-white/80'} ${visible && expanded ? 'translate-y-0' : 'pointer-events-none translate-y-full'} ${mobileOnly ? 'md:hidden' : ''}`}
+        className={`fixed inset-x-0 bottom-0 top-12 z-[101] flex min-h-0 flex-col rounded-t-2xl border-t border-neutral-200/80 bg-white shadow-lg backdrop-blur-sm transition-transform duration-500 ease-out ${mobileOnly ? '' : 'md:inset-x-0 md:bottom-0 md:top-auto md:rounded-none md:bg-white'} ${visible && expanded ? 'translate-y-0' : 'pointer-events-none translate-y-full'} ${mobileOnly ? 'md:hidden' : ''}`}
         style={{ maxHeight: 'calc(100dvh - 3rem)' }}
         aria-hidden={!(visible && expanded)}
       >
@@ -906,6 +913,7 @@ export default function BottomBookingBar({
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }

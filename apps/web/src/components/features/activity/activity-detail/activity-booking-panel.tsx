@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CalendarDays, CalendarX2, ChevronRight } from 'lucide-react';
 import BottomBookingBar, {
   type ActivityDate as BookingActivityDate,
@@ -46,6 +47,8 @@ export function ActivityBookingPanel({
 }: ActivityBookingPanelProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => setPortalReady(true), []);
 
   const selected = useMemo(
     () => sessions.find((s) => s.id === selectedId) ?? null,
@@ -167,40 +170,43 @@ export function ActivityBookingPanel({
         ) : null}
       </div>
 
-      {sessions.length > 0 && !bookingOpen ? (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-neutral-200 bg-white/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] lg:hidden">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="truncate text-xs text-neutral-500">
-                {selected
-                  ? formatSessionDate(selected.startDate)
-                  : 'Kişi başı başlayan'}
-              </p>
-              {priceLabel ? (
-                <p className="text-lg font-bold tabular-nums text-neutral-900">
-                  {priceLabel}
-                </p>
-              ) : null}
-            </div>
-            {selected ? (
-              <button
-                type="button"
-                onClick={openBooking}
-                className="inline-flex min-h-12 shrink-0 items-center rounded-xl bg-sky-600 px-5 text-sm font-semibold text-white hover:bg-sky-700"
-              >
-                Devam et
-              </button>
-            ) : (
-              <a
-                href="#tarihler"
-                className="inline-flex min-h-12 shrink-0 items-center rounded-xl bg-sky-600 px-5 text-sm font-semibold text-white hover:bg-sky-700"
-              >
-                Tarih seç
-              </a>
-            )}
-          </div>
-        </div>
-      ) : null}
+      {portalReady && sessions.length > 0 && !bookingOpen
+        ? createPortal(
+            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-neutral-200 bg-white/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] lg:hidden">
+              <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-xs text-neutral-500">
+                    {selected
+                      ? formatSessionDate(selected.startDate)
+                      : 'Kişi başı başlayan'}
+                  </p>
+                  {priceLabel ? (
+                    <p className="text-lg font-bold tabular-nums text-neutral-900">
+                      {priceLabel}
+                    </p>
+                  ) : null}
+                </div>
+                {selected ? (
+                  <button
+                    type="button"
+                    onClick={openBooking}
+                    className="inline-flex min-h-12 shrink-0 items-center rounded-xl bg-sky-600 px-5 text-sm font-semibold text-white hover:bg-sky-700"
+                  >
+                    Devam et
+                  </button>
+                ) : (
+                  <a
+                    href="#tarihler"
+                    className="inline-flex min-h-12 shrink-0 items-center rounded-xl bg-sky-600 px-5 text-sm font-semibold text-white hover:bg-sky-700"
+                  >
+                    Tarih seç
+                  </a>
+                )}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
 
       {bookingOpen && bookingDate ? (
         <BottomBookingBar
