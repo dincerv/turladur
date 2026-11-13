@@ -1064,6 +1064,116 @@ export class PartnerService {
     };
   }
 
+  /**
+   * Edit bootstrap for /acente/experiences/:id/edit.
+   * Ownership via agencyId — never trust URL id alone.
+   */
+  async getExperienceEditBundle(
+    agencyId: string | undefined,
+    experienceId: string,
+  ) {
+    this.requireAgencyId(agencyId);
+
+    const experience = await this.prisma.experience.findFirst({
+      where: { id: experienceId, agencyId, deletedAt: null },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        description: true,
+        longDescription: true,
+        category: true,
+        location: true,
+        duration: true,
+        price: true,
+        currency: true,
+        status: true,
+        imageUrl: true,
+        gallery: true,
+        included: true,
+        notIncluded: true,
+        highlights: true,
+        meetingPoint: true,
+        ageRestriction: true,
+        averageRating: true,
+        reviewCount: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!experience) {
+      throw new NotFoundException({
+        code: 'EXPERIENCE_NOT_FOUND',
+        message: 'Deneyim bulunamadı veya erişim yetkiniz yok',
+      });
+    }
+
+    const dates = await this.prisma.activityDate.findMany({
+      where: { experienceId, deletedAt: null },
+      orderBy: { startDate: 'asc' },
+      select: {
+        id: true,
+        startDate: true,
+        endDate: true,
+        price: true,
+        availableSeats: true,
+        remainingCapacity: true,
+        isActive: true,
+      },
+    });
+
+    const toStringList = (value: unknown): string[] => {
+      if (!Array.isArray(value)) return [];
+      return value
+        .filter((v): v is string => typeof v === 'string')
+        .map((v) => v.trim())
+        .filter(Boolean);
+    };
+
+    return {
+      success: true,
+      data: {
+        experience: {
+          id: experience.id,
+          title: experience.title,
+          slug: experience.slug,
+          description: experience.description,
+          longDescription: experience.longDescription,
+          category: experience.category,
+          location: experience.location,
+          duration: experience.duration,
+          price: experience.price.toString(),
+          currency: experience.currency,
+          status: experience.status,
+          imageUrl: this.storage.resolvePublicUrl(experience.imageUrl),
+          gallery: toStringList(experience.gallery).map(
+            (url) => this.storage.resolvePublicUrl(url) ?? url,
+          ),
+          included: toStringList(experience.included),
+          notIncluded: toStringList(experience.notIncluded),
+          highlights: toStringList(experience.highlights),
+          meetingPoint: experience.meetingPoint,
+          ageRestriction: experience.ageRestriction,
+          averageRating: experience.averageRating.toString(),
+          reviewCount: experience.reviewCount,
+          createdAt: experience.createdAt.toISOString(),
+          updatedAt: experience.updatedAt.toISOString(),
+        },
+        dates: dates.map((d) => ({
+          id: d.id,
+          startDate: d.startDate.toISOString().slice(0, 10),
+          endDate: d.endDate.toISOString().slice(0, 10),
+          price: d.price.toString(),
+          availableSeats: d.availableSeats,
+          remainingCapacity: d.remainingCapacity,
+          isActive: d.isActive,
+        })),
+      },
+      error: null,
+    };
+  }
+
   async getProfile(agencyId: string | undefined) {
     this.requireAgencyId(agencyId);
     const agency = await this.prisma.agency.findFirst({

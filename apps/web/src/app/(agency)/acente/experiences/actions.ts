@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 export async function revalidatePartnerExperiencePaths(experienceId?: string) {
   revalidatePath('/acente/experiences');
   if (experienceId && typeof experienceId === 'string') {
+    revalidatePath(`/acente/experiences/${experienceId}`);
     revalidatePath(`/acente/experiences/${experienceId}/edit`);
   }
 }

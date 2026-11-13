@@ -738,6 +738,39 @@ export async function getExperienceDetail(id: string, token?: string) {
   >(`/catalog/experiences/${id}`, token ? { token } : {});
 }
 
+export type PartnerExperienceEditBundle = {
+  experience: PartnerExperience & {
+    description: string;
+    longDescription: string;
+    meetingPoint: string | null;
+    ageRestriction: string | null;
+    gallery: string[];
+    included: string[];
+    notIncluded: string[];
+    highlights: string[];
+  };
+  dates: Array<{
+    id: string;
+    startDate: string;
+    endDate: string;
+    price: string;
+    availableSeats: number;
+    remainingCapacity: number | null;
+    isActive: boolean;
+  }>;
+};
+
+/** Agency-owned edit bootstrap (all statuses) — IDOR via JWT agencyId. */
+export async function getPartnerExperienceEditBundle(
+  experienceId: string,
+  token: string,
+) {
+  return apiRequest<PartnerExperienceEditBundle>(
+    `/partner/experiences/${experienceId}/edit-bundle`,
+    { token, cache: 'no-store' },
+  );
+}
+
 export async function updatePartnerExperience(
   id: string,
   body: Partial<CreateExperienceBody> & { status?: string },

@@ -320,6 +320,19 @@ export class PartnerController {
     });
   }
 
+  @Get('experiences/:id/edit-bundle')
+  @RequireStaffPermissions('tours')
+  @ApiOperation({
+    summary: 'Edit bootstrap: owned experience + activity dates (all statuses)',
+  })
+  async experienceEditBundle(
+    @Param('id') id: string,
+    @CurrentUser() user: UserPayload,
+  ) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.partnerService.getExperienceEditBundle(agencyId, id);
+  }
+
   @Get('users')
   @Roles(
     Role.PARTNER,

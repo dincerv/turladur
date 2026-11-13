@@ -261,37 +261,70 @@ export class ExperienceService {
     role: string,
   ) {
     const experience = await this.findOwned(experienceId, agencyId, role);
-    const data: Prisma.ExperienceUpdateInput = {};
-    if (dto.title !== undefined) {
-      const safeTitle = this.sanitizePlain(dto.title, 200);
-      data.title = safeTitle;
-      data.slug = await this.uniqueSlug(slugify(safeTitle), experienceId);
-    }
-    if (dto.description !== undefined)
-      data.description = this.sanitizePlain(dto.description, 5000);
-    if (dto.longDescription !== undefined)
-      data.longDescription = this.sanitizePlain(dto.longDescription, 20_000);
-    if (dto.category !== undefined)
-      data.category = this.sanitizePlain(dto.category, 120);
-    if (dto.location !== undefined)
-      data.location = this.sanitizePlain(dto.location, 200);
-    if (dto.duration !== undefined)
-      data.duration = this.sanitizePlain(dto.duration, 80);
-    if (dto.price !== undefined) data.price = new Prisma.Decimal(dto.price);
-    if (dto.status !== undefined) data.status = dto.status;
-    if (dto.imageUrl !== undefined) data.imageUrl = dto.imageUrl;
-    if (dto.meetingPoint !== undefined)
-      data.meetingPoint = dto.meetingPoint
-        ? this.sanitizePlain(dto.meetingPoint, 300)
-        : null;
-    if (dto.ageRestriction !== undefined)
-      data.ageRestriction = dto.ageRestriction
-        ? this.sanitizePlain(dto.ageRestriction, 80)
-        : null;
 
-    const updated = await this.prisma.experience.update({
-      where: { id: experience.id },
-      data,
+    if (dto.price !== undefined && dto.price < 0) {
+      throw new BusinessException('INVALID_PRICE', 'Fiyat negatif olamaz');
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const data: Prisma.ExperienceUpdateInput = {};
+      if (dto.title !== undefined) {
+        const safeTitle = this.sanitizePlain(dto.title, 200);
+        data.title = safeTitle;
+        data.slug = await this.uniqueSlug(slugify(safeTitle), experienceId);
+      }
+      if (dto.description !== undefined) {
+        data.description = this.sanitizePlain(dto.description, 5000);
+      }
+      if (dto.longDescription !== undefined) {
+        data.longDescription = this.sanitizePlain(dto.longDescription, 20_000);
+      }
+      if (dto.category !== undefined) {
+        data.category = this.sanitizePlain(dto.category, 120);
+      }
+      if (dto.location !== undefined) {
+        data.location = this.sanitizePlain(dto.location, 200);
+      }
+      if (dto.duration !== undefined) {
+        data.duration = this.sanitizePlain(dto.duration, 80);
+      }
+      if (dto.price !== undefined) {
+        data.price = new Prisma.Decimal(dto.price);
+      }
+      if (dto.status !== undefined) data.status = dto.status;
+      if (dto.imageUrl !== undefined) {
+        data.imageUrl = dto.imageUrl
+          ? this.sanitizePlain(dto.imageUrl, 2000)
+          : null;
+      }
+      if (dto.meetingPoint !== undefined) {
+        data.meetingPoint = dto.meetingPoint
+          ? this.sanitizePlain(dto.meetingPoint, 300)
+          : null;
+      }
+      if (dto.ageRestriction !== undefined) {
+        data.ageRestriction = dto.ageRestriction
+          ? this.sanitizePlain(dto.ageRestriction, 80)
+          : null;
+      }
+      // Soft-delete media by replacing URL arrays (CDN hard-delete is ops/async).
+      if (dto.gallery !== undefined) {
+        data.gallery = this.sanitizeStringList(dto.gallery, 20, 2000);
+      }
+      if (dto.included !== undefined) {
+        data.included = this.sanitizeStringList(dto.included, 50, 200);
+      }
+      if (dto.notIncluded !== undefined) {
+        data.notIncluded = this.sanitizeStringList(dto.notIncluded, 50, 200);
+      }
+      if (dto.highlights !== undefined) {
+        data.highlights = this.sanitizeStringList(dto.highlights, 30, 200);
+      }
+
+      return tx.experience.update({
+        where: { id: experience.id },
+        data,
+      });
     });
     await this.cache.invalidatePattern('catalog:experiences:*');
     return { success: true, data: this.toExperience(updated), error: null };
