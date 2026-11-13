@@ -52,27 +52,24 @@ export function RevenueChart({ data }: RevenueChartProps) {
       {points.length === 0 ? (
         <p className="text-sm text-neutral-500">Gelir verisi henüz yok.</p>
       ) : (
-        <div className="relative flex min-h-0 flex-1 items-end gap-2 overflow-hidden pt-6">
+        <div className="relative flex h-56 w-full items-end gap-2 overflow-visible pt-8">
           {points.map((point) => {
             const heightPct = (point.revenue / max) * 100;
             const label = `${point.revenue.toLocaleString('tr-TR')}₺`;
             return (
               <div
                 key={point.label}
-                className="group relative flex min-w-0 flex-1 flex-col items-center justify-end gap-2"
+                className="group relative flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2"
               >
                 <div
-                  className="pointer-events-none absolute bottom-full z-10 mb-2 hidden -translate-y-1 rounded-md bg-neutral-950 px-2 py-1 text-[11px] font-medium whitespace-nowrap text-white shadow-lg group-hover:block"
+                  className="pointer-events-none absolute bottom-[calc(100%-0.5rem)] z-10 mb-1 hidden -translate-y-1 rounded-md bg-neutral-950 px-2 py-1 text-[11px] font-medium whitespace-nowrap text-white shadow-lg group-hover:block"
                   role="tooltip"
                 >
                   {label}
                 </div>
                 <div
                   className="w-full max-w-[3rem] rounded-t-md bg-neutral-900/85 transition-all group-hover:bg-neutral-950"
-                  style={{
-                    height: `${Math.max(heightPct, 2)}%`,
-                    minHeight: 4,
-                  }}
+                  style={{ height: `${Math.max(heightPct, 4)}%` }}
                   aria-label={`${point.label}: ${label}`}
                 />
                 <span className="w-full truncate text-center text-[10px] text-neutral-500">

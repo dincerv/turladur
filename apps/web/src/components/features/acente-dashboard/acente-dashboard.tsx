@@ -1,12 +1,8 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
 import { BarChart3, Building2, Calendar, Clock, Wallet } from 'lucide-react';
 
-import { PopularTours } from '@/components/features/partner-dashboard/popular-tours';
-import { RecentReservations } from '@/components/features/partner-dashboard/recent-reservations';
-import { ReservationStatus } from '@/components/features/partner-dashboard/reservation-status';
 import {
   canAccessStaffPermission,
   hasFullPartnerAccess,
@@ -23,7 +19,8 @@ import {
   type PartnerTour,
 } from '@/services/partner-admin';
 
-import { ChartSkeleton, DashboardSkeleton } from './dashboard-skeleton';
+import { AcenteDashboardView } from './acente-dashboard-view';
+import { DashboardSkeleton } from './dashboard-skeleton';
 import {
   buildRevenueChart,
   countReservationStatuses,
@@ -32,15 +29,7 @@ import {
   monthOverMonthTrend,
   sanitizeDisplayText,
 } from './helpers';
-import { KpiCards } from './kpi-cards';
-import { QuickActions } from './quick-actions';
 import type { DashboardKpiCard, DashboardQuickAction } from './types';
-
-const RevenueChart = dynamic(
-  () =>
-    import('./revenue-chart').then((mod) => ({ default: mod.RevenueChart })),
-  { ssr: false, loading: () => <ChartSkeleton /> },
-);
 
 export function AcenteDashboard() {
   const { accessToken, user } = useAuth();
@@ -233,38 +222,18 @@ export function AcenteDashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-neutral-950">
-          Hoş geldiniz, {name}
-        </h1>
-        <p className="max-w-prose text-sm leading-relaxed text-neutral-600">
-          Acente panelinizdeki güncel özet, rezervasyon ve gelir görünümü.
-        </p>
-      </header>
-
-      <QuickActions items={quickAccessItems} />
-      <KpiCards cards={kpiCards.slice(0, 4)} />
-
-      <div
-        className={`grid grid-cols-1 gap-5 ${canSeeRevenue ? 'lg:grid-cols-3' : ''}`}
-      >
-        {showReservationStats ? (
-          <ReservationStatus reservations={reservationStatus} />
-        ) : null}
-        {canSeeRevenue ? (
-          <div className="min-h-[18rem] lg:col-span-2">
-            <RevenueChart data={revenueChart} />
-          </div>
-        ) : null}
-      </div>
-
-      {showReservationStats ? (
-        <RecentReservations
-          reservations={mapRecentReservations(reservations, !canSeeRevenue)}
-        />
-      ) : null}
-      {showTourStats ? <PopularTours tours={mapPopularTours(tours)} /> : null}
-    </div>
+    <AcenteDashboardView
+      name={name}
+      quickActions={quickAccessItems}
+      kpiCards={kpiCards}
+      statusCounts={showReservationStats ? reservationStatus : null}
+      revenueChart={canSeeRevenue ? revenueChart : null}
+      recentReservations={
+        showReservationStats
+          ? mapRecentReservations(reservations, !canSeeRevenue)
+          : null
+      }
+      popularTours={showTourStats ? mapPopularTours(tours) : null}
+    />
   );
 }
