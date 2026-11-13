@@ -32,10 +32,12 @@ import { AgencyLinkService } from '../../../core/agency/agency-link.service';
 import { PartnerService } from '../services/partner.service';
 
 class UpdatePartnerReservationDto {
-  @ApiPropertyOptional({ enum: ['CONFIRMED', 'CANCELLED', 'COMPLETED'] })
+  @ApiPropertyOptional({
+    enum: ['CONFIRMED', 'CANCELLED', 'COMPLETED', 'SUSPENDED'],
+  })
   @IsOptional()
-  @IsIn(['CONFIRMED', 'CANCELLED', 'COMPLETED'])
-  status?: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+  @IsIn(['CONFIRMED', 'CANCELLED', 'COMPLETED', 'SUSPENDED'])
+  status?: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'SUSPENDED';
 
   @ApiPropertyOptional({
     example: '14, 15',
@@ -45,6 +47,71 @@ class UpdatePartnerReservationDto {
   @IsString()
   @MaxLength(100)
   seatNumbers?: string;
+}
+
+class ListPartnerReservationsQueryDto {
+  @ApiPropertyOptional({ description: 'Customer / booking / tour search' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  q?: string;
+
+  @ApiPropertyOptional({
+    enum: [
+      'PENDING',
+      'CONFIRMED',
+      'COMPLETED',
+      'CANCELLED',
+      'SUSPENDED',
+      'PENDING_PAYMENT',
+      'PAYMENT_FAILED',
+    ],
+  })
+  @IsOptional()
+  @IsIn([
+    'PENDING',
+    'CONFIRMED',
+    'COMPLETED',
+    'CANCELLED',
+    'SUSPENDED',
+    'PENDING_PAYMENT',
+    'PAYMENT_FAILED',
+  ])
+  status?:
+    | 'PENDING'
+    | 'CONFIRMED'
+    | 'COMPLETED'
+    | 'CANCELLED'
+    | 'SUSPENDED'
+    | 'PENDING_PAYMENT'
+    | 'PAYMENT_FAILED';
+
+  @ApiPropertyOptional({ description: 'ISO date YYYY-MM-DD (createdAt from)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  dateFrom?: string;
+
+  @ApiPropertyOptional({ description: 'ISO date YYYY-MM-DD (createdAt to)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  dateTo?: string;
+
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ default: 20 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  pageSize?: number;
 }
 
 class ListPartnerToursQueryDto {
@@ -348,10 +415,22 @@ export class PartnerController {
 
   @Get('reservations')
   @RequireStaffPermissions('reservations', 'customers')
-  @ApiOperation({ summary: 'List reservations for partner tours' })
-  async reservations(@CurrentUser() user: UserPayload) {
+  @ApiOperation({
+    summary: 'List reservations for partner (paginated, filtered)',
+  })
+  async reservations(
+    @CurrentUser() user: UserPayload,
+    @Query() query: ListPartnerReservationsQueryDto,
+  ) {
     const agencyId = await this.sellerAgencyId(user);
-    return this.partnerService.listReservations(agencyId);
+    return this.partnerService.listReservations(agencyId, {
+      q: query.q,
+      status: query.status,
+      dateFrom: query.dateFrom,
+      dateTo: query.dateTo,
+      page: query.page,
+      pageSize: query.pageSize,
+    });
   }
 
   @Patch('reservations/:id')

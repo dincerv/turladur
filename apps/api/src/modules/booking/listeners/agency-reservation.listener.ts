@@ -6,7 +6,7 @@ import { ReservationService } from '../services/reservation.service';
 export type AgencyReservationUpdatePayload = {
   reservationId: string;
   agencyId: string;
-  status?: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+  status?: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'SUSPENDED';
   seatNumbers?: string;
 };
 

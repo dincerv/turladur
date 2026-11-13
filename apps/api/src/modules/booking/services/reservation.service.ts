@@ -474,11 +474,12 @@ export class ReservationService {
 
   /**
    * Agency panel status writes (Faz 3). Partner tetikler; booking yazar.
+   * State machine — CANCELLED/COMPLETED terminal; no blind re-confirm.
    */
   async agencyUpdateStatus(
     reservationId: string,
     agencyId: string,
-    status: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED',
+    status: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'SUSPENDED',
   ) {
     const reservation = await this.prisma.reservation.findFirst({
       where: { id: reservationId, agencyId, deletedAt: null },
@@ -491,15 +492,8 @@ export class ReservationService {
       });
     }
 
-    if (
-      reservation.status === 'COMPLETED' ||
-      reservation.status === 'CANCELLED'
-    ) {
-      throw new BusinessException(
-        'INVALID_STATUS_TRANSITION',
-        'Bu rezervasyon güncellenemez',
-      );
-    }
+    const from = reservation.status;
+    this.assertAgencyStatusTransition(from, status);
 
     if (status === 'COMPLETED') {
       return this.markCompleted(reservationId, {
@@ -510,12 +504,23 @@ export class ReservationService {
     }
 
     if (status === 'CANCELLED') {
-      const partySize = reservation.adults + reservation.children;
+      const partySize =
+        reservation.heldPartySize ?? reservation.adults + reservation.children;
       const updated = await this.prisma.$transaction(async (tx) => {
         await this.restoreCapacity(tx, reservation, partySize);
+        // Free assigned seats (soft-delete) so map inventory stays consistent.
+        await tx.seatAssignment.updateMany({
+          where: { reservationId: reservation.id, deletedAt: null },
+          data: { deletedAt: new Date() },
+        });
         return tx.reservation.update({
           where: { id: reservation.id },
-          data: { status: 'CANCELLED', cancelledAt: new Date() },
+          data: {
+            status: 'CANCELLED',
+            cancelledAt: new Date(),
+            holdExpiresAt: null,
+            heldPartySize: null,
+          },
         });
       });
 
@@ -537,17 +542,31 @@ export class ReservationService {
       };
     }
 
-    const updated = await this.prisma.reservation.update({
-      where: { id: reservation.id },
-      data: {
-        status: 'CONFIRMED',
-        paymentStatus: 'PAID',
-        paymentMethod: reservation.paymentMethod ?? 'BANK_TRANSFER',
-        holdExpiresAt: null,
-      },
+    if (status === 'SUSPENDED') {
+      const updated = await this.prisma.reservation.update({
+        where: { id: reservation.id },
+        data: { status: 'SUSPENDED', holdExpiresAt: null },
+      });
+      return {
+        success: true,
+        data: this.toShared(updated),
+        error: null,
+      };
+    }
+
+    // CONFIRMED — capacity already held on create; never from CANCELLED.
+    const updated = await this.prisma.$transaction(async (tx) => {
+      return tx.reservation.update({
+        where: { id: reservation.id },
+        data: {
+          status: 'CONFIRMED',
+          paymentStatus: 'PAID',
+          paymentMethod: reservation.paymentMethod ?? 'BANK_TRANSFER',
+          holdExpiresAt: null,
+        },
+      });
     });
 
-    // Aynı post-payment bildirimleri (kart ile aynı yol)
     this.eventEmitter.emit(
       'payment.completed',
       new PaymentCompletedEvent(
@@ -562,6 +581,40 @@ export class ReservationService {
       data: this.toShared(updated),
       error: null,
     };
+  }
+
+  private assertAgencyStatusTransition(
+    from: string,
+    to: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'SUSPENDED',
+  ) {
+    if (from === 'CANCELLED' || from === 'COMPLETED' || from === 'EXPIRED') {
+      throw new BusinessException(
+        'INVALID_STATUS_TRANSITION',
+        from === 'CANCELLED'
+          ? 'İptal edilmiş rezervasyon yeniden onaylanamaz'
+          : 'Bu rezervasyon güncellenemez',
+      );
+    }
+
+    const allowed: Record<typeof to, readonly string[]> = {
+      CONFIRMED: ['PENDING', 'PENDING_PAYMENT', 'PAYMENT_FAILED', 'SUSPENDED'],
+      CANCELLED: [
+        'PENDING',
+        'PENDING_PAYMENT',
+        'PAYMENT_FAILED',
+        'CONFIRMED',
+        'SUSPENDED',
+      ],
+      COMPLETED: ['CONFIRMED'],
+      SUSPENDED: ['PENDING', 'PENDING_PAYMENT', 'PAYMENT_FAILED', 'CONFIRMED'],
+    };
+
+    if (!allowed[to].includes(from)) {
+      throw new BusinessException(
+        'INVALID_STATUS_TRANSITION',
+        `${from} → ${to} geçişine izin verilmiyor`,
+      );
+    }
   }
 
   async agencyUpdateSeatNumbers(

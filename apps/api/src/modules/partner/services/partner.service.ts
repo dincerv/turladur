@@ -1343,13 +1343,98 @@ export class PartnerService {
     };
   }
 
-  async listReservations(agencyId: string | undefined) {
+  async listReservations(
+    agencyId: string | undefined,
+    options?: {
+      q?: string;
+      status?:
+        | 'PENDING'
+        | 'CONFIRMED'
+        | 'COMPLETED'
+        | 'CANCELLED'
+        | 'SUSPENDED'
+        | 'PENDING_PAYMENT'
+        | 'PAYMENT_FAILED';
+      dateFrom?: string;
+      dateTo?: string;
+      page?: number;
+      pageSize?: number;
+    },
+  ) {
     this.requireAgencyId(agencyId);
 
-    const rows = await this.prisma.reservation.findMany({
-      where: { agencyId, deletedAt: null },
-      orderBy: { createdAt: 'desc' },
-    });
+    const page = Math.max(1, options?.page ?? 1);
+    const pageSize = Math.min(50, Math.max(1, options?.pageSize ?? 20));
+    const rawQ = (options?.q ?? '').trim().slice(0, 80);
+    const q = rawQ.replace(/[\u0000-\u001F\u007F]/g, '');
+
+    const where: Prisma.ReservationWhereInput = {
+      agencyId,
+      deletedAt: null,
+    };
+
+    if (options?.status === 'PENDING') {
+      where.status = {
+        in: ['PENDING', 'PENDING_PAYMENT', 'PAYMENT_FAILED'],
+      };
+    } else if (options?.status) {
+      where.status = options.status;
+    }
+
+    const createdAt: Prisma.DateTimeFilter = {};
+    if (options?.dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(options.dateFrom)) {
+      createdAt.gte = new Date(`${options.dateFrom}T00:00:00.000Z`);
+    }
+    if (options?.dateTo && /^\d{4}-\d{2}-\d{2}$/.test(options.dateTo)) {
+      createdAt.lte = new Date(`${options.dateTo}T23:59:59.999Z`);
+    }
+    if (Object.keys(createdAt).length > 0) {
+      where.createdAt = createdAt;
+    }
+
+    if (q) {
+      const [matchingTours, matchingExperiences] = await Promise.all([
+        this.prisma.tour.findMany({
+          where: {
+            agencyId,
+            deletedAt: null,
+            title: { contains: q, mode: 'insensitive' },
+          },
+          select: { id: true },
+          take: 50,
+        }),
+        this.prisma.experience.findMany({
+          where: {
+            agencyId,
+            deletedAt: null,
+            title: { contains: q, mode: 'insensitive' },
+          },
+          select: { id: true },
+          take: 50,
+        }),
+      ]);
+      const tourIds = matchingTours.map((t) => t.id);
+      const experienceIds = matchingExperiences.map((e) => e.id);
+      where.OR = [
+        { bookingNumber: { contains: q, mode: 'insensitive' } },
+        { contactEmail: { contains: q, mode: 'insensitive' } },
+        { contactPhone: { contains: q, mode: 'insensitive' } },
+        ...(tourIds.length ? [{ tourId: { in: tourIds } }] : []),
+        ...(experienceIds.length
+          ? [{ experienceId: { in: experienceIds } }]
+          : []),
+      ];
+    }
+
+    const [total, rows] = await Promise.all([
+      this.prisma.reservation.count({ where }),
+      this.prisma.reservation.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
 
     const tourIds = [
       ...new Set(rows.map((row) => row.tourId).filter(Boolean)),
@@ -1378,17 +1463,27 @@ export class PartnerService {
       experiences.map((e) => [e.id, e.title]),
     );
 
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
     return {
       success: true,
-      data: rows.map((row) =>
-        this.toReservation(row, {
-          tourTitle: row.tourId
-            ? (tourTitleById.get(row.tourId) ?? null)
-            : row.experienceId
-              ? (experienceTitleById.get(row.experienceId) ?? null)
-              : null,
-        }),
-      ),
+      data: {
+        items: rows.map((row) =>
+          this.toReservation(row, {
+            tourTitle: row.tourId
+              ? (tourTitleById.get(row.tourId) ?? null)
+              : row.experienceId
+                ? (experienceTitleById.get(row.experienceId) ?? null)
+                : null,
+          }),
+        ),
+        meta: {
+          page,
+          pageSize,
+          total,
+          totalPages,
+        },
+      },
       error: null,
     };
   }
@@ -1397,24 +1492,25 @@ export class PartnerService {
     reservationId: string,
     agencyId: string | undefined,
     input: {
-      status?: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+      status?: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'SUSPENDED';
       seatNumbers?: string;
     },
   ) {
     this.requireAgencyId(agencyId);
 
-    if (input.seatNumbers == null && !input.status) {
-      const exists = await this.prisma.reservation.findFirst({
-        where: { id: reservationId, agencyId, deletedAt: null },
-        select: { id: true },
+    // IDOR: ownership check before any write event.
+    const owned = await this.prisma.reservation.findFirst({
+      where: { id: reservationId, agencyId, deletedAt: null },
+      select: { id: true, tourId: true },
+    });
+    if (!owned) {
+      throw new NotFoundException({
+        code: 'RESERVATION_NOT_FOUND',
+        message: 'Rezervasyon bulunamadı veya erişim yetkiniz yok',
       });
-      if (!exists) {
-        throw new NotFoundException({
-          code: 'RESERVATION_NOT_FOUND',
-          message: 'Rezervasyon bulunamadı',
-        });
-      }
-    } else {
+    }
+
+    if (input.seatNumbers != null || input.status) {
       // Booking owns writes (Faz 5 — no ReservationService import)
       await this.eventEmitter.emitAsync('agency.reservation.update', {
         reservationId,
@@ -1440,7 +1536,7 @@ export class PartnerService {
   async updateReservationStatus(
     reservationId: string,
     agencyId: string | undefined,
-    status: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED',
+    status: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'SUSPENDED',
   ) {
     return this.updateReservation(reservationId, agencyId, { status });
   }

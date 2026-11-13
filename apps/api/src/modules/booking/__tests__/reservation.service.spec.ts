@@ -529,11 +529,13 @@ describe('ReservationService', () => {
       activityDateId: null,
       deletedAt: null,
     });
+    const seatUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     (prisma.$transaction as jest.Mock).mockImplementation(
       async (fn: (tx: unknown) => Promise<unknown>) =>
         fn({
           tourDate: { update: jest.fn().mockResolvedValue({}) },
           activityDate: { update: jest.fn() },
+          seatAssignment: { updateMany: seatUpdateMany },
           reservation: {
             update: jest.fn().mockResolvedValue({
               id: 'res1',
@@ -561,10 +563,27 @@ describe('ReservationService', () => {
 
     const result = await service.agencyUpdateStatus('res1', 'p1', 'CANCELLED');
     expect(result.data.status).toBe('CANCELLED');
+    expect(seatUpdateMany).toHaveBeenCalled();
     expect(events.emit).toHaveBeenCalledWith(
       'booking.cancelled',
       expect.anything(),
     );
+  });
+
+  it('agencyUpdateStatus rejects CANCELLED → CONFIRMED', async () => {
+    (prisma.reservation.findFirst as jest.Mock).mockResolvedValue({
+      id: 'res1',
+      userId: 'u1',
+      agencyId: 'p1',
+      status: 'CANCELLED',
+      adults: 1,
+      children: 0,
+      deletedAt: null,
+    });
+
+    await expect(
+      service.agencyUpdateStatus('res1', 'p1', 'CONFIRMED'),
+    ).rejects.toBeInstanceOf(BusinessException);
   });
 
   it('agencyUpdateStatus CONFIRMED emits payment.completed', async () => {

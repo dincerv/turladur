@@ -88,17 +88,30 @@ export type PartnerTourListParams = {
   pageSize?: number;
 };
 
+export type PartnerReservationStatus =
+  | 'PENDING'
+  | 'PENDING_PAYMENT'
+  | 'PAYMENT_FAILED'
+  | 'CONFIRMED'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'SUSPENDED'
+  | 'EXPIRED';
+
 export type PartnerReservation = {
   id: string;
   bookingNumber: string;
   tourId: string | null;
   tourDateId?: string | null;
+  experienceId?: string | null;
+  activityDateId?: string | null;
   tourTitle: string | null;
-  status: string;
+  status: PartnerReservationStatus | string;
   paymentStatus?: string;
   totalAmount: string;
   currency: string;
   contactEmail: string;
+  contactPhone?: string | null;
   customerName?: string;
   adults: number;
   children: number;
@@ -107,7 +120,78 @@ export type PartnerReservation = {
   startDate?: string | null;
   endDate?: string | null;
   createdAt: string;
+  updatedAt?: string;
 };
+
+export type PartnerReservationListMeta = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export type PartnerReservationListResult = {
+  items: PartnerReservation[];
+  meta: PartnerReservationListMeta;
+};
+
+export type PartnerReservationListParams = {
+  q?: string;
+  status?:
+    | 'PENDING'
+    | 'CONFIRMED'
+    | 'COMPLETED'
+    | 'CANCELLED'
+    | 'SUSPENDED'
+    | 'PENDING_PAYMENT'
+    | 'PAYMENT_FAILED';
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+function buildReservationListQuery(
+  params?: PartnerReservationListParams,
+): string {
+  if (!params) return '';
+  const sp = new URLSearchParams();
+  if (params.q?.trim()) sp.set('q', params.q.trim().slice(0, 80));
+  if (params.status) sp.set('status', params.status);
+  if (params.dateFrom) sp.set('dateFrom', params.dateFrom);
+  if (params.dateTo) sp.set('dateTo', params.dateTo);
+  if (params.page && params.page > 1) sp.set('page', String(params.page));
+  if (params.pageSize) sp.set('pageSize', String(params.pageSize));
+  const qs = sp.toString();
+  return qs ? `?${qs}` : '';
+}
+
+export function normalizePartnerReservationList(
+  raw: PartnerReservation[] | PartnerReservationListResult,
+  page = 1,
+  pageSize = 20,
+): PartnerReservationListResult {
+  if (Array.isArray(raw)) {
+    return {
+      items: raw,
+      meta: {
+        page,
+        pageSize,
+        total: raw.length,
+        totalPages: Math.max(1, Math.ceil(raw.length / pageSize) || 1),
+      },
+    };
+  }
+  return {
+    items: raw.items ?? [],
+    meta: {
+      page: raw.meta?.page ?? page,
+      pageSize: raw.meta?.pageSize ?? pageSize,
+      total: raw.meta?.total ?? raw.items?.length ?? 0,
+      totalPages: raw.meta?.totalPages ?? 1,
+    },
+  };
+}
 
 export async function getPartnerStats(token: string) {
   return apiRequest<PartnerStats>('/partner/dashboard/stats', {
@@ -218,14 +302,27 @@ export async function listPartnerTourDates(tourId: string, token: string) {
   });
 }
 
-export async function listPartnerReservations(token: string) {
-  return apiRequest<PartnerReservation[]>('/partner/reservations', { token });
+export async function listPartnerReservations(
+  token: string,
+  params?: PartnerReservationListParams,
+) {
+  const raw = await apiRequest<
+    PartnerReservation[] | PartnerReservationListResult
+  >(`/partner/reservations${buildReservationListQuery(params)}`, {
+    token,
+    cache: 'no-store',
+  });
+  return normalizePartnerReservationList(
+    raw,
+    params?.page ?? 1,
+    params?.pageSize ?? 20,
+  );
 }
 
 export async function updatePartnerReservation(
   id: string,
   body: {
-    status?: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+    status?: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'SUSPENDED';
     seatNumbers?: string;
   },
   token: string,

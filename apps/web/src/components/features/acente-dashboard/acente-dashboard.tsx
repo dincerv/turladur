@@ -92,7 +92,9 @@ export function AcenteDashboard() {
       // Legacy Railway API: fill missing slices with limited side requests.
       const [reservations, tours, financials] = await Promise.all([
         canManageReservations || hasFullPartnerAccess(user?.role)
-          ? listPartnerReservations(token).catch(() => [])
+          ? listPartnerReservations(token, { pageSize: 5 })
+              .then((r) => r.items)
+              .catch(() => [])
           : Promise.resolve([]),
         canManageTours || hasFullPartnerAccess(user?.role)
           ? listPartnerTours(token, { pageSize: 4 })

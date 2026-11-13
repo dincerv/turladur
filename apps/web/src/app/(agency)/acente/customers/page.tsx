@@ -23,8 +23,9 @@ export default function PartnerCustomersPage() {
 
   useEffect(() => {
     if (!accessToken) return;
-    void listPartnerReservations(accessToken)
-      .then((reservations) => {
+    void listPartnerReservations(accessToken, { pageSize: 50 })
+      .then((result) => {
+        const reservations = result.items;
         const map = new Map<string, CustomerRow>();
         for (const r of reservations) {
           const email = r.contactEmail || 'bilinmiyor';
