@@ -1,9 +1,53 @@
 import { apiRequest } from './api-client';
 
+export type PartnerDashboardStatusCounts = {
+  pending: number;
+  confirmed: number;
+  cancelled: number;
+  completed: number;
+};
+
+export type PartnerDashboardRecentReservation = {
+  id: string;
+  bookingNumber: string;
+  tourId: string | null;
+  tourTitle: string | null;
+  status: string;
+  totalAmount: string;
+  currency: string;
+  contactEmail: string;
+  customerName: string;
+  createdAt: string;
+};
+
+export type PartnerDashboardPopularTour = {
+  id: string;
+  title: string;
+  category: string;
+  price: string;
+  currency: string;
+  coverUrl: string | null;
+  reservationCount: number;
+  guestCount: number;
+  rating: number;
+  reviewCount: number;
+};
+
+/** Full agency dashboard overview — permission-sliced on the server. */
 export type PartnerStats = {
-  tours: { total: number; published: number; pendingReview: number };
-  reservations: { total: number };
+  tours: {
+    total: number;
+    published: number;
+    pendingReview: number;
+  } | null;
+  reservations: {
+    total: number;
+    byStatus: PartnerDashboardStatusCounts;
+  } | null;
   revenue: { confirmedTotal: string; currency: string } | null;
+  months: Array<{ month: string; total: string }> | null;
+  recentReservations: PartnerDashboardRecentReservation[] | null;
+  popularTours: PartnerDashboardPopularTour[] | null;
 };
 
 export type PartnerTour = {
@@ -16,9 +60,32 @@ export type PartnerTour = {
   status: string;
   coverUrl: string | null;
   durationDays: number;
+  averageRating?: number;
+  reviewCount?: number;
   stayKind?: 'DAY_TRIP' | 'OVERNIGHT';
   destinationScope?: 'DOMESTIC' | 'INTERNATIONAL';
   departureCities?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type PartnerTourListMeta = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export type PartnerTourListResult = {
+  items: PartnerTour[];
+  meta: PartnerTourListMeta;
+};
+
+export type PartnerTourListParams = {
+  q?: string;
+  status?: 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED';
+  page?: number;
+  pageSize?: number;
 };
 
 export type PartnerReservation = {
@@ -43,11 +110,64 @@ export type PartnerReservation = {
 };
 
 export async function getPartnerStats(token: string) {
-  return apiRequest<PartnerStats>('/partner/dashboard/stats', { token });
+  return apiRequest<PartnerStats>('/partner/dashboard/stats', {
+    token,
+    cache: 'no-store',
+  });
 }
 
-export async function listPartnerTours(token: string) {
-  return apiRequest<PartnerTour[]>('/partner/tours', { token });
+function buildTourListQuery(params?: PartnerTourListParams): string {
+  if (!params) return '';
+  const sp = new URLSearchParams();
+  if (params.q?.trim()) sp.set('q', params.q.trim().slice(0, 80));
+  if (params.status) sp.set('status', params.status);
+  if (params.page && params.page > 1) sp.set('page', String(params.page));
+  if (params.pageSize) sp.set('pageSize', String(params.pageSize));
+  const qs = sp.toString();
+  return qs ? `?${qs}` : '';
+}
+
+/** Normalizes legacy array responses and new `{ items, meta }` payloads. */
+export function normalizePartnerTourList(
+  data: PartnerTour[] | PartnerTourListResult,
+  fallbackPage = 1,
+  fallbackPageSize = 12,
+): PartnerTourListResult {
+  if (Array.isArray(data)) {
+    return {
+      items: data,
+      meta: {
+        page: fallbackPage,
+        pageSize: fallbackPageSize,
+        total: data.length,
+        totalPages: 1,
+      },
+    };
+  }
+  return {
+    items: Array.isArray(data.items) ? data.items : [],
+    meta: {
+      page: data.meta?.page ?? fallbackPage,
+      pageSize: data.meta?.pageSize ?? fallbackPageSize,
+      total: data.meta?.total ?? 0,
+      totalPages: Math.max(1, data.meta?.totalPages ?? 1),
+    },
+  };
+}
+
+export async function listPartnerTours(
+  token: string,
+  params?: PartnerTourListParams,
+) {
+  const raw = await apiRequest<PartnerTour[] | PartnerTourListResult>(
+    `/partner/tours${buildTourListQuery(params)}`,
+    { token, cache: 'no-store' },
+  );
+  return normalizePartnerTourList(
+    raw,
+    params?.page ?? 1,
+    params?.pageSize ?? 12,
+  );
 }
 
 export async function getPartnerTourById(id: string, token: string) {

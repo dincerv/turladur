@@ -31,9 +31,9 @@ export function DashboardSkeleton() {
         <Block className="h-32" />
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <Block className="h-64" />
-        <Block className="h-64 lg:col-span-2" />
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+        <Block className="h-64 min-w-0" />
+        <Block className="h-64 min-w-0" />
       </div>
 
       <Block className="h-80" />

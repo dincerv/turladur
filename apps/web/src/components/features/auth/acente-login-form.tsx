@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -81,7 +80,6 @@ function statusPresentation(status: AccountStatus) {
 
 export function AcenteLoginForm() {
   const { loginSellerPanel, user, isAuthenticated } = useAuth();
-  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [accountStatus, setAccountStatus] = useState<AccountStatus>(null);
@@ -98,9 +96,10 @@ export function AcenteLoginForm() {
 
   useEffect(() => {
     if (isAuthenticated && user && isSellerPanelRole(user.role)) {
-      router.replace(ACENTE_DASHBOARD);
+      // Soft nav can hang after agency-staff login; hard assign is reliable.
+      window.location.assign(ACENTE_DASHBOARD);
     }
-  }, [isAuthenticated, user, router]);
+  }, [isAuthenticated, user]);
 
   const onSubmit = handleSubmit(async (values) => {
     if (isSubmitting) return;
@@ -115,7 +114,7 @@ export function AcenteLoginForm() {
         );
         return;
       }
-      router.replace(ACENTE_DASHBOARD);
+      window.location.assign(ACENTE_DASHBOARD);
     } catch (err) {
       const message =
         err instanceof ApiError

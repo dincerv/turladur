@@ -244,6 +244,7 @@ export class TourService {
 
     await this.cache.del(`catalog:tour:${tourId}`);
     await this.cache.invalidatePattern('catalog:tours:search:*');
+    await this.cache.del(`partner:dashboard:${tour.agencyId}`);
 
     this.eventEmitter.emit(
       'tour.cancelled',
@@ -371,6 +372,7 @@ export class TourService {
 
     await this.cache.del(`catalog:tour:${tourId}`);
     await this.cache.invalidatePattern('catalog:tours:search:*');
+    await this.cache.del(`partner:dashboard:${tour.agencyId}`);
 
     this.eventEmitter.emit(
       'tour.dates.cancelled',

@@ -331,6 +331,7 @@ export function AgencyShell({ children }: { children: ReactNode }) {
           <button
             type="button"
             className="text-gray-500 hover:text-gray-700 lg:hidden"
+            aria-label="Menüyü kapat"
             onClick={() => setSidebarOpen(false)}
           >
             <X className="h-6 w-6" />
@@ -419,6 +420,8 @@ export function AgencyShell({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                aria-label="Menüyü aç"
+                aria-expanded={sidebarOpen}
                 onClick={() => setSidebarOpen(true)}
               >
                 <Menu className="h-6 w-6" />

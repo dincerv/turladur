@@ -1,4 +1,8 @@
-import type { PartnerReservation, PartnerTour } from '@/services/partner-admin';
+import type {
+  PartnerDashboardPopularTour,
+  PartnerDashboardRecentReservation,
+  PartnerDashboardStatusCounts,
+} from '@/services/partner-admin';
 
 import type {
   DashboardPopularTour,
@@ -23,6 +27,8 @@ export function statusLabel(status: string): DashboardReservationStatus {
       return 'Onaylandı';
     case 'PENDING':
     case 'PENDING_PAYMENT':
+    case 'PAYMENT_FAILED':
+    case 'EXPIRED':
       return 'Beklemede';
     case 'CANCELLED':
       return 'İptal Edildi';
@@ -36,7 +42,7 @@ export function statusLabel(status: string): DashboardReservationStatus {
 }
 
 export function mapRecentReservations(
-  rows: PartnerReservation[],
+  rows: PartnerDashboardRecentReservation[],
   hideAmounts = false,
 ): DashboardRecentReservation[] {
   return rows.slice(0, 5).map((r) => {
@@ -44,10 +50,11 @@ export function mapRecentReservations(
       r.contactEmail || 'misafir@turta.com.tr',
       80,
     );
-    const nameSource = sanitizeDisplayText(
-      r.customerName || email.split('@')[0] || 'M',
-      60,
-    );
+    const rawName = sanitizeDisplayText(r.customerName || '', 60);
+    const nameSource =
+      rawName && rawName.toLowerCase() !== email.toLowerCase()
+        ? rawName
+        : sanitizeDisplayText(email.split('@')[0] || 'Misafir', 60);
     const initials = nameSource.slice(0, 2).toUpperCase();
     const created = new Date(r.createdAt);
     return {
@@ -60,56 +67,56 @@ export function mapRecentReservations(
         80,
       ),
       activityType: r.tourId ? 'Tur' : 'Rezervasyon',
-      date: created.toLocaleDateString('tr-TR'),
-      time: created.toLocaleTimeString('tr-TR', {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
+      date: Number.isNaN(created.getTime())
+        ? '—'
+        : created.toLocaleDateString('tr-TR'),
+      time: Number.isNaN(created.getTime())
+        ? '—'
+        : created.toLocaleTimeString('tr-TR', {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
       amount: hideAmounts
         ? '—'
-        : `${Number(r.totalAmount).toLocaleString('tr-TR')} ${sanitizeDisplayText(r.currency, 8)}`,
+        : `${Number(r.totalAmount || 0).toLocaleString('tr-TR')} ${sanitizeDisplayText(r.currency || 'TRY', 8)}`,
       status: statusLabel(r.status),
     };
   });
 }
 
-export function mapPopularTours(tours: PartnerTour[]): DashboardPopularTour[] {
+export function mapPopularTours(
+  tours: PartnerDashboardPopularTour[],
+): DashboardPopularTour[] {
   return tours.slice(0, 4).map((t) => ({
     id: t.id,
     title: sanitizeDisplayText(t.title, 80),
     location: sanitizeDisplayText(t.category || 'Türkiye', 40),
-    rating: 0,
-    reviewCount: 0,
-    reservationCount: 0,
-    guestCount: 0,
-    price: `${Number(t.price).toLocaleString('tr-TR')} ${sanitizeDisplayText(t.currency, 8)}`,
+    rating: Number(t.rating) || 0,
+    reviewCount: Number(t.reviewCount) || 0,
+    reservationCount: Number(t.reservationCount) || 0,
+    guestCount: Number(t.guestCount) || 0,
+    price: `${Number(t.price || 0).toLocaleString('tr-TR')} ${sanitizeDisplayText(t.currency || 'TRY', 8)}`,
     image: t.coverUrl || '/brand/mark-on-light.png',
   }));
 }
 
-export function countReservationStatuses(
-  rows: PartnerReservation[],
+export function toStatusCounts(
+  byStatus: PartnerDashboardStatusCounts | null | undefined,
 ): DashboardStatusCounts {
-  const counts: DashboardStatusCounts = {
-    pending: 0,
-    confirmed: 0,
-    cancelled: 0,
-    completed: 0,
+  return {
+    pending: byStatus?.pending ?? 0,
+    confirmed: byStatus?.confirmed ?? 0,
+    cancelled: byStatus?.cancelled ?? 0,
+    completed: byStatus?.completed ?? 0,
   };
-  for (const r of rows) {
-    if (r.status === 'CONFIRMED') counts.confirmed += 1;
-    else if (r.status === 'CANCELLED') counts.cancelled += 1;
-    else if (r.status === 'COMPLETED') counts.completed += 1;
-    else counts.pending += 1;
-  }
-  return counts;
 }
 
 export function buildRevenueChart(
-  months: Array<{ month: string; total: string }>,
+  months: Array<{ month: string; total: string }> | null | undefined,
   fallbackTotal: number,
 ): DashboardRevenueChartData {
-  const monthPoints = months.map((m) => ({
+  const safeMonths = Array.isArray(months) ? months : [];
+  const monthPoints = safeMonths.map((m) => ({
     label: m.month.slice(5) || m.month,
     revenue: Number(m.total) || 0,
   }));
@@ -122,13 +129,18 @@ export function buildRevenueChart(
   };
 }
 
+/**
+ * MoM for the lifetime revenue KPI.
+ * Skip when the current calendar month is empty — otherwise the card
+ * mixes lifetime total with a misleading monthly delta.
+ */
 export function monthOverMonthTrend(
-  months: Array<{ month: string; total: string }>,
+  months: Array<{ month: string; total: string }> | null | undefined,
 ): { direction: 'up' | 'down' | 'neutral'; label: string } | undefined {
-  if (months.length < 2) return undefined;
+  if (!months || months.length < 2) return undefined;
   const current = Number(months[months.length - 1]?.total) || 0;
   const previous = Number(months[months.length - 2]?.total) || 0;
-  if (previous <= 0 && current <= 0) return undefined;
+  if (current <= 0) return undefined;
   if (previous <= 0) {
     return { direction: 'up', label: 'Yeni gelir' };
   }

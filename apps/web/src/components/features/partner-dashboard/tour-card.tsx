@@ -159,15 +159,16 @@ export function TourCard({
               <div className="flex items-center space-x-2">
                 <Link
                   href={`/acente/tours/${id}`}
-                  className="inline-flex items-center px-2.5 py-1 border border-gray-200 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                  className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
                 >
                   Detaylar
                 </Link>
 
                 {onEdit ? (
                   <button
+                    type="button"
                     onClick={() => onEdit(id)}
-                    className="inline-flex items-center p-1.5 border border-gray-200 text-xs rounded-lg text-gray-600 bg-white hover:bg-gray-50 hover:text-indigo-600 transition-colors"
+                    className="inline-flex items-center rounded-lg border border-gray-200 bg-white p-1.5 text-xs text-gray-600 transition-colors hover:bg-gray-50 hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
                     aria-label="Düzenle"
                   >
                     <Pencil className="h-3 w-3" />
@@ -175,23 +176,24 @@ export function TourCard({
                 ) : (
                   <Link
                     href={`/acente/tours/${id}/edit`}
-                    className="inline-flex items-center p-1.5 border border-gray-200 text-xs rounded-lg text-gray-600 bg-white hover:bg-gray-50 hover:text-indigo-600 transition-colors"
+                    className="inline-flex items-center rounded-lg border border-gray-200 bg-white p-1.5 text-xs text-gray-600 transition-colors hover:bg-gray-50 hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
                     aria-label="Düzenle"
                   >
                     <Pencil className="h-3 w-3" />
                   </Link>
                 )}
 
-                {onDelete && (
+                {onDelete ? (
                   <button
+                    type="button"
                     onClick={() => onDelete(id)}
-                    className="inline-flex items-center p-1.5 border border-gray-200 text-xs rounded-lg text-gray-600 bg-white hover:bg-gray-50 hover:text-red-600 transition-colors"
+                    className="inline-flex items-center rounded-lg border border-red-200 bg-white p-1.5 text-xs text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
                     aria-label="Turu iptal et"
                     title="Turu iptal et"
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
@@ -292,7 +294,7 @@ export function TourCard({
         <div className="mt-4 flex justify-between">
           <Link
             href={`/acente/tours/${id}`}
-            className="inline-flex items-center px-3 py-1.5 border border-gray-200 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+            className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
           >
             Detaylar
           </Link>
@@ -300,8 +302,9 @@ export function TourCard({
           <div className="flex space-x-2">
             {onEdit ? (
               <button
+                type="button"
                 onClick={() => onEdit(id)}
-                className="inline-flex items-center p-1.5 border border-gray-200 text-xs rounded-lg text-gray-600 bg-white hover:bg-gray-50 hover:text-indigo-600 transition-colors"
+                className="inline-flex items-center rounded-lg border border-gray-200 bg-white p-1.5 text-xs text-gray-600 transition-colors hover:bg-gray-50 hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
                 aria-label="Düzenle"
               >
                 <Pencil className="h-3.5 w-3.5" />
@@ -309,23 +312,24 @@ export function TourCard({
             ) : (
               <Link
                 href={`/acente/tours/${id}/edit`}
-                className="inline-flex items-center p-1.5 border border-gray-200 text-xs rounded-lg text-gray-600 bg-white hover:bg-gray-50 hover:text-indigo-600 transition-colors"
+                className="inline-flex items-center rounded-lg border border-gray-200 bg-white p-1.5 text-xs text-gray-600 transition-colors hover:bg-gray-50 hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
                 aria-label="Düzenle"
               >
                 <Pencil className="h-3.5 w-3.5" />
               </Link>
             )}
 
-            {onDelete && (
+            {onDelete ? (
               <button
+                type="button"
                 onClick={() => onDelete(id)}
-                className="inline-flex items-center p-1.5 border border-gray-200 text-xs rounded-lg text-gray-600 bg-white hover:bg-gray-50 hover:text-red-600 transition-colors"
+                className="inline-flex items-center rounded-lg border border-red-200 bg-white p-1.5 text-xs text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
                 aria-label="Turu iptal et"
                 title="Turu iptal et"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
-            )}
+            ) : null}
           </div>
         </div>
       </div>

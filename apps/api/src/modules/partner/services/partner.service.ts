@@ -1,14 +1,63 @@
 import {
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '../../../generated/prisma';
 
+import { CacheService } from '../../../core/cache/cache.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { StorageService } from '../../../core/storage/storage.service';
 import { BusinessException } from '../../../shared/exceptions/business.exception';
+
+const DASHBOARD_CACHE_TTL_SECONDS = 60;
+
+type DashboardActor = { userId: string; role: string };
+
+type DashboardCachePayload = {
+  tours: {
+    total: number;
+    published: number;
+    pendingReview: number;
+  };
+  reservations: {
+    total: number;
+    byStatus: {
+      pending: number;
+      confirmed: number;
+      cancelled: number;
+      completed: number;
+    };
+  };
+  revenue: { confirmedTotal: string; currency: string };
+  months: Array<{ month: string; total: string }>;
+  recentReservations: Array<{
+    id: string;
+    bookingNumber: string;
+    tourId: string | null;
+    tourTitle: string | null;
+    status: string;
+    totalAmount: string;
+    currency: string;
+    contactEmail: string;
+    customerName: string;
+    createdAt: string;
+  }>;
+  popularTours: Array<{
+    id: string;
+    title: string;
+    category: string;
+    price: string;
+    currency: string;
+    coverUrl: string | null;
+    reservationCount: number;
+    guestCount: number;
+    rating: number;
+    reviewCount: number;
+  }>;
+};
 
 type ReportDateRangeId =
   | 'today'
@@ -132,71 +181,340 @@ function resolveReportDateRange(id: ReportDateRangeId, now = new Date()) {
 
 @Injectable()
 export class PartnerService {
+  private readonly logger = new Logger(PartnerService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
     private readonly storage: StorageService,
+    private readonly cache: CacheService,
   ) {}
 
   async getDashboardStats(
     agencyId: string | undefined,
-    actor?: { userId: string; role: string },
+    actor?: DashboardActor,
   ) {
     this.requireAgencyId(agencyId);
 
-    const canSeeRevenue = await this.actorCanSeeRevenue(actor);
-
-    const [tourCount, publishedCount, pendingCount, reservationCount, revenue] =
-      await Promise.all([
-        this.prisma.tour.count({
-          where: { agencyId, deletedAt: null },
-        }),
-        this.prisma.tour.count({
-          where: { agencyId, deletedAt: null, status: 'PUBLISHED' },
-        }),
-        this.prisma.tour.count({
-          where: { agencyId, deletedAt: null, status: 'PENDING_REVIEW' },
-        }),
-        this.prisma.reservation.count({
-          where: { agencyId, deletedAt: null },
-        }),
-        canSeeRevenue
-          ? this.prisma.reservation.aggregate({
-              where: {
-                agencyId,
-                deletedAt: null,
-                status: { in: ['CONFIRMED', 'COMPLETED'] },
-              },
-              _sum: { totalAmount: true },
-            })
-          : Promise.resolve({ _sum: { totalAmount: null } }),
-      ]);
+    const access = await this.resolveDashboardAccess(actor);
+    const payload = await this.loadDashboardPayload(agencyId);
 
     return {
       success: true,
       data: {
-        tours: {
-          total: tourCount,
-          published: publishedCount,
-          pendingReview: pendingCount,
-        },
-        reservations: { total: reservationCount },
-        revenue: canSeeRevenue
+        tours: access.canSeeTours ? payload.tours : null,
+        reservations: access.canSeeReservations
           ? {
-              confirmedTotal: revenue._sum.totalAmount?.toString() ?? '0',
-              currency: 'TRY',
+              total: payload.reservations.total,
+              byStatus: payload.reservations.byStatus,
             }
           : null,
+        revenue: access.canSeeRevenue ? payload.revenue : null,
+        months: access.canSeeRevenue ? payload.months : null,
+        recentReservations: access.canSeeReservations
+          ? payload.recentReservations
+          : null,
+        popularTours: access.canSeeTours ? payload.popularTours : null,
       },
       error: null,
     };
   }
 
-  private async actorCanSeeRevenue(actor?: {
-    userId: string;
-    role: string;
-  }): Promise<boolean> {
-    if (!actor) return true;
+  private async loadDashboardPayload(
+    agencyId: string,
+  ): Promise<DashboardCachePayload> {
+    const cacheKey = `partner:dashboard:${agencyId}`;
+    try {
+      const cached = await this.cache.get<DashboardCachePayload>(cacheKey);
+      if (cached) return cached;
+    } catch (err) {
+      this.logger.warn(
+        `Dashboard cache read failed: ${err instanceof Error ? err.message : 'unknown'}`,
+      );
+    }
+
+    const since = new Date();
+    since.setMonth(since.getMonth() - 11);
+    since.setDate(1);
+    since.setHours(0, 0, 0, 0);
+
+    const [
+      tourStatusGroups,
+      reservationStatusGroups,
+      revenueAgg,
+      monthRows,
+      recentRows,
+      reservationByTour,
+    ] = await Promise.all([
+      this.prisma.tour.groupBy({
+        by: ['status'],
+        where: { agencyId, deletedAt: null },
+        _count: { _all: true },
+      }),
+      this.prisma.reservation.groupBy({
+        by: ['status'],
+        where: { agencyId, deletedAt: null },
+        _count: { _all: true },
+      }),
+      this.prisma.reservation.aggregate({
+        where: {
+          agencyId,
+          deletedAt: null,
+          status: { in: ['CONFIRMED', 'COMPLETED'] },
+        },
+        _sum: { totalAmount: true },
+      }),
+      this.prisma.reservation.findMany({
+        where: {
+          agencyId,
+          deletedAt: null,
+          status: { in: ['CONFIRMED', 'COMPLETED'] },
+          createdAt: { gte: since },
+        },
+        select: { createdAt: true, totalAmount: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.reservation.findMany({
+        where: { agencyId, deletedAt: null },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          bookingNumber: true,
+          tourId: true,
+          experienceId: true,
+          status: true,
+          totalAmount: true,
+          currency: true,
+          contactEmail: true,
+          guests: true,
+          createdAt: true,
+        },
+      }),
+      this.prisma.reservation.groupBy({
+        by: ['tourId'],
+        where: {
+          agencyId,
+          deletedAt: null,
+          tourId: { not: null },
+          status: {
+            in: ['CONFIRMED', 'COMPLETED', 'PENDING', 'PENDING_PAYMENT'],
+          },
+        },
+        _count: { _all: true },
+        _sum: { adults: true, children: true },
+      }),
+    ]);
+
+    const tourCounts = { total: 0, published: 0, pendingReview: 0 };
+    for (const row of tourStatusGroups) {
+      tourCounts.total += row._count._all;
+      if (row.status === 'PUBLISHED') tourCounts.published = row._count._all;
+      if (row.status === 'PENDING_REVIEW') {
+        tourCounts.pendingReview = row._count._all;
+      }
+    }
+
+    const byStatus = {
+      pending: 0,
+      confirmed: 0,
+      cancelled: 0,
+      completed: 0,
+    };
+    let reservationTotal = 0;
+    for (const row of reservationStatusGroups) {
+      reservationTotal += row._count._all;
+      if (row.status === 'CONFIRMED') byStatus.confirmed = row._count._all;
+      else if (row.status === 'CANCELLED') byStatus.cancelled = row._count._all;
+      else if (row.status === 'COMPLETED') byStatus.completed = row._count._all;
+      else byStatus.pending += row._count._all;
+    }
+
+    const byMonth = new Map<string, number>();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(since);
+      d.setMonth(since.getMonth() + i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      byMonth.set(key, 0);
+    }
+    for (const row of monthRows) {
+      const key = `${row.createdAt.getFullYear()}-${String(row.createdAt.getMonth() + 1).padStart(2, '0')}`;
+      byMonth.set(key, (byMonth.get(key) ?? 0) + Number(row.totalAmount));
+    }
+    const months = [...byMonth.entries()].map(([month, total]) => ({
+      month,
+      total: total.toFixed(2),
+    }));
+
+    const topTourGroups = [...reservationByTour]
+      .sort((a, b) => (b._count?._all ?? 0) - (a._count?._all ?? 0))
+      .slice(0, 4);
+
+    const titleIds = {
+      tourIds: [
+        ...new Set(
+          [
+            ...recentRows.map((r) => r.tourId),
+            ...topTourGroups.map((r) => r.tourId),
+          ].filter((id): id is string => Boolean(id)),
+        ),
+      ],
+      experienceIds: [
+        ...new Set(
+          recentRows
+            .map((r) => r.experienceId)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ],
+    };
+
+    const [tours, experiences] = await Promise.all([
+      titleIds.tourIds.length
+        ? this.prisma.tour.findMany({
+            where: { id: { in: titleIds.tourIds }, agencyId, deletedAt: null },
+            select: {
+              id: true,
+              title: true,
+              category: true,
+              price: true,
+              currency: true,
+              coverUrl: true,
+              averageRating: true,
+              reviewCount: true,
+            },
+          })
+        : Promise.resolve([]),
+      titleIds.experienceIds.length
+        ? this.prisma.experience.findMany({
+            where: {
+              id: { in: titleIds.experienceIds },
+              deletedAt: null,
+            },
+            select: { id: true, title: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const tourById = new Map(tours.map((t) => [t.id, t]));
+    const experienceTitleById = new Map(
+      experiences.map((e) => [e.id, e.title]),
+    );
+
+    const recentReservations = recentRows.map((row) => {
+      const guests = Array.isArray(row.guests)
+        ? (row.guests as Array<{ firstName?: string; lastName?: string }>)
+        : [];
+      const primary = guests[0];
+      const customerName = primary
+        ? `${primary.firstName ?? ''} ${primary.lastName ?? ''}`.trim()
+        : row.contactEmail;
+      const tourTitle = row.tourId
+        ? (tourById.get(row.tourId)?.title ?? null)
+        : row.experienceId
+          ? (experienceTitleById.get(row.experienceId) ?? null)
+          : null;
+      return {
+        id: row.id,
+        bookingNumber: row.bookingNumber,
+        tourId: row.tourId,
+        tourTitle,
+        status: row.status,
+        totalAmount: row.totalAmount.toString(),
+        currency: row.currency,
+        contactEmail: row.contactEmail,
+        customerName,
+        createdAt: row.createdAt.toISOString(),
+      };
+    });
+
+    const popularTours = topTourGroups
+      .map((row) => {
+        if (!row.tourId) return null;
+        const tour = tourById.get(row.tourId);
+        if (!tour) return null;
+        return {
+          id: tour.id,
+          title: tour.title,
+          category: String(tour.category),
+          price: tour.price.toString(),
+          currency: tour.currency,
+          coverUrl: this.storage.resolvePublicUrl(tour.coverUrl),
+          reservationCount: row._count?._all ?? 0,
+          guestCount: (row._sum?.adults ?? 0) + (row._sum?.children ?? 0),
+          rating: Number(tour.averageRating) || 0,
+          reviewCount: tour.reviewCount ?? 0,
+        };
+      })
+      .filter((t): t is NonNullable<typeof t> => t !== null);
+
+    // Fallback: published tours with zero bookings still surface in empty agencies.
+    if (popularTours.length === 0) {
+      const fallback = await this.prisma.tour.findMany({
+        where: { agencyId, deletedAt: null },
+        orderBy: [{ featured: 'desc' }, { updatedAt: 'desc' }],
+        take: 4,
+        select: {
+          id: true,
+          title: true,
+          category: true,
+          price: true,
+          currency: true,
+          coverUrl: true,
+          averageRating: true,
+          reviewCount: true,
+        },
+      });
+      for (const tour of fallback) {
+        popularTours.push({
+          id: tour.id,
+          title: tour.title,
+          category: String(tour.category),
+          price: tour.price.toString(),
+          currency: tour.currency,
+          coverUrl: this.storage.resolvePublicUrl(tour.coverUrl),
+          reservationCount: 0,
+          guestCount: 0,
+          rating: Number(tour.averageRating) || 0,
+          reviewCount: tour.reviewCount ?? 0,
+        });
+      }
+    }
+
+    const payload: DashboardCachePayload = {
+      tours: tourCounts,
+      reservations: { total: reservationTotal, byStatus },
+      revenue: {
+        confirmedTotal: revenueAgg._sum.totalAmount?.toString() ?? '0',
+        currency: 'TRY',
+      },
+      months,
+      recentReservations,
+      popularTours,
+    };
+
+    try {
+      await this.cache.set(cacheKey, payload, DASHBOARD_CACHE_TTL_SECONDS);
+    } catch (err) {
+      this.logger.warn(
+        `Dashboard cache write failed: ${err instanceof Error ? err.message : 'unknown'}`,
+      );
+    }
+
+    return payload;
+  }
+
+  private async resolveDashboardAccess(actor?: DashboardActor): Promise<{
+    canSeeRevenue: boolean;
+    canSeeReservations: boolean;
+    canSeeTours: boolean;
+  }> {
+    if (!actor) {
+      return {
+        canSeeRevenue: true,
+        canSeeReservations: true,
+        canSeeTours: true,
+      };
+    }
     if (
       actor.role === 'PARTNER' ||
       actor.role === 'AGENCY_OWNER' ||
@@ -206,15 +524,23 @@ export class PartnerService {
       actor.role === 'PLATFORM_ADMIN' ||
       actor.role === 'PLATFORM_OPERATOR'
     ) {
-      return true;
+      return {
+        canSeeRevenue: true,
+        canSeeReservations: true,
+        canSeeTours: true,
+      };
     }
     if (actor.role !== 'PARTNER_STAFF' && actor.role !== 'AGENCY_STAFF') {
-      return false;
+      return {
+        canSeeRevenue: false,
+        canSeeReservations: false,
+        canSeeTours: false,
+      };
     }
 
     const staff = await this.prisma.agencyStaff.findFirst({
       where: { id: actor.userId, deletedAt: null },
-      select: { permissions: true },
+      select: { permissions: true, agencyId: true },
     });
     const permissions = staff?.permissions;
     if (
@@ -222,37 +548,140 @@ export class PartnerService {
       typeof permissions !== 'object' ||
       Array.isArray(permissions)
     ) {
-      return false;
+      return {
+        canSeeRevenue: false,
+        canSeeReservations: false,
+        canSeeTours: false,
+      };
     }
-    const value = (permissions as Record<string, unknown>).reports;
-    if (value === true) return true;
-    if (Array.isArray(value) && value.length > 0) return true;
-    return false;
+    const map = permissions as Record<string, unknown>;
+    const has = (key: string) => {
+      const value = map[key];
+      if (value === true) return true;
+      if (Array.isArray(value) && value.length > 0) return true;
+      return false;
+    };
+    return {
+      canSeeRevenue: has('reports'),
+      canSeeReservations: has('reservations') || has('customers'),
+      canSeeTours: has('tours'),
+    };
   }
 
-  async listTours(agencyId: string | undefined) {
+  private async invalidateDashboardCache(agencyId: string): Promise<void> {
+    try {
+      await this.cache.del(`partner:dashboard:${agencyId}`);
+    } catch (err) {
+      this.logger.warn(
+        `Dashboard cache invalidate failed: ${err instanceof Error ? err.message : 'unknown'}`,
+      );
+    }
+  }
+
+  async listTours(
+    agencyId: string | undefined,
+    options?: {
+      q?: string;
+      status?: 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED';
+      page?: number;
+      pageSize?: number;
+    },
+  ) {
     this.requireAgencyId(agencyId);
 
-    const tours = await this.prisma.tour.findMany({
-      where: { agencyId, deletedAt: null },
-      orderBy: { updatedAt: 'desc' },
-    });
+    const page = Math.max(1, options?.page ?? 1);
+    const pageSize = Math.min(50, Math.max(1, options?.pageSize ?? 12));
+    const rawQ = (options?.q ?? '').trim().slice(0, 80);
+    // Strip control chars — never interpolate raw user input into HTML later.
+    const q = rawQ.replace(/[\u0000-\u001F\u007F]/g, '');
+
+    const where: Prisma.TourWhereInput = {
+      agencyId,
+      deletedAt: null,
+      ...(options?.status ? { status: options.status } : {}),
+      ...(q
+        ? {
+            OR: [
+              { title: { contains: q, mode: 'insensitive' } },
+              { slug: { contains: q, mode: 'insensitive' } },
+              // category is enum — exact match only when query looks like one
+            ],
+          }
+        : {}),
+    };
+
+    if (q) {
+      const categories = [
+        'CULTURAL',
+        'ADVENTURE',
+        'GASTRONOMY',
+        'NATURE',
+        'CITY',
+        'BEACH',
+      ] as const;
+      const categoryMatch = categories.find(
+        (c) => c.toLowerCase() === q.toLowerCase(),
+      );
+      if (categoryMatch) {
+        where.OR = [
+          ...(Array.isArray(where.OR) ? where.OR : []),
+          { category: categoryMatch },
+        ];
+      }
+    }
+
+    const [total, tours] = await Promise.all([
+      this.prisma.tour.count({ where }),
+      this.prisma.tour.findMany({
+        where,
+        orderBy: { updatedAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          price: true,
+          currency: true,
+          category: true,
+          status: true,
+          coverUrl: true,
+          durationDays: true,
+          averageRating: true,
+          reviewCount: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
+
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
     return {
       success: true,
-      data: tours.map((tour) => ({
-        id: tour.id,
-        title: tour.title,
-        slug: tour.slug,
-        price: tour.price.toString(),
-        currency: tour.currency,
-        category: tour.category,
-        status: tour.status,
-        coverUrl: this.storage.resolvePublicUrl(tour.coverUrl),
-        durationDays: tour.durationDays,
-        createdAt: tour.createdAt.toISOString(),
-        updatedAt: tour.updatedAt.toISOString(),
-      })),
+      data: {
+        items: tours.map((tour) => ({
+          id: tour.id,
+          title: tour.title,
+          slug: tour.slug,
+          price: tour.price.toString(),
+          currency: tour.currency,
+          category: tour.category,
+          status: tour.status,
+          coverUrl: this.storage.resolvePublicUrl(tour.coverUrl),
+          durationDays: tour.durationDays,
+          averageRating: Number(tour.averageRating) || 0,
+          reviewCount: tour.reviewCount ?? 0,
+          createdAt: tour.createdAt.toISOString(),
+          updatedAt: tour.updatedAt.toISOString(),
+        })),
+        meta: {
+          page,
+          pageSize,
+          total,
+          totalPages,
+        },
+      },
       error: null,
     };
   }
@@ -653,6 +1082,8 @@ export class PartnerService {
     const refreshed = await this.prisma.reservation.findFirstOrThrow({
       where: { id: reservationId, agencyId, deletedAt: null },
     });
+
+    await this.invalidateDashboardCache(agencyId);
 
     return {
       success: true,

@@ -60,13 +60,19 @@ export function AcenteDashboardView({
       <KpiCards cards={kpiCards.slice(0, 4)} />
 
       <div
-        className={`grid grid-cols-1 gap-5 ${showRevenue ? 'lg:grid-cols-3' : ''}`}
+        className={
+          showRevenue
+            ? 'grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]'
+            : 'grid grid-cols-1 gap-5'
+        }
       >
         {statusCounts ? (
-          <ReservationStatus reservations={statusCounts} />
+          <div className="min-w-0">
+            <ReservationStatus reservations={statusCounts} />
+          </div>
         ) : null}
         {revenueChart ? (
-          <div className="min-h-[18rem] lg:col-span-2">
+          <div className="min-h-[18rem] min-w-0">
             <RevenueChart data={revenueChart} />
           </div>
         ) : null}

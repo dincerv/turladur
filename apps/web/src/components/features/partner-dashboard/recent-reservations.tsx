@@ -21,15 +21,21 @@ const statusColors: Record<DashboardRecentReservation['status'], string> = {
 
 export function RecentReservations({ reservations }: RecentReservationsProps) {
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white shadow-sm">
+    <section
+      aria-labelledby="recent-reservations-heading"
+      className="rounded-xl border border-neutral-200 bg-white shadow-sm"
+    >
       <div className="border-b border-neutral-200 p-5">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-base font-semibold text-neutral-900">
+          <h3
+            id="recent-reservations-heading"
+            className="text-base font-semibold text-neutral-900"
+          >
             Son rezervasyonlar
           </h3>
           <Link
             href={ACENTE_ROUTES.reservations}
-            className="shrink-0 text-sm font-medium text-neutral-950 underline-offset-2 hover:underline"
+            className="shrink-0 text-sm font-medium text-neutral-950 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
           >
             Tümünü gör
           </Link>
@@ -37,58 +43,69 @@ export function RecentReservations({ reservations }: RecentReservationsProps) {
       </div>
       <div className="divide-y divide-neutral-100">
         {reservations.length === 0 ? (
-          <div className="p-5 text-sm text-neutral-500">
+          <div className="p-8 text-center text-sm text-neutral-500">
             Henüz rezervasyon bulunmuyor.
           </div>
         ) : (
-          reservations.map((reservation) => (
-            <div key={reservation.id} className="p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 items-center">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-sm font-semibold text-neutral-800">
-                    {reservation.customerInitials}
+          reservations.map((reservation) => {
+            const showEmail =
+              reservation.customerEmail &&
+              reservation.customerEmail.toLowerCase() !==
+                reservation.customerName.toLowerCase();
+            return (
+              <article key={reservation.id} className="p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center">
+                    <div
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-sm font-semibold text-neutral-800"
+                      aria-hidden
+                    >
+                      {reservation.customerInitials}
+                    </div>
+                    <div className="ml-3 min-w-0">
+                      <p className="truncate text-sm font-medium text-neutral-900">
+                        {reservation.customerName}
+                      </p>
+                      {showEmail ? (
+                        <p className="truncate text-sm text-neutral-500">
+                          {reservation.customerEmail}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="ml-3 min-w-0">
-                    <p className="truncate text-sm font-medium text-neutral-900">
-                      {reservation.customerName}
-                    </p>
-                    <p className="truncate text-sm text-neutral-500">
-                      {reservation.customerEmail}
-                    </p>
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${statusColors[reservation.status]}`}
+                  >
+                    {reservation.status}
+                  </span>
+                </div>
+                <div className="mt-3 min-w-0">
+                  <h4 className="truncate text-sm font-medium text-neutral-900">
+                    {reservation.activity}
+                  </h4>
+                  <p className="text-sm text-neutral-500">
+                    {reservation.activityType}
+                  </p>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-neutral-500">
+                  <div className="inline-flex items-center">
+                    <Calendar className="mr-1 h-4 w-4" aria-hidden />
+                    <time dateTime={reservation.date}>{reservation.date}</time>
+                  </div>
+                  <div className="inline-flex items-center">
+                    <Clock className="mr-1 h-4 w-4" aria-hidden />
+                    <span>{reservation.time}</span>
+                  </div>
+                  <div className="font-semibold tabular-nums text-neutral-900">
+                    {reservation.amount}
                   </div>
                 </div>
-                <span
-                  className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${statusColors[reservation.status]}`}
-                >
-                  {reservation.status}
-                </span>
-              </div>
-              <div className="mt-3 min-w-0">
-                <h4 className="truncate text-sm font-medium text-neutral-900">
-                  {reservation.activity}
-                </h4>
-                <p className="text-sm text-neutral-500">
-                  {reservation.activityType}
-                </p>
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-neutral-500">
-                <div className="inline-flex items-center">
-                  <Calendar className="mr-1 h-4 w-4" aria-hidden />
-                  {reservation.date}
-                </div>
-                <div className="inline-flex items-center">
-                  <Clock className="mr-1 h-4 w-4" aria-hidden />
-                  {reservation.time}
-                </div>
-                <div className="font-semibold tabular-nums text-neutral-900">
-                  {reservation.amount}
-                </div>
-              </div>
-            </div>
-          ))
+              </article>
+            );
+          })
         )}
       </div>
-    </div>
+    </section>
   );
 }
 

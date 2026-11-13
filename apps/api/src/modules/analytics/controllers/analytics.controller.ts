@@ -9,6 +9,7 @@ import {
   PLATFORM_ADMIN_ROLES,
 } from '../../../core/auth/utils/role-access';
 
+import { AgencyLinkService } from '../../../core/agency/agency-link.service';
 import { CurrentUser } from '../../../core/auth/decorators/current-user.decorator';
 import { Roles } from '../../../core/auth/decorators/roles.decorator';
 import { UserPayload } from '../../../core/auth/types/auth.types';
@@ -27,7 +28,10 @@ class PopularSearchesQueryDto {
 @ApiBearerAuth()
 @Controller('analytics')
 export class AnalyticsController {
-  constructor(private readonly analyticsService: AnalyticsService) {}
+  constructor(
+    private readonly analyticsService: AnalyticsService,
+    private readonly agencyLink: AgencyLinkService,
+  ) {}
 
   @Get('admin/overview')
   @Roles(...PLATFORM_ADMIN_ROLES)
@@ -53,7 +57,11 @@ export class AnalyticsController {
   @Get('partner/overview')
   @Roles(...AGENCY_SELLER_ROLES)
   @ApiOperation({ summary: 'Partner dashboard metrics' })
-  partnerOverview(@CurrentUser() user: UserPayload) {
-    return this.analyticsService.getPartnerOverview(user.agencyId);
+  async partnerOverview(@CurrentUser() user: UserPayload) {
+    const agencyId = await this.agencyLink.resolveAgencyIdForActor({
+      agencyId: user.agencyId,
+      role: user.role,
+    });
+    return this.analyticsService.getPartnerOverview(agencyId);
   }
 }

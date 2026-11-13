@@ -6,11 +6,15 @@ import {
   ApiPropertyOptional,
   ApiTags,
 } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsIn,
+  IsInt,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
+  Min,
   MinLength,
 } from 'class-validator';
 import { Role } from '@turta/shared-constants';
@@ -41,6 +45,36 @@ class UpdatePartnerReservationDto {
   @IsString()
   @MaxLength(100)
   seatNumbers?: string;
+}
+
+class ListPartnerToursQueryDto {
+  @ApiPropertyOptional({ description: 'Search title / category / slug' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  q?: string;
+
+  @ApiPropertyOptional({
+    enum: ['DRAFT', 'PENDING_REVIEW', 'PUBLISHED', 'ARCHIVED'],
+  })
+  @IsOptional()
+  @IsIn(['DRAFT', 'PENDING_REVIEW', 'PUBLISHED', 'ARCHIVED'])
+  status?: 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED';
+
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ default: 12 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  pageSize?: number;
 }
 
 class UpdatePartnerProfileDto {
@@ -180,10 +214,20 @@ export class PartnerController {
 
   @Get('tours')
   @RequireStaffPermissions('tours')
-  @ApiOperation({ summary: 'List tours owned by partner (all statuses)' })
-  async tours(@CurrentUser() user: UserPayload) {
+  @ApiOperation({
+    summary: 'List tours owned by partner (paginated, searchable)',
+  })
+  async tours(
+    @CurrentUser() user: UserPayload,
+    @Query() query: ListPartnerToursQueryDto,
+  ) {
     const agencyId = await this.sellerAgencyId(user);
-    return this.partnerService.listTours(agencyId);
+    return this.partnerService.listTours(agencyId, {
+      q: query.q,
+      status: query.status,
+      page: query.page,
+      pageSize: query.pageSize,
+    });
   }
 
   @Get('tours/:id')
