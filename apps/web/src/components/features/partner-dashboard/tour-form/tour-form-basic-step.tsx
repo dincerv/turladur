@@ -58,6 +58,7 @@ export function TourFormBasicStep() {
           <select
             id="stayKind"
             name="stayKind"
+            data-testid="tour-stay-kind-select"
             value={formData.stayKind}
             onChange={handleChange}
             className={`block w-full rounded-lg border ${errors.stayKind ? 'border-red-500' : 'border-gray-300'} px-4 py-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-gray-900`}
@@ -110,13 +111,20 @@ export function TourFormBasicStep() {
           type="text"
           id="title"
           name="title"
+          data-testid="tour-name-input"
           value={formData.title}
           onChange={handleChange}
           className={`block w-full rounded-lg border ${errors.title ? 'border-red-500' : 'border-gray-300'} px-4 py-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-gray-900`}
           placeholder="Muhteşem Kapadokya Turu"
         />
         {errors.title && (
-          <p className="mt-2 text-sm text-red-600">{errors.title}</p>
+          <p
+            className="mt-2 text-sm text-red-600"
+            data-testid="tour-name-error"
+            role="alert"
+          >
+            {errors.title}
+          </p>
         )}
       </div>
 

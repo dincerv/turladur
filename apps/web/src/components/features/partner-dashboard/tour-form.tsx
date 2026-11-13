@@ -25,6 +25,11 @@ import type {
   TourFormData,
   TourFormProps,
 } from './tour-form/tour-form.types';
+import {
+  tourBasicStepSchema,
+  tourDetailsStepSchema,
+  zodErrorsToRecord,
+} from './tour-form/tour-form.schemas';
 
 export type { TourFormData } from './tour-form/tour-form.types';
 
@@ -512,143 +517,66 @@ export function TourForm({
     return true;
   };
 
-  // Form doğrulama
   const validateBasicForm = async (): Promise<boolean> => {
-    const newErrors: Partial<Record<keyof TourFormData, string>> = {};
+    const parsed = tourBasicStepSchema.safeParse({
+      stayKind: formData.stayKind || undefined,
+      destinationScope: formData.destinationScope || undefined,
+      title: formData.title,
+      description: formData.description,
+      price: formData.price,
+      departureCity: formData.departureCity,
+      destinations: formData.destinations,
+      nights: formData.nights,
+      maxParticipants: formData.maxParticipants,
+      transportation: formData.transportation,
+      tourType: formData.tourType,
+      accommodationType: formData.accommodationType,
+      images: formData.images,
+      mainImage: formData.mainImage,
+      galleryImages: formData.galleryImages,
+    });
 
-    // Zorunlu alanlar
-    if (!formData.title?.trim()) newErrors.title = 'Tur adı gerekli';
-    else if (formData.title.length < 5)
-      newErrors.title = 'Tur adı en az 5 karakter olmalı';
-    else if (formData.title.length > 100)
-      newErrors.title = 'Tur adı en fazla 100 karakter olmalı';
-
-    if (!formData.description?.trim())
-      newErrors.description = 'Açıklama gerekli';
-    else if (formData.description.length < 50)
-      newErrors.description = 'Açıklama en az 50 karakter olmalı';
-
-    if (!formData.price?.trim()) newErrors.price = 'Fiyat gerekli';
-    else if (parseFloat(formData.price) <= 0)
-      newErrors.price = 'Geçerli bir fiyat giriniz';
-
-    // Kalkış şehirleri kontrolü
-    if (!formData.departureCity || formData.departureCity.length === 0) {
-      newErrors.departureCity = 'En az bir kalkış şehri seçmelisiniz';
-    } else {
-      const emptyCities = formData.departureCity.filter(
-        (city) => !city?.trim(),
-      );
-      if (emptyCities.length > 0) {
-        newErrors.departureCity =
-          'Tüm kalkış şehirleri için şehir seçimi yapılmalı';
-      }
+    if (parsed.success) {
+      setErrors({});
+      return true;
     }
 
-    if (formData.stayKind !== 'DAY_TRIP' && !formData.nights?.trim()) {
-      newErrors.nights = 'Gece sayısı gerekli';
-    }
-    if (!formData.maxParticipants || formData.maxParticipants <= 0)
-      newErrors.maxParticipants = 'Maksimum katılımcı sayısı gerekli';
-    if (!formData.transportation?.trim())
-      newErrors.transportation = 'Ulaşım tipi gerekli';
-    if (!formData.stayKind) {
-      newErrors.stayKind = 'Turun türünü seçmelisiniz';
-    }
-    if (formData.stayKind && !formData.destinationScope) {
-      newErrors.destinationScope = 'Yurtiçi / yurtdışı seçmelisiniz';
-    }
-    if (!formData.tourType?.trim()) newErrors.tourType = 'Tur tipi gerekli';
-
-    // Destinasyonlar kontrolü
-    if (formData.destinations.length === 0) {
-      newErrors.destinations = 'En az bir destinasyon eklemelisiniz';
-    } else {
-      const emptyDestinations = formData.destinations.filter(
-        (dest) => !dest.city?.trim(),
-      );
-      if (emptyDestinations.length > 0) {
-        newErrors.destinations =
-          'Tüm destinasyonlar için şehir seçimi yapılmalı';
-      }
-    }
-
-    // Konaklama tipi sadece günübirlik tur değilse zorunlu
-    if (
-      formData.stayKind !== 'DAY_TRIP' &&
-      formData.tourType !== 'Günübirlik Tur' &&
-      !formData.accommodationType?.trim()
-    ) {
-      newErrors.accommodationType = 'Konaklama tipi gerekli';
-    }
-
-    if (formData.images.length === 0) {
-      newErrors.images = 'En az bir tur görseli yüklemelisiniz';
-    }
-    if (!formData.mainImage) {
-      newErrors.mainImage = 'Ana görsel gerekli';
-    }
-    if (formData.galleryImages.length < 3) {
-      newErrors.galleryImages = 'En az 3 galeri görseli yüklemelisiniz';
-    }
-
+    const newErrors = zodErrorsToRecord(parsed.error);
     setErrors(newErrors);
     logValidationErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return false;
   };
 
   const validateDetailsForm = (): boolean => {
-    const newErrors: Partial<Record<keyof TourFormData, string>> = {};
+    const parsed = tourDetailsStepSchema.safeParse({
+      tourDates: formData.tourDates,
+      pickupPoints: formData.pickupPoints,
+    });
 
-    // Tur tarihleri kontrolü
-    if (formData.tourDates.length === 0) {
-      newErrors.tourDates = 'En az bir tur tarihi eklemelisiniz';
-    } else {
-      formData.tourDates.forEach((date, index) => {
-        if (!date.startDate) {
-          newErrors.tourDates = `${index + 1}. tur için başlangıç tarihi gerekli`;
-          return;
-        }
-        if (!date.endDate) {
-          newErrors.tourDates = `${index + 1}. tur için bitiş tarihi gerekli`;
-          return;
-        }
-        if (!date.price || parseFloat(date.price) <= 0) {
-          newErrors.tourDates = `${index + 1}. tur için geçerli bir fiyat girilmeli`;
-          return;
-        }
-        if (!date.availableSeats || parseInt(date.availableSeats) <= 0) {
-          newErrors.tourDates = `${index + 1}. tur için geçerli bir kontenjan girilmeli`;
-          return;
-        }
-
-        // Diğer kontroller...
-      });
+    if (parsed.success) {
+      setErrors({});
+      return true;
     }
 
-    // Yolcu alma noktaları kontrolü
-    if (formData.pickupPoints.length === 0) {
-      newErrors.pickupPoints = 'En az bir yolcu alma noktası eklemelisiniz';
-    } else {
-      formData.pickupPoints.forEach((point, index) => {
-        if (!point.city?.trim()) {
-          newErrors.pickupPoints = `${index + 1}. noktada şehir bilgisi gerekli`;
-          return;
-        }
-        if (!point.location?.trim()) {
-          newErrors.pickupPoints = `${index + 1}. noktada konum bilgisi gerekli`;
-          return;
-        }
-        if (!point.time?.trim()) {
-          newErrors.pickupPoints = `${index + 1}. noktada saat bilgisi gerekli`;
-          return;
-        }
-      });
+    const newErrors = zodErrorsToRecord(parsed.error);
+    // Index-aware messages for multi-row fields
+    for (const issue of parsed.error.issues) {
+      if (issue.path[0] === 'tourDates' && typeof issue.path[1] === 'number') {
+        const idx = issue.path[1] + 1;
+        newErrors.tourDates = `${idx}. tur: ${issue.message}`;
+      }
+      if (
+        issue.path[0] === 'pickupPoints' &&
+        typeof issue.path[1] === 'number'
+      ) {
+        const idx = issue.path[1] + 1;
+        newErrors.pickupPoints = `${idx}. nokta: ${issue.message}`;
+      }
     }
 
     setErrors(newErrors);
     logValidationErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return false;
   };
 
   const validateForm = async (): Promise<boolean> => {

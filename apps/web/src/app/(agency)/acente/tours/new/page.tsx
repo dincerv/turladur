@@ -3,20 +3,28 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   TourForm,
   type TourFormData,
 } from '@/components/features/partner-dashboard/tour-form';
 import {
+  clearTourCreateDraft,
+  readTourCreateDraft,
+  useTourFormDraft,
+} from '@/components/features/partner-dashboard/tour-form/use-tour-form-draft';
+import {
   ArrowLeft,
   ArrowRight,
   CheckCircle,
+  Eye,
   Info,
   ImageIcon,
   MapPin,
   Calendar,
   Users,
   Tag,
+  X,
 } from 'lucide-react';
 import { useAuth } from '@/providers/auth-provider';
 import ReactMarkdown from 'react-markdown';
@@ -45,12 +53,29 @@ export default function PartnerNewTourPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [formStep, setFormStep] = useState<'basic' | 'details'>('basic');
   const [formData, setFormData] = useState<FormData>({});
-  const [partnerId, setPartnerId] = useState<string | null>(null);
+  /** Upload folder id only — agency ownership is bound via JWT on the API. */
+  const [uploadEntityId, setUploadEntityId] = useState<string | null>(null);
+  const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
+  const [draftBanner, setDraftBanner] = useState<string | null>(null);
+
+  useTourFormDraft({ enabled: true, step: formStep, formData });
+
+  useEffect(() => {
+    const draft = readTourCreateDraft();
+    if (!draft?.formData) return;
+    setFormData(draft.formData);
+    if (draft.step === 'basic' || draft.step === 'details') {
+      setFormStep(draft.step);
+    }
+    setDraftBanner(
+      `Taslak geri yüklendi (${new Date(draft.updatedAt).toLocaleString('tr-TR')})`,
+    );
+  }, []);
 
   useEffect(() => {
     if (!accessToken) return;
     void getPartnerProfile(accessToken)
-      .then((profile) => setPartnerId(profile.id))
+      .then((profile) => setUploadEntityId(profile.id))
       .catch((error: Error) => setSubmitError(error.message));
   }, [accessToken]);
 
@@ -65,7 +90,7 @@ export default function PartnerNewTourPage() {
       return;
     }
 
-    if (!accessToken || !partnerId) {
+    if (!accessToken || !uploadEntityId) {
       setSubmitError('Oturum veya partner bilgisi bulunamadı');
       return;
     }
@@ -111,11 +136,14 @@ export default function PartnerNewTourPage() {
           tourType: String(data.tourType ?? data.formData.tourType ?? ''),
           region: String(data.region ?? data.formData.region ?? ''),
           features: (data.features as string[]) ?? data.formData.features,
+          asDraft: false,
         },
         accessToken,
-        partnerId,
+        uploadEntityId,
       );
+      clearTourCreateDraft();
       router.push(`/acente/tours/${tourId}`);
+      router.refresh();
     } catch (error) {
       setSubmitError(
         error instanceof Error ? error.message : 'Kayıt başarısız',
@@ -161,39 +189,78 @@ export default function PartnerNewTourPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div
+      className="container mx-auto px-4 py-8"
+      data-testid="acente-tour-create-page"
+    >
       {submitError ? (
-        <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+        <p
+          className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700"
+          role="alert"
+          data-testid="tour-submit-error"
+        >
           {submitError}
         </p>
       ) : null}
-      <div className="mb-8 flex items-center justify-between">
+      {draftBanner ? (
+        <div
+          className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          data-testid="tour-draft-banner"
+        >
+          <span>{draftBanner}</span>
+          <button
+            type="button"
+            className="font-semibold underline"
+            onClick={() => {
+              clearTourCreateDraft();
+              setDraftBanner(null);
+            }}
+          >
+            Taslağı temizle
+          </button>
+        </div>
+      ) : null}
+      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Yeni Tur Oluştur</h1>
           <p className="text-gray-600">
             Müşterilerinize sunacağınız yeni bir tur oluşturun
           </p>
         </div>
-        <Link
-          href="/acente/tours"
-          className="rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-        >
-          İptal
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            data-testid="preview-toggle-btn"
+            onClick={() => setMobilePreviewOpen(true)}
+            className="inline-flex items-center rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 lg:hidden"
+          >
+            <Eye className="mr-2 h-4 w-4" aria-hidden />
+            Önizlemeyi Gör
+          </button>
+          <Link
+            href="/acente/tours"
+            className="rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+          >
+            İptal
+          </Link>
+        </div>
       </div>
 
       {/* İlerleme göstergesi */}
-      <div className="mb-8">
+      <div className="mb-8" data-testid="tour-stepper">
         <div className="overflow-hidden rounded-full bg-gray-200">
-          <div
-            className="h-2.5 rounded-full bg-blue-600 transition-all duration-500 ease-in-out"
-            style={{ width: formStep === 'basic' ? '50%' : '100%' }}
-          ></div>
+          <motion.div
+            className="h-2.5 rounded-full bg-neutral-950"
+            initial={false}
+            animate={{ width: formStep === 'basic' ? '50%' : '100%' }}
+            transition={{ duration: 0.35, ease: 'easeInOut' }}
+          />
         </div>
         <div className="mt-4 flex justify-between">
           <div className="flex items-center">
             <div
-              className={`flex h-9 w-9 items-center justify-center rounded-full ${formStep === 'basic' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}
+              className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${formStep === 'basic' ? 'bg-neutral-950 text-white' : 'bg-neutral-200 text-neutral-500'}`}
+              aria-current={formStep === 'basic' ? 'step' : undefined}
             >
               <CheckCircle className="h-5 w-5" />
             </div>
@@ -203,7 +270,8 @@ export default function PartnerNewTourPage() {
           </div>
           <div className="flex items-center">
             <div
-              className={`flex h-9 w-9 items-center justify-center rounded-full ${formStep === 'details' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}
+              className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${formStep === 'details' ? 'bg-neutral-950 text-white' : 'bg-neutral-200 text-neutral-500'}`}
+              aria-current={formStep === 'details' ? 'step' : undefined}
             >
               {formStep === 'details' ? (
                 <CheckCircle className="h-5 w-5" />
@@ -223,35 +291,48 @@ export default function PartnerNewTourPage() {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <div className="overflow-hidden rounded-lg bg-white shadow">
-            <div className="p-8">
-              <TourForm
-                initialData={formData}
-                onSubmit={handleSubmit}
-                onFormDataChange={handleFormDataChange}
-                onStepChange={setFormStep}
-                isSubmitting={isSubmitting}
-                currentStep={formStep}
-                partnerId={partnerId || undefined}
-                uploadEntityId={partnerId || undefined}
-                uploadImage={
-                  accessToken && partnerId
-                    ? (file) =>
-                        uploadTourImageFile(
-                          file,
-                          partnerId,
-                          accessToken,
-                          getPresignedUpload,
-                        )
-                    : undefined
-                }
-              />
+            <div className="p-4 sm:p-8">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={formStep}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.22 }}
+                >
+                  <TourForm
+                    initialData={formData}
+                    onSubmit={handleSubmit}
+                    onFormDataChange={handleFormDataChange}
+                    onStepChange={setFormStep}
+                    isSubmitting={isSubmitting}
+                    currentStep={formStep}
+                    partnerId={uploadEntityId || undefined}
+                    uploadEntityId={uploadEntityId || undefined}
+                    uploadImage={
+                      accessToken && uploadEntityId
+                        ? (file) =>
+                            uploadTourImageFile(
+                              file,
+                              uploadEntityId,
+                              accessToken,
+                              getPresignedUpload,
+                            )
+                        : undefined
+                    }
+                  />
+                </motion.div>
+              </AnimatePresence>
             </div>
           </div>
         </div>
 
-        <div className="lg:col-span-1">
+        <div className="hidden lg:col-span-1 lg:block">
           <div className="sticky top-6">
-            <div className="overflow-hidden rounded-lg bg-white shadow">
+            <div
+              className="overflow-hidden rounded-lg bg-white shadow"
+              data-testid="tour-preview-panel"
+            >
               <div className="p-6">
                 <h2 className="text-lg font-medium text-gray-900">Önizleme</h2>
                 <div className="mt-4 space-y-4">
@@ -906,6 +987,7 @@ export default function PartnerNewTourPage() {
             <div className="mt-6 flex items-center justify-between">
               <button
                 type="button"
+                data-testid="sidebar-back-btn"
                 onClick={goBack}
                 className="flex items-center rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
               >
@@ -915,8 +997,10 @@ export default function PartnerNewTourPage() {
               <button
                 type="submit"
                 form="tour-form"
+                data-testid="sidebar-primary-btn"
                 disabled={isSubmitting}
-                className="flex items-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50"
+                aria-busy={isSubmitting}
+                className="flex items-center rounded-lg bg-neutral-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-neutral-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:opacity-50"
               >
                 {formStep === 'basic' ? (
                   <>
@@ -924,13 +1008,74 @@ export default function PartnerNewTourPage() {
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </>
                 ) : (
-                  <>{isSubmitting ? 'Kaydediliyor...' : 'Kaydet'}</>
+                  <span data-testid="submit-loading-label">
+                    {isSubmitting ? 'Kaydediliyor...' : 'Kaydet'}
+                  </span>
                 )}
               </button>
             </div>
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {mobilePreviewOpen ? (
+          <motion.div
+            className="fixed inset-0 z-50 flex flex-col bg-white lg:hidden"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            transition={{ duration: 0.2 }}
+            data-testid="mobile-preview-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Tur önizleme"
+          >
+            <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
+              <h2 className="text-base font-semibold text-neutral-950">
+                Önizleme
+              </h2>
+              <button
+                type="button"
+                data-testid="preview-close-btn"
+                onClick={() => setMobilePreviewOpen(false)}
+                className="rounded-lg p-2 text-neutral-600 hover:bg-neutral-100"
+                aria-label="Önizlemeyi kapat"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="h-48 w-full overflow-hidden rounded-lg bg-gray-100 flex items-center justify-center">
+                {getPreviewImage() ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- live form preview
+                  <img
+                    src={getPreviewImage()!}
+                    alt="Tur görseli"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <ImageIcon className="h-14 w-14 text-gray-400" />
+                )}
+              </div>
+              <h3 className="mt-4 text-lg font-medium text-gray-900">
+                {formData?.title || 'Tur başlığı'}
+              </h3>
+              <p className="mt-2 line-clamp-6 text-sm text-gray-600">
+                {formData?.description || 'Tur açıklaması burada görünecek...'}
+              </p>
+              <div className="mt-4 flex items-center justify-between text-sm">
+                <span className="font-medium text-gray-900">
+                  {formatPrice(formData?.price)}
+                </span>
+                <span className="text-gray-600">
+                  {formatDuration(formData?.duration)}
+                </span>
+              </div>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

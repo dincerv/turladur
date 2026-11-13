@@ -31,6 +31,10 @@ import { TourCancelledEvent } from '../events/tour-cancelled.event';
 import { TourDatesCancelledEvent } from '../events/tour-dates-cancelled.event';
 import { TourCreatedEvent } from '../events/tour-created.event';
 import { TourSearchPerformedEvent } from '../events/tour-search-performed.event';
+import {
+  sanitizeTourExtras,
+  sanitizeTourPlainText,
+} from '../utils/sanitize-tour-text';
 import { resolveTourTaxonomy } from '../utils/tour-taxonomy';
 import { slugify } from '../utils/slugify';
 
@@ -65,43 +69,145 @@ export class TourService {
       });
     }
 
+    // Ownership always from JWT session — never trust body.agencyId.
     await this.ensurePartnerCanPublish(agencyId);
 
-    const baseSlug = slugify(dto.title);
+    const safeTitle = sanitizeTourPlainText(dto.title, 200);
+    const safeDescription = sanitizeTourPlainText(dto.description, 20_000);
+    const safeExtras = sanitizeTourExtras(dto.extras);
+
+    if (safeTitle.length < 3) {
+      throw new BusinessException('INVALID_TITLE', 'Tur başlığı geçersiz');
+    }
+    if (safeDescription.length < 10) {
+      throw new BusinessException(
+        'INVALID_DESCRIPTION',
+        'Tur açıklaması geçersiz',
+      );
+    }
+
+    const baseSlug = slugify(safeTitle);
     const slug = await this.uniqueSlug(baseSlug);
     const taxonomy = resolveTourTaxonomy({
       stayKind: dto.stayKind,
       destinationScope: dto.destinationScope,
       departureCities: dto.departureCities,
       durationDays: dto.durationDays,
-      extras: dto.extras,
+      extras: safeExtras,
     });
 
-    const tour = await this.prisma.tour.create({
-      data: {
-        title: dto.title.trim(),
-        slug,
-        description: dto.description.trim(),
-        price: new Prisma.Decimal(dto.price),
-        currency: dto.currency ?? DEFAULT_CURRENCY,
-        category: dto.category,
-        durationDays: taxonomy.durationDays,
-        stayKind: taxonomy.stayKind,
-        destinationScope: taxonomy.destinationScope,
-        departureCities: taxonomy.departureCities,
-        coverUrl: dto.coverUrl,
-        galleryUrls: dto.galleryUrls ?? [],
-        extras: (dto.extras ?? {}) as Prisma.InputJsonValue,
-        agencyId,
+    const status = dto.asDraft ? 'DRAFT' : 'PENDING_REVIEW';
+    const nestedDates = dto.dates ?? [];
+    const nestedPickups = dto.pickupPoints ?? [];
 
-        // Partner tours await admin review (Sprint 16); keeps public catalog clean
-        status: 'PENDING_REVIEW',
-      },
+    for (const date of nestedDates) {
+      const startDate = new Date(date.startDate);
+      const endDate = new Date(date.endDate);
+      if (
+        Number.isNaN(startDate.getTime()) ||
+        Number.isNaN(endDate.getTime())
+      ) {
+        throw new BusinessException(
+          'INVALID_DATE_RANGE',
+          'Geçersiz tur tarihi',
+        );
+      }
+      if (endDate < startDate) {
+        throw new BusinessException(
+          'INVALID_DATE_RANGE',
+          'Bitiş tarihi başlangıçtan önce olamaz',
+        );
+      }
+    }
+
+    const tour = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.tour.create({
+        data: {
+          title: safeTitle,
+          slug,
+          description: safeDescription,
+          price: new Prisma.Decimal(dto.price),
+          currency: dto.currency ?? DEFAULT_CURRENCY,
+          category: dto.category,
+          durationDays: taxonomy.durationDays,
+          stayKind: taxonomy.stayKind,
+          destinationScope: taxonomy.destinationScope,
+          departureCities: taxonomy.departureCities,
+          coverUrl: dto.coverUrl,
+          galleryUrls: dto.galleryUrls ?? [],
+          extras: safeExtras as Prisma.InputJsonValue,
+          agencyId,
+          status,
+        },
+      });
+
+      for (const date of nestedDates) {
+        const startDate = new Date(date.startDate);
+        const endDate = new Date(date.endDate);
+        const tourDate = await tx.tourDate.create({
+          data: {
+            tourId: created.id,
+            startDate,
+            endDate,
+            capacity: date.capacity,
+            remainingCapacity: date.capacity,
+            priceOverride:
+              date.priceOverride !== undefined
+                ? new Prisma.Decimal(date.priceOverride)
+                : null,
+          },
+        });
+
+        for (const range of date.ageRanges ?? []) {
+          await tx.tourDateAgeRange.create({
+            data: {
+              tourDateId: tourDate.id,
+              minAge: range.minAge,
+              maxAge: range.maxAge ?? null,
+              pricingType: range.pricingType,
+              value: new Prisma.Decimal(range.value),
+            },
+          });
+        }
+      }
+
+      for (const [index, point] of nestedPickups.entries()) {
+        await tx.tourPickupPoint.create({
+          data: {
+            tourId: created.id,
+            city: sanitizeTourPlainText(point.city, 100),
+            location: sanitizeTourPlainText(point.location, 200),
+            time: sanitizeTourPlainText(point.time, 20),
+            description: point.description
+              ? sanitizeTourPlainText(point.description, 500)
+              : undefined,
+            latitude: point.latitude ?? null,
+            longitude: point.longitude ?? null,
+            order: point.order ?? index,
+          },
+        });
+      }
+
+      if (dto.accommodation) {
+        await tx.tourAccommodation.create({
+          data: {
+            tourId: created.id,
+            name: sanitizeTourPlainText(dto.accommodation.name, 200),
+            image: dto.accommodation.image,
+            location: sanitizeTourPlainText(dto.accommodation.location, 120),
+            type: sanitizeTourPlainText(dto.accommodation.type, 80),
+            rating: 0,
+            features: [],
+          },
+        });
+      }
+
+      return created;
     });
 
     await this.cache.invalidatePattern('catalog:tours:search:*');
+    await this.cache.del(`partner:dashboard:${agencyId}`);
 
-    // Consumer: DomainAuditListener
     this.eventEmitter.emit(
       'tour.created',
       new TourCreatedEvent(tour.id, agencyId),
@@ -124,15 +230,26 @@ export class TourService {
 
     const data: Prisma.TourUpdateInput = {};
     if (dto.title !== undefined) {
-      data.title = dto.title.trim();
-      data.slug = await this.uniqueSlug(slugify(dto.title), tourId);
+      const safeTitle = sanitizeTourPlainText(dto.title, 200);
+      data.title = safeTitle;
+      data.slug = await this.uniqueSlug(slugify(safeTitle), tourId);
     }
-    if (dto.description !== undefined)
-      data.description = dto.description.trim();
+    if (dto.description !== undefined) {
+      data.description = sanitizeTourPlainText(dto.description, 20_000);
+    }
     if (dto.price !== undefined) data.price = new Prisma.Decimal(dto.price);
     if (dto.currency !== undefined) data.currency = dto.currency;
     if (dto.category !== undefined) data.category = dto.category;
     if (dto.status !== undefined) data.status = dto.status;
+
+    const safeExtrasUpdate =
+      dto.extras !== undefined
+        ? sanitizeTourExtras(dto.extras as Record<string, unknown>)
+        : undefined;
+    if (safeExtrasUpdate) {
+      data.extras = safeExtrasUpdate as Prisma.InputJsonValue;
+    }
+
     if (
       dto.stayKind !== undefined ||
       dto.destinationScope !== undefined ||
@@ -145,7 +262,7 @@ export class TourService {
         destinationScope: dto.destinationScope ?? tour.destinationScope,
         departureCities: dto.departureCities ?? tour.departureCities,
         durationDays: dto.durationDays ?? tour.durationDays,
-        extras: dto.extras ?? tour.extras,
+        extras: safeExtrasUpdate ?? tour.extras,
       });
       data.stayKind = taxonomy.stayKind;
       data.destinationScope = taxonomy.destinationScope;
@@ -154,9 +271,6 @@ export class TourService {
     }
     if (dto.coverUrl !== undefined) data.coverUrl = dto.coverUrl;
     if (dto.galleryUrls !== undefined) data.galleryUrls = dto.galleryUrls;
-    if (dto.extras !== undefined) {
-      data.extras = dto.extras as Prisma.InputJsonValue;
-    }
 
     if (dto.status === 'PUBLISHED') {
       await this.ensureTourCanBePublished(tour);

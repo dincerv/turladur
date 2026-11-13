@@ -82,8 +82,9 @@ export function buildTourExtrasFromForm(
 
 export function mapAgePricingType(
   pricingType: 'free' | 'half' | 'percentage' | 'fixed',
-): 'FREE' | 'PERCENTAGE' | 'FIXED' {
+): 'FREE' | 'HALF' | 'PERCENTAGE' | 'FIXED' {
   if (pricingType === 'free') return 'FREE';
+  if (pricingType === 'half') return 'HALF';
   if (pricingType === 'fixed') return 'FIXED';
   return 'PERCENTAGE';
 }

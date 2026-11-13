@@ -1,4 +1,5 @@
 import type { TourFormData } from '@/components/features/partner-dashboard/tour-form';
+import { parseTourSubmitNumbers } from '@/components/features/partner-dashboard/tour-form/tour-form.schemas';
 import {
   inferDestinationScope,
   inferStayKind,
@@ -22,6 +23,7 @@ import {
   listTourPickupPoints,
   updatePartnerTour,
   upsertTourAccommodation,
+  type CreatePartnerTourBody,
 } from '@/services/partner-admin';
 
 type SubmitPayload = {
@@ -54,6 +56,7 @@ type SubmitPayload = {
   tourType?: string;
   region?: string;
   features?: string[];
+  asDraft?: boolean;
 };
 
 async function resolveImageUrl(
@@ -69,160 +72,11 @@ async function resolveImageUrl(
   return undefined;
 }
 
-export async function persistNewPartnerTour(
-  payload: SubmitPayload,
-  token: string,
+async function resolveMedia(
+  formData: TourFormData,
   uploadEntityId: string,
-) {
-  const { formData } = payload;
-
-  const coverUrl =
-    (await resolveImageUrl(
-      formData.mainImage?.file,
-      formData.mainImage?.url,
-      uploadEntityId,
-      token,
-    )) ??
-    (await resolveImageUrl(
-      formData.images[0]?.file,
-      formData.images[0]?.url,
-      uploadEntityId,
-      token,
-    ));
-
-  const galleryFromForm = formData.galleryImages ?? [];
-  const galleryUrls: string[] = [];
-  for (const img of galleryFromForm) {
-    const uploaded = await resolveImageUrl(
-      img.file,
-      img.url,
-      uploadEntityId,
-      token,
-    );
-    if (uploaded) galleryUrls.push(uploaded);
-  }
-  for (const img of formData.images.slice(1)) {
-    const uploaded = await resolveImageUrl(
-      img.file,
-      img.url,
-      uploadEntityId,
-      token,
-    );
-    if (uploaded) galleryUrls.push(uploaded);
-  }
-
-  const category = mapLegacyTourCategory(
-    payload.tourType ?? formData.tourType,
-    payload.region ?? formData.region,
-    payload.features ?? formData.features,
-  );
-
-  const extras = buildTourExtrasFromForm(formData);
-  const stayKind = inferStayKind({
-    stayKind: formData.stayKind,
-    durationDays: payload.duration,
-    tourType: formData.tourType,
-  });
-  const destinationScope = inferDestinationScope({
-    destinationScope: formData.destinationScope,
-    tourType: formData.tourType,
-    region: formData.region,
-  });
-  const departureCities = normalizeDepartureCities(formData.departureCity);
-
-  const tour = await createPartnerTour(
-    {
-      title: payload.title,
-      description: payload.description,
-      price: payload.price,
-      category,
-      durationDays: stayKind === 'DAY_TRIP' ? 1 : payload.duration || 1,
-      stayKind,
-      destinationScope,
-      departureCities,
-      coverUrl,
-      galleryUrls,
-      extras,
-    },
-    token,
-  );
-
-  const tourId = tour.id;
-
-  for (const date of payload.tourDates) {
-    if (!date.startDate || !date.endDate) continue;
-    const created = await createTourDate(
-      tourId,
-      {
-        startDate: date.startDate.slice(0, 10),
-        endDate: date.endDate.slice(0, 10),
-        capacity: date.availableSeats || 1,
-        priceOverride: payload.price,
-      },
-      token,
-    );
-    for (const range of date.ageRanges ?? []) {
-      const pricingType = mapAgePricingType(
-        range.pricingType as 'free' | 'half' | 'percentage' | 'fixed',
-      );
-      await createTourDateAgeRange(
-        tourId,
-        created.id,
-        {
-          minAge: range.minAge,
-          maxAge: range.maxAge,
-          pricingType,
-          value: mapAgePricingValue(
-            range.pricingType as 'free' | 'half' | 'percentage' | 'fixed',
-            String(range.value),
-          ),
-        },
-        token,
-      );
-    }
-  }
-
-  for (const [index, point] of payload.pickupPoints.entries()) {
-    await createTourPickupPoint(
-      tourId,
-      {
-        city: point.city,
-        location: point.location,
-        time: point.time,
-        description: point.description,
-        latitude: point.latitude,
-        longitude: point.longitude,
-        order: index,
-      },
-      token,
-    );
-  }
-
-  if (payload.accommodationName || formData.accommodationName) {
-    await upsertTourAccommodation(
-      tourId,
-      {
-        name: payload.accommodationName || formData.accommodationName,
-        image: coverUrl ?? '/brand/mark-on-light.png',
-        location:
-          formData.destinations[0]?.city || formData.location || 'Türkiye',
-        type: formData.accommodationType || 'Otel',
-      },
-      token,
-    );
-  }
-
-  return tourId;
-}
-
-export async function persistPartnerTourUpdate(
-  tourId: string,
-  payload: SubmitPayload,
   token: string,
-  uploadEntityId: string,
 ) {
-  const { formData } = payload;
-
   const coverUrl =
     (await resolveImageUrl(
       formData.mainImage?.file,
@@ -238,8 +92,6 @@ export async function persistPartnerTourUpdate(
     ));
 
   const galleryUrls: string[] = [];
-  // Keep update behavior aligned with create:
-  // accept both explicit galleryImages and legacy images[] slots.
   for (const img of formData.galleryImages ?? []) {
     const uploaded = await resolveImageUrl(
       img.file,
@@ -258,7 +110,21 @@ export async function persistPartnerTourUpdate(
     );
     if (uploaded) galleryUrls.push(uploaded);
   }
-  const dedupedGalleryUrls = [...new Set(galleryUrls)];
+
+  return { coverUrl, galleryUrls: [...new Set(galleryUrls)] };
+}
+
+function buildCreateBody(
+  payload: SubmitPayload,
+  coverUrl: string | undefined,
+  galleryUrls: string[],
+): CreatePartnerTourBody {
+  const { formData } = payload;
+  const parsed = parseTourSubmitNumbers({
+    price: payload.price,
+    duration: payload.duration,
+    tourDates: payload.tourDates,
+  });
 
   const category = mapLegacyTourCategory(
     payload.tourType ?? formData.tourType,
@@ -269,7 +135,7 @@ export async function persistPartnerTourUpdate(
   const extras = buildTourExtrasFromForm(formData);
   const stayKind = inferStayKind({
     stayKind: formData.stayKind,
-    durationDays: payload.duration,
+    durationDays: parsed.duration,
     tourType: formData.tourType,
   });
   const destinationScope = inferDestinationScope({
@@ -279,26 +145,119 @@ export async function persistPartnerTourUpdate(
   });
   const departureCities = normalizeDepartureCities(formData.departureCity);
 
+  const dates = parsed.tourDates
+    .filter((d) => d.startDate && d.endDate)
+    .map((date) => ({
+      startDate: date.startDate as string,
+      endDate: date.endDate as string,
+      capacity: date.availableSeats || 1,
+      priceOverride: parsed.price,
+      ageRanges: (date.ageRanges ?? []).map((range) => ({
+        minAge: range.minAge,
+        maxAge: range.maxAge,
+        pricingType: mapAgePricingType(
+          range.pricingType as 'free' | 'half' | 'percentage' | 'fixed',
+        ),
+        value: mapAgePricingValue(
+          range.pricingType as 'free' | 'half' | 'percentage' | 'fixed',
+          String(range.value),
+        ),
+      })),
+    }));
+
+  const accommodationName =
+    payload.accommodationName || formData.accommodationName;
+
+  return {
+    title: payload.title,
+    description: payload.description,
+    price: parsed.price,
+    category,
+    durationDays: stayKind === 'DAY_TRIP' ? 1 : parsed.duration || 1,
+    stayKind,
+    destinationScope,
+    departureCities,
+    coverUrl,
+    galleryUrls,
+    extras,
+    asDraft: payload.asDraft === true,
+    dates,
+    pickupPoints: payload.pickupPoints.map((point, index) => ({
+      city: point.city,
+      location: point.location,
+      time: point.time,
+      description: point.description,
+      latitude: point.latitude,
+      longitude: point.longitude,
+      order: point.order ?? index,
+    })),
+    accommodation: accommodationName
+      ? {
+          name: accommodationName,
+          image: coverUrl ?? '/brand/mark-on-light.png',
+          location:
+            formData.destinations[0]?.city || formData.location || 'Türkiye',
+          type: formData.accommodationType || 'Otel',
+        }
+      : undefined,
+  };
+}
+
+/**
+ * Atomic create: uploads media first, then single POST with nested
+ * dates / pickups / accommodation (server $transaction).
+ * agencyId is NEVER sent — JWT session binds ownership.
+ */
+export async function persistNewPartnerTour(
+  payload: SubmitPayload,
+  token: string,
+  uploadEntityId: string,
+) {
+  const { coverUrl, galleryUrls } = await resolveMedia(
+    payload.formData,
+    uploadEntityId,
+    token,
+  );
+
+  const body = buildCreateBody(payload, coverUrl, galleryUrls);
+  const tour = await createPartnerTour(body, token);
+  return tour.id;
+}
+
+export async function persistPartnerTourUpdate(
+  tourId: string,
+  payload: SubmitPayload,
+  token: string,
+  uploadEntityId: string,
+) {
+  const { formData } = payload;
+  const { coverUrl, galleryUrls } = await resolveMedia(
+    formData,
+    uploadEntityId,
+    token,
+  );
+
+  const body = buildCreateBody(payload, coverUrl, galleryUrls);
+
   await updatePartnerTour(
     tourId,
     {
-      title: payload.title,
-      description: payload.description,
-      price: payload.price,
-      category,
-      durationDays: stayKind === 'DAY_TRIP' ? 1 : payload.duration || 1,
-      stayKind,
-      destinationScope,
-      departureCities,
-      coverUrl,
-      galleryUrls: dedupedGalleryUrls.length ? dedupedGalleryUrls : undefined,
-      extras,
+      title: body.title,
+      description: body.description,
+      price: body.price,
+      category: body.category,
+      durationDays: body.durationDays,
+      stayKind: body.stayKind,
+      destinationScope: body.destinationScope,
+      departureCities: body.departureCities,
+      coverUrl: body.coverUrl,
+      galleryUrls: body.galleryUrls?.length ? body.galleryUrls : undefined,
+      extras: body.extras,
     },
     token,
   );
 
-  // Only create NEW date windows — never re-create existing start/end
-  // (create-on-update was duplicating TourDate rows and breaking the date picker).
+  // Dates: only create NEW windows (avoid duplicating booked dates).
   const existingDates = await getTourDates(tourId).catch(() => []);
   const existingRangeKeys = new Set(
     existingDates.map(
@@ -307,80 +266,39 @@ export async function persistPartnerTourUpdate(
     ),
   );
 
-  for (const date of payload.tourDates) {
-    if (!date.startDate || !date.endDate) continue;
-    const startDate = date.startDate.slice(0, 10);
-    const endDate = date.endDate.slice(0, 10);
-    const rangeKey = `${startDate}|${endDate}`;
+  for (const date of body.dates ?? []) {
+    const rangeKey = `${date.startDate}|${date.endDate}`;
     if (existingRangeKeys.has(rangeKey)) continue;
 
     const created = await createTourDate(
       tourId,
       {
-        startDate,
-        endDate,
-        capacity: date.availableSeats || 1,
-        priceOverride: payload.price,
+        startDate: date.startDate,
+        endDate: date.endDate,
+        capacity: date.capacity,
+        priceOverride: date.priceOverride,
       },
       token,
     );
     existingRangeKeys.add(rangeKey);
 
     for (const range of date.ageRanges ?? []) {
-      await createTourDateAgeRange(
-        tourId,
-        created.id,
-        {
-          minAge: range.minAge,
-          maxAge: range.maxAge,
-          pricingType: mapAgePricingType(
-            range.pricingType as 'free' | 'half' | 'percentage' | 'fixed',
-          ),
-          value: mapAgePricingValue(
-            range.pricingType as 'free' | 'half' | 'percentage' | 'fixed',
-            String(range.value),
-          ),
-        },
-        token,
-      );
+      await createTourDateAgeRange(tourId, created.id, range, token);
     }
   }
 
-  // Replace pickup points (create-only on update was duplicating rows)
   const existingPickups = await listTourPickupPoints(tourId, token).catch(
     () => [],
   );
   for (const existing of existingPickups) {
     await deleteTourPickupPoint(tourId, existing.id, token);
   }
-  for (const [index, point] of payload.pickupPoints.entries()) {
-    await createTourPickupPoint(
-      tourId,
-      {
-        city: point.city,
-        location: point.location,
-        time: point.time,
-        description: point.description,
-        latitude: point.latitude,
-        longitude: point.longitude,
-        order: index,
-      },
-      token,
-    );
+  for (const point of body.pickupPoints ?? []) {
+    await createTourPickupPoint(tourId, point, token);
   }
 
-  if (formData.accommodationName) {
-    await upsertTourAccommodation(
-      tourId,
-      {
-        name: formData.accommodationName,
-        image: coverUrl ?? '/brand/mark-on-light.png',
-        location:
-          formData.destinations[0]?.city || formData.location || 'Türkiye',
-        type: formData.accommodationType || 'Otel',
-      },
-      token,
-    );
+  if (body.accommodation) {
+    await upsertTourAccommodation(tourId, body.accommodation, token);
   }
 }
 

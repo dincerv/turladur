@@ -354,20 +354,51 @@ export async function setTourStatusAdmin(
   });
 }
 
+export type CreatePartnerTourBody = {
+  title: string;
+  description: string;
+  price: number;
+  category: string;
+  durationDays?: number;
+  stayKind?: 'DAY_TRIP' | 'OVERNIGHT';
+  destinationScope?: 'DOMESTIC' | 'INTERNATIONAL';
+  departureCities?: string[];
+  coverUrl?: string;
+  galleryUrls?: string[];
+  extras?: Record<string, unknown>;
+  /** true → DRAFT; omit/false → PENDING_REVIEW */
+  asDraft?: boolean;
+  dates?: Array<{
+    startDate: string;
+    endDate: string;
+    capacity: number;
+    priceOverride?: number;
+    ageRanges?: Array<{
+      minAge: number;
+      maxAge?: number | null;
+      pricingType: 'FREE' | 'HALF' | 'PERCENTAGE' | 'FIXED';
+      value: number;
+    }>;
+  }>;
+  pickupPoints?: Array<{
+    city: string;
+    location: string;
+    time: string;
+    description?: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    order?: number;
+  }>;
+  accommodation?: {
+    name: string;
+    image: string;
+    location: string;
+    type: string;
+  };
+};
+
 export async function createPartnerTour(
-  body: {
-    title: string;
-    description: string;
-    price: number;
-    category: string;
-    durationDays?: number;
-    stayKind?: 'DAY_TRIP' | 'OVERNIGHT';
-    destinationScope?: 'DOMESTIC' | 'INTERNATIONAL';
-    departureCities?: string[];
-    coverUrl?: string;
-    galleryUrls?: string[];
-    extras?: Record<string, unknown>;
-  },
+  body: CreatePartnerTourBody,
   token: string,
 ) {
   return apiRequest<{ id: string; title: string; status: string }>(
@@ -743,7 +774,7 @@ export async function createTourDateAgeRange(
   body: {
     minAge: number;
     maxAge?: number | null;
-    pricingType: 'FREE' | 'PERCENTAGE' | 'FIXED';
+    pricingType: 'FREE' | 'HALF' | 'PERCENTAGE' | 'FIXED';
     value: number;
   },
   token: string,
