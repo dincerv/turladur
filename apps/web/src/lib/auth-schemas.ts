@@ -19,7 +19,7 @@ export const loginFormSchema = z.object({
     .string()
     .min(1, 'Şifre gerekli')
     .min(CUSTOMER_PASSWORD_MIN_LENGTH, 'Şifre en az 8 karakter olmalı'),
-  rememberMe: z.boolean().default(false),
+  rememberMe: z.boolean(),
 });
 
 export type LoginFormValues = z.infer<typeof loginFormSchema>;
