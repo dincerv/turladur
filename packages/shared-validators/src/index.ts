@@ -164,3 +164,88 @@ export const customerPasswordSchema = z
   .regex(/^(?=.*[A-Z])(?=.*\d).+$/, {
     message: 'Şifre en az 1 büyük harf ve 1 rakam içermelidir',
   });
+
+/** Public contact form subjects — keep in sync with Nest ContactDto. */
+export const CONTACT_SUBJECTS = [
+  'reservation',
+  'cancellation',
+  'support',
+  'partnership',
+  'other',
+] as const;
+
+export type ContactSubject = (typeof CONTACT_SUBJECTS)[number];
+
+export const CONTACT_SUBJECT_LABELS: Record<ContactSubject, string> = {
+  reservation: 'Rezervasyon',
+  cancellation: 'İptal & İade',
+  support: 'Teknik Destek',
+  partnership: 'İş Ortaklığı',
+  other: 'Diğer',
+};
+
+/** Strip HTML tags and control characters from free-text form fields. */
+export function sanitizeContactPlainText(value: string): string {
+  return value
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export const contactMessageSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, 'Ad soyad en az 2 karakter olmalı')
+    .max(100, 'Ad soyad en fazla 100 karakter olabilir'),
+  email: z
+    .string()
+    .trim()
+    .email('Geçerli bir e-posta adresi girin')
+    .max(254, 'E-posta çok uzun'),
+  phone: z
+    .string()
+    .trim()
+    .max(30, 'Telefon numarası çok uzun')
+    .optional()
+    .or(z.literal('')),
+  subject: z.enum(CONTACT_SUBJECTS, {
+    errorMap: () => ({ message: 'Lütfen bir konu seçin' }),
+  }),
+  message: z
+    .string()
+    .trim()
+    .min(10, 'Mesaj en az 10 karakter olmalı')
+    .max(4000, 'Mesaj en fazla 4000 karakter olabilir'),
+  privacy: z.literal(true, {
+    errorMap: () => ({ message: 'Aydınlatma metnini kabul etmelisiniz' }),
+  }),
+});
+
+export type ContactMessageFormValues = z.infer<typeof contactMessageSchema>;
+
+export type ContactMessagePayload = {
+  name: string;
+  email: string;
+  phone?: string;
+  subject: ContactSubject;
+  message: string;
+  /** Honeypot — always empty for humans. */
+  website?: string;
+};
+
+export function toContactMessagePayload(
+  values: ContactMessageFormValues,
+  honeypot = '',
+): ContactMessagePayload {
+  const phone = sanitizeContactPlainText(values.phone ?? '');
+  return {
+    name: sanitizeContactPlainText(values.name),
+    email: values.email.trim().toLowerCase(),
+    phone: phone || undefined,
+    subject: values.subject,
+    message: sanitizeContactPlainText(values.message),
+    website: honeypot,
+  };
+}

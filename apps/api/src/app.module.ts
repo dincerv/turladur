@@ -21,6 +21,7 @@ import { ReviewModule } from './modules/review/review.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { ContentModule } from './modules/content/content.module';
+import { ContactModule } from './modules/contact/contact.module';
 import { PromotionModule } from './modules/promotion/promotion.module';
 import { ThrottlingModule } from './core/throttling/throttling.module';
 import { AuditModule } from './core/audit/audit.module';
@@ -58,6 +59,7 @@ import { AgencyLinkModule } from './core/agency/agency-link.module';
     NotificationModule,
     AnalyticsModule,
     ContentModule,
+    ContactModule,
     PromotionModule,
   ],
 })

@@ -413,6 +413,38 @@ export class MailService {
           ),
         };
       }
+      case 'contact-inquiry': {
+        const name = escapeHtml(String(data.name ?? ''));
+        const email = escapeHtml(String(data.email ?? ''));
+        const phone = data.phone ? escapeHtml(String(data.phone)) : null;
+        const subjectLabel = escapeHtml(String(data.subjectLabel ?? 'Diğer'));
+        const message = escapeHtml(String(data.message ?? '')).replace(
+          /\n/g,
+          '<br/>',
+        );
+        return {
+          subject: `[İletişim] ${String(data.subjectLabel ?? 'Mesaj')} — ${String(data.name ?? '')}`,
+          html: this.layout(
+            'Yeni iletişim formu mesajı',
+            `${String(data.name ?? '')} iletişim formundan yazdı.`,
+            `<p style="margin:0 0 12px;color:#404040;">
+               <strong>${name}</strong> iletişim formundan yeni bir mesaj gönderdi.
+             </p>
+             <table style="width:100%;border-collapse:collapse;font-size:14px;color:#404040;">
+               <tr><td style="padding:6px 0;width:110px;color:#737373;">Konu</td><td style="padding:6px 0;"><strong>${subjectLabel}</strong></td></tr>
+               <tr><td style="padding:6px 0;color:#737373;">E-posta</td><td style="padding:6px 0;"><a href="mailto:${email}" style="color:#0284c7;text-decoration:none;">${email}</a></td></tr>
+               ${
+                 phone
+                   ? `<tr><td style="padding:6px 0;color:#737373;">Telefon</td><td style="padding:6px 0;">${phone}</td></tr>`
+                   : ''
+               }
+             </table>
+             <div style="margin-top:16px;padding:14px 16px;border-radius:8px;background:#f5f5f5;color:#0a0a0a;line-height:1.55;white-space:normal;">
+               ${message}
+             </div>`,
+          ),
+        };
+      }
       case 'booking-cancelled': {
         const bookingId = escapeHtml(String(data.bookingId ?? ''));
         const guestName = escapeHtml(String(data.guestName ?? 'Misafir'));

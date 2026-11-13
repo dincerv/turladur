@@ -1,177 +1,315 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useId, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Mail as EnvelopeIcon } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  CONTACT_SUBJECT_LABELS,
+  CONTACT_SUBJECTS,
+  contactMessageSchema,
+  toContactMessagePayload,
+  type ContactMessageFormValues,
+} from '@turta/shared-validators';
+import { AlertCircle, CheckCircle2, Loader2, Send } from 'lucide-react';
 
-export default function ContactForm() {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [subject, setSubject] = useState('');
-  const [message, setMessage] = useState('');
+import { ApiError } from '@/services/api-client';
+import { sendContactMessage } from '@/services/contact';
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+const INPUT_CLASS =
+  'w-full rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 transition-colors focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/40 disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:opacity-70';
+
+const ERROR_CLASS = 'mt-1.5 text-xs font-medium text-red-600';
+
+type FormStatus =
+  | { type: 'idle' }
+  | { type: 'success'; message: string }
+  | { type: 'error'; message: string };
+
+function ContactFormBase() {
+  const formId = useId();
+  const honeypotRef = useRef<HTMLInputElement>(null);
+  const [status, setStatus] = useState<FormStatus>({ type: 'idle' });
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<ContactMessageFormValues>({
+    resolver: zodResolver(contactMessageSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+      phone: '',
+      message: '',
+    },
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
+  });
+
+  const onSubmit = handleSubmit(async (values) => {
+    if (isSubmitting) return;
+    setStatus({ type: 'idle' });
+
+    const payload = toContactMessagePayload(
+      values,
+      honeypotRef.current?.value ?? '',
+    );
 
     try {
-      const { getPublicApiBaseUrl } = await import('@/services/api-client');
-      const res = await fetch(`${getPublicApiBaseUrl()}/contact`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({ name, email, phone, subject, message }),
+      await sendContactMessage(payload);
+      reset();
+      if (honeypotRef.current) honeypotRef.current.value = '';
+      setStatus({
+        type: 'success',
+        message:
+          'Mesajınız alındı. Mesai saatlerinde en kısa sürede dönüş yapacağız.',
       });
-      const result = await res.json().catch(() => ({}));
-      if (res.ok && result.success !== false) {
-        alert('Mesaj başarıyla gönderildi!');
-        setName('');
-        setEmail('');
-        setPhone('');
-        setSubject('');
-        setMessage('');
-      } else {
-        alert('Mesaj gönderilemedi. Lütfen tekrar deneyin.');
-      }
-    } catch {
-      alert('Mesaj gönderilemedi. Lütfen tekrar deneyin.');
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : 'Mesaj gönderilemedi. Lütfen biraz sonra tekrar deneyin.';
+      setStatus({ type: 'error', message });
     }
-  };
+  });
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <form
+      onSubmit={onSubmit}
+      noValidate
+      className="relative space-y-6"
+      aria-busy={isSubmitting}
+    >
+      {/* Honeypot — visually hidden, not display:none so bots still fill it */}
+      <div
+        className="absolute -left-[9999px] h-0 w-0 overflow-hidden"
+        aria-hidden
+      >
+        <label htmlFor={`${formId}-website`}>Website</label>
+        <input
+          ref={honeypotRef}
+          id={`${formId}-website`}
+          type="text"
+          name="website"
+          tabIndex={-1}
+          autoComplete="off"
+        />
+      </div>
+
+      {status.type === 'success' ? (
+        <div
+          role="status"
+          className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+        >
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
+          <p>{status.message}</p>
+        </div>
+      ) : null}
+
+      {status.type === 'error' ? (
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+        >
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
+          <p>{status.message}</p>
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div>
           <label
-            htmlFor="name"
-            className="block text-sm font-medium text-neutral-700 mb-1.5"
+            htmlFor={`${formId}-name`}
+            className="mb-1.5 block text-sm font-medium text-neutral-700"
           >
             Ad Soyad
           </label>
           <input
+            id={`${formId}-name`}
             type="text"
-            id="name"
-            name="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-lg border border-neutral-300 bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 text-neutral-900 placeholder:text-neutral-400 transition-colors text-sm"
+            autoComplete="name"
+            disabled={isSubmitting}
+            aria-invalid={errors.name ? true : undefined}
+            aria-describedby={errors.name ? `${formId}-name-err` : undefined}
+            className={INPUT_CLASS}
             placeholder="Ad Soyad"
-            required
+            {...register('name')}
           />
+          {errors.name ? (
+            <p id={`${formId}-name-err`} className={ERROR_CLASS}>
+              {errors.name.message}
+            </p>
+          ) : null}
         </div>
+
         <div>
           <label
-            htmlFor="email"
-            className="block text-sm font-medium text-neutral-700 mb-1.5"
+            htmlFor={`${formId}-email`}
+            className="mb-1.5 block text-sm font-medium text-neutral-700"
           >
             E-posta Adresiniz
           </label>
           <input
+            id={`${formId}-email`}
             type="email"
-            id="email"
-            name="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-lg border border-neutral-300 bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 text-neutral-900 placeholder:text-neutral-400 transition-colors text-sm"
+            autoComplete="email"
+            disabled={isSubmitting}
+            aria-invalid={errors.email ? true : undefined}
+            aria-describedby={errors.email ? `${formId}-email-err` : undefined}
+            className={INPUT_CLASS}
             placeholder="email@example.com"
-            required
+            {...register('email')}
           />
+          {errors.email ? (
+            <p id={`${formId}-email-err`} className={ERROR_CLASS}>
+              {errors.email.message}
+            </p>
+          ) : null}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div>
           <label
-            htmlFor="phone"
-            className="block text-sm font-medium text-neutral-700 mb-1.5"
+            htmlFor={`${formId}-phone`}
+            className="mb-1.5 block text-sm font-medium text-neutral-700"
           >
             Telefon <span className="text-neutral-400">(Opsiyonel)</span>
           </label>
           <input
+            id={`${formId}-phone`}
             type="tel"
-            id="phone"
-            name="phone"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-lg border border-neutral-300 bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 text-neutral-900 placeholder:text-neutral-400 transition-colors text-sm"
+            autoComplete="tel"
+            disabled={isSubmitting}
+            aria-invalid={errors.phone ? true : undefined}
+            aria-describedby={errors.phone ? `${formId}-phone-err` : undefined}
+            className={INPUT_CLASS}
             placeholder="+90 5XX XXX XX XX"
+            {...register('phone')}
           />
+          {errors.phone ? (
+            <p id={`${formId}-phone-err`} className={ERROR_CLASS}>
+              {errors.phone.message}
+            </p>
+          ) : null}
         </div>
+
         <div>
           <label
-            htmlFor="subject"
-            className="block text-sm font-medium text-neutral-700 mb-1.5"
+            htmlFor={`${formId}-subject`}
+            className="mb-1.5 block text-sm font-medium text-neutral-700"
           >
             Konu
           </label>
           <select
-            id="subject"
-            name="subject"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-lg border border-neutral-300 bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 text-neutral-900 transition-colors text-sm"
-            required
+            id={`${formId}-subject`}
+            disabled={isSubmitting}
+            aria-invalid={errors.subject ? true : undefined}
+            aria-describedby={
+              errors.subject ? `${formId}-subject-err` : undefined
+            }
+            className={INPUT_CLASS}
+            defaultValue=""
+            {...register('subject')}
           >
-            <option value="">Konu Seçiniz</option>
-            <option value="reservation">Rezervasyon</option>
-            <option value="cancellation">İptal & İade</option>
-            <option value="support">Teknik Destek</option>
-            <option value="partnership">İş Ortaklığı</option>
-            <option value="other">Diğer</option>
+            <option value="" disabled>
+              Konu Seçiniz
+            </option>
+            {CONTACT_SUBJECTS.map((key) => (
+              <option key={key} value={key}>
+                {CONTACT_SUBJECT_LABELS[key]}
+              </option>
+            ))}
           </select>
+          {errors.subject ? (
+            <p id={`${formId}-subject-err`} className={ERROR_CLASS}>
+              {errors.subject.message}
+            </p>
+          ) : null}
         </div>
       </div>
 
       <div>
         <label
-          htmlFor="message"
-          className="block text-sm font-medium text-neutral-700 mb-1.5"
+          htmlFor={`${formId}-message`}
+          className="mb-1.5 block text-sm font-medium text-neutral-700"
         >
           Mesajınız
         </label>
         <textarea
-          id="message"
-          name="message"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          id={`${formId}-message`}
           rows={5}
-          className="w-full px-4 py-2.5 rounded-lg border border-neutral-300 bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 text-neutral-900 placeholder:text-neutral-400 transition-colors text-sm"
+          disabled={isSubmitting}
+          aria-invalid={errors.message ? true : undefined}
+          aria-describedby={
+            errors.message ? `${formId}-message-err` : undefined
+          }
+          className={`${INPUT_CLASS} resize-y min-h-[120px]`}
           placeholder="Mesajınızı detaylı bir şekilde yazınız..."
-          required
-        ></textarea>
+          {...register('message')}
+        />
+        {errors.message ? (
+          <p id={`${formId}-message-err`} className={ERROR_CLASS}>
+            {errors.message.message}
+          </p>
+        ) : null}
       </div>
 
       <div className="flex items-start pt-1">
         <input
-          id="privacy"
-          name="privacy"
+          id={`${formId}-privacy`}
           type="checkbox"
-          className="h-4 w-4 rounded border-neutral-300 text-sky-600 focus:ring-sky-500 focus:ring-offset-1 mt-0.5"
-          required
+          disabled={isSubmitting}
+          aria-invalid={errors.privacy ? true : undefined}
+          aria-describedby={
+            errors.privacy ? `${formId}-privacy-err` : undefined
+          }
+          className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-sky-600 focus:ring-2 focus:ring-sky-500/40"
+          {...register('privacy')}
         />
-        <label htmlFor="privacy" className="ml-2.5 text-sm text-neutral-600">
-          <span className="span-inherit">
-            Kişisel verilerimin işlenmesine ilişkin{' '}
-          </span>
+        <label
+          htmlFor={`${formId}-privacy`}
+          className="ml-2.5 text-sm leading-relaxed text-neutral-600"
+        >
+          Kişisel verilerimin işlenmesine ilişkin{' '}
           <Link
             href="/privacy"
-            className="text-sky-600 hover:text-sky-700 hover:underline transition-colors"
+            className="text-sky-600 transition-colors hover:text-sky-700 hover:underline"
           >
             aydınlatma metnini
-          </Link>
-          <span className="span-inherit"> okudum ve kabul ediyorum.</span>
+          </Link>{' '}
+          okudum ve kabul ediyorum.
         </label>
       </div>
+      {errors.privacy ? (
+        <p id={`${formId}-privacy-err`} className={ERROR_CLASS}>
+          {errors.privacy.message}
+        </p>
+      ) : null}
 
       <button
         type="submit"
-        className="w-full py-3 px-6 bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm flex items-center justify-center active:scale-[0.98]"
+        disabled={isSubmitting}
+        className="flex w-full items-center justify-center rounded-lg bg-sky-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
       >
-        <EnvelopeIcon className="w-5 h-5 mr-2" />
-        Mesajı Gönder
+        {isSubmitting ? (
+          <>
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" aria-hidden />
+            Gönderiliyor…
+          </>
+        ) : (
+          <>
+            <Send className="mr-2 h-5 w-5" aria-hidden />
+            Mesajı Gönder
+          </>
+        )}
       </button>
     </form>
   );
 }
+
+/** Memoized so typing in the form cannot re-render the map / page chrome. */
+const ContactForm = memo(ContactFormBase);
+export default ContactForm;

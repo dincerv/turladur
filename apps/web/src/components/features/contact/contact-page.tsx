@@ -1,25 +1,22 @@
 'use client';
 
+import { memo } from 'react';
 import Link from 'next/link';
 import {
   Building2,
   ChevronDown,
-  Clock,
+  Handshake,
+  HelpCircle,
   Mail,
   MapPin,
   MessageSquare,
-  Handshake,
-  HelpCircle,
   User,
 } from 'lucide-react';
 
 import ContactForm from './contact-form';
-import {
-  COMPANY,
-  getCompanyAddressLines,
-  getCompanyMapsDirectionsUrl,
-  getCompanyMapsEmbedUrl,
-} from '@/lib/company';
+import { ContactInfo } from './contact-info';
+import { ContactMapLazy } from './contact-map-lazy';
+import { COMPANY } from '@/lib/company';
 
 const faqData = [
   {
@@ -47,7 +44,7 @@ const faqData = [
     answer:
       'Evet. Ankara Çankaya’daki ofisimiz randevu ile ziyaret edilebilir. Form üzerinden veya e-posta ile randevu talep edin.',
   },
-];
+] as const;
 
 const channels = [
   {
@@ -68,18 +65,25 @@ const channels = [
     text: 'Turlarınızı turta’da yayınlamak için başvurun.',
     email: COMPANY.emails.partner,
   },
-];
+] as const;
+
+/** Isolated so form keystrokes never re-render the Leaflet map. */
+const ContactMapPanel = memo(function ContactMapPanel() {
+  return (
+    <div className="h-[280px] lg:h-[360px]">
+      <ContactMapLazy />
+    </div>
+  );
+});
 
 export default function ContactPageContent() {
-  const addressLines = getCompanyAddressLines();
-
   return (
     <div className="bg-neutral-50 text-neutral-800">
       <section className="relative overflow-hidden bg-white pt-32 pb-16 lg:pt-40 lg:pb-20">
         <div className="container mx-auto px-6">
           <div className="max-w-2xl">
             <div className="mb-6 inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-700">
-              <Building2 className="mr-1.5 h-4 w-4" />
+              <Building2 className="mr-1.5 h-4 w-4" aria-hidden />
               İletişim
             </div>
             <h1 className="mb-5 text-4xl font-bold leading-tight text-neutral-900 md:text-5xl">
@@ -91,27 +95,27 @@ export default function ContactPageContent() {
               rezervasyon veya acente ortaklığı için form ya da e-posta yeterli.
             </p>
             <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="flex items-start rounded-lg border border-neutral-200/80 bg-neutral-50 p-5">
-                <Mail className="mt-0.5 mr-3 h-5 w-5 shrink-0 text-sky-600" />
-                <div>
+              <div className="flex items-center gap-3 rounded-lg border border-neutral-200/80 bg-neutral-50 p-5">
+                <Mail className="h-5 w-5 shrink-0 text-sky-600" aria-hidden />
+                <div className="min-w-0">
                   <p className="text-xs font-medium uppercase tracking-wider text-neutral-500">
                     E-posta
                   </p>
                   <a
                     href={`mailto:${COMPANY.emails.info}`}
-                    className="text-base font-semibold text-neutral-900 hover:text-sky-700"
+                    className="break-all text-base font-semibold text-neutral-900 hover:text-sky-700"
                   >
                     {COMPANY.emails.info}
                   </a>
                 </div>
               </div>
-              <div className="flex items-start rounded-lg border border-neutral-200/80 bg-neutral-50 p-5">
-                <MapPin className="mt-0.5 mr-3 h-5 w-5 shrink-0 text-sky-600" />
-                <div>
+              <div className="flex items-center gap-3 rounded-lg border border-neutral-200/80 bg-neutral-50 p-5">
+                <MapPin className="h-5 w-5 shrink-0 text-sky-600" aria-hidden />
+                <div className="min-w-0">
                   <p className="text-xs font-medium uppercase tracking-wider text-neutral-500">
                     Ofis
                   </p>
-                  <p className="text-sm font-medium text-neutral-900">
+                  <p className="text-sm font-medium break-words text-neutral-900">
                     {COMPANY.city} · {COMPANY.district}
                   </p>
                 </div>
@@ -122,14 +126,14 @@ export default function ContactPageContent() {
                 href="#contactForm"
                 className="inline-flex items-center rounded-lg bg-sky-600 px-6 py-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-sky-700"
               >
-                <User className="mr-2 h-4 w-4" />
+                <User className="mr-2 h-4 w-4" aria-hidden />
                 İletişim formu
               </a>
               <a
                 href="#office"
                 className="inline-flex items-center rounded-lg border border-neutral-200 bg-white px-6 py-3 text-sm font-medium text-sky-600 shadow-sm transition-colors hover:bg-neutral-50"
               >
-                <MapPin className="mr-2 h-4 w-4" />
+                <MapPin className="mr-2 h-4 w-4" aria-hidden />
                 Ofis adresi
               </a>
             </div>
@@ -155,7 +159,7 @@ export default function ContactPageContent() {
                 className="flex flex-col rounded-xl border border-neutral-200/80 bg-white p-8 shadow-sm"
               >
                 <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-lg bg-sky-100">
-                  <card.icon className="h-6 w-6 text-sky-600" />
+                  <card.icon className="h-6 w-6 text-sky-600" aria-hidden />
                 </div>
                 <h3 className="mb-2 text-xl font-semibold text-neutral-900">
                   {card.title}
@@ -165,9 +169,9 @@ export default function ContactPageContent() {
                 </p>
                 <a
                   href={`mailto:${card.email}`}
-                  className="inline-flex items-center gap-2 border-t border-neutral-100 pt-5 text-sm font-medium text-sky-700 hover:text-sky-800"
+                  className="inline-flex items-center gap-2 break-all border-t border-neutral-100 pt-5 text-sm font-medium text-sky-700 hover:text-sky-800"
                 >
-                  <Mail className="h-4 w-4" />
+                  <Mail className="h-4 w-4 shrink-0" aria-hidden />
                   {card.email}
                 </a>
               </div>
@@ -176,7 +180,10 @@ export default function ContactPageContent() {
         </div>
       </section>
 
-      <section id="contactForm" className="bg-white py-16 md:py-24">
+      <section
+        id="contactForm"
+        className="scroll-mt-24 bg-white py-16 md:py-24"
+      >
         <div className="container mx-auto px-6">
           <div className="mx-auto mb-12 max-w-2xl text-center">
             <h2 className="mb-3 text-3xl font-bold text-neutral-900">
@@ -187,61 +194,23 @@ export default function ContactPageContent() {
               yaparız.
             </p>
           </div>
-          <div className="grid grid-cols-1 items-start gap-12 lg:grid-cols-5">
-            <div className="rounded-xl border border-neutral-200/60 bg-white p-8 shadow-lg lg:col-span-3 lg:p-10">
+
+          {/*
+            Mobile order: Info → Form → Map
+            Desktop: left Info + Map, right Form (row-span-2)
+            Single map instance — no duplicate Leaflet mounts.
+          */}
+          <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-2 lg:gap-12">
+            <div id="office" className="order-1 scroll-mt-24">
+              <ContactInfo />
+            </div>
+
+            <div className="order-2 rounded-xl border border-neutral-200/60 bg-white p-6 shadow-lg sm:p-8 lg:col-start-2 lg:row-span-2 lg:p-10">
               <ContactForm />
             </div>
-            <div id="office" className="space-y-8 lg:col-span-2">
-              <div className="rounded-xl border border-neutral-200/80 bg-neutral-50/80 p-8">
-                <h3 className="mb-5 border-b border-neutral-200 pb-4 text-xl font-semibold text-neutral-900">
-                  Ofisimiz
-                </h3>
-                <div className="space-y-4 text-sm text-neutral-700">
-                  <div className="flex items-start gap-3">
-                    <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-sky-600" />
-                    <div>
-                      {addressLines.map((line) => (
-                        <p key={line}>{line}</p>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Mail className="mt-0.5 h-5 w-5 shrink-0 text-sky-600" />
-                    <a
-                      href={`mailto:${COMPANY.emails.info}`}
-                      className="hover:text-sky-700"
-                    >
-                      {COMPANY.emails.info}
-                    </a>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Clock className="mt-0.5 h-5 w-5 shrink-0 text-sky-600" />
-                    <p>{COMPANY.hours}</p>
-                  </div>
-                </div>
-                <a
-                  href={getCompanyMapsDirectionsUrl()}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-6 inline-flex items-center text-sm font-medium text-sky-600 hover:text-sky-700"
-                >
-                  <MapPin className="mr-1.5 h-4 w-4" />
-                  Yol tarifi al
-                </a>
-              </div>
-              <div className="relative h-[280px] overflow-hidden rounded-xl border border-neutral-200/80 shadow-md">
-                <iframe
-                  src={getCompanyMapsEmbedUrl()}
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0 }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  title="turta Ankara ofisi"
-                  className="absolute inset-0"
-                />
-              </div>
+
+            <div className="order-3 h-[280px] lg:h-[360px]">
+              <ContactMapPanel />
             </div>
           </div>
         </div>
@@ -251,7 +220,7 @@ export default function ContactPageContent() {
         <div className="container mx-auto px-6">
           <div className="mx-auto mb-10 max-w-2xl text-center">
             <div className="mb-4 inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-700">
-              <HelpCircle className="mr-1.5 h-4 w-4" />
+              <HelpCircle className="mr-1.5 h-4 w-4" aria-hidden />
               Sıkça sorulanlar
             </div>
             <h2 className="text-3xl font-bold text-neutral-900">
@@ -264,9 +233,9 @@ export default function ContactPageContent() {
                 key={faq.question}
                 className="group overflow-hidden rounded-lg border border-neutral-200/80 bg-white"
               >
-                <summary className="flex cursor-pointer list-none items-center justify-between p-5 font-semibold text-neutral-800 hover:bg-neutral-50">
-                  {faq.question}
-                  <ChevronDown className="ml-4 h-5 w-5 shrink-0 text-neutral-500 transition-transform group-open:rotate-180" />
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 font-semibold text-neutral-800 hover:bg-neutral-50">
+                  <span className="min-w-0 text-left">{faq.question}</span>
+                  <ChevronDown className="h-5 w-5 shrink-0 text-neutral-500 transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="border-t border-neutral-200/60 px-5 pt-3 pb-5">
                   <p className="text-sm leading-relaxed text-neutral-600">
