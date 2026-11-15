@@ -21,6 +21,10 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+      'https://turladur-zjyf.vercel.app',
+  ),
   title: {
     default: 'turta',
     template: '%s | turta',

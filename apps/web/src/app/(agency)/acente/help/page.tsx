@@ -9,6 +9,8 @@ import {
   Phone,
 } from 'lucide-react';
 
+import { COMPANY_EMAILS } from '@/config/company';
+
 const FAQS = [
   {
     question: 'Partner panelini nasıl kullanabilirim?',
@@ -90,7 +92,12 @@ export default function PartnerHelpPage() {
         <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
           <Mail className="mb-3 h-6 w-6 text-blue-600" />
           <h3 className="font-semibold text-gray-900">E-posta</h3>
-          <p className="mt-1 text-sm text-gray-600">destek@turta.com.tr</p>
+          <a
+            href={`mailto:${COMPANY_EMAILS.support}`}
+            className="mt-1 block text-sm text-gray-600 underline-offset-2 hover:underline"
+          >
+            {COMPANY_EMAILS.support}
+          </a>
         </div>
         <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
           <Phone className="mb-3 h-6 w-6 text-green-600" />

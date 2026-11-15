@@ -79,7 +79,7 @@ export function renderMailLayout(input: MailLayoutInput): string {
             <td style="padding:16px 32px;background-color:${INK};">
               <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.5;color:#a3a3a3;text-align:center;">
                 © ${year} turta ·
-                <a href="${escapeHtml(webBaseUrl)}" style="color:${PAPER};text-decoration:underline;">turta.com</a>
+                <a href="${escapeHtml(webBaseUrl)}" style="color:${PAPER};text-decoration:underline;">turta.com.tr</a>
               </p>
             </td>
           </tr>
