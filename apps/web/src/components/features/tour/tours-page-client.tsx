@@ -83,6 +83,17 @@ function ToursPageContent() {
   const urlEndDate = searchParams.get('endDate');
   const urlMinPrice = parseOptionalInt(searchParams.get('minPrice'));
   const urlMaxPrice = parseOptionalInt(searchParams.get('maxPrice'));
+  const urlCategoryRaw = (searchParams.get('category') || '').toUpperCase();
+  const urlTourCategory = [
+    'CULTURAL',
+    'ADVENTURE',
+    'GASTRONOMY',
+    'NATURE',
+    'CITY',
+    'BEACH',
+  ].includes(urlCategoryRaw)
+    ? urlCategoryRaw
+    : null;
   const urlSortRaw = searchParams.get('sort') || 'popular';
   const urlSort = isToursSortBy(urlSortRaw) ? urlSortRaw : 'popular';
   const urlView = searchParams.get('view') === 'list' ? 'list' : 'grid';
@@ -116,6 +127,7 @@ function ToursPageContent() {
     region: urlRegion || null,
     duration: durationParam,
     featured: featuredParam === 'true',
+    tourType: urlTourCategory,
     minPrice: urlMinPrice,
     maxPrice: urlMaxPrice,
     dateRange: [
@@ -221,6 +233,7 @@ function ToursPageContent() {
         region: urlRegion || null,
         duration: durationParam,
         featured: featuredParam === 'true',
+        tourType: urlTourCategory,
         minPrice: urlMinPrice,
         maxPrice: urlMaxPrice,
         dateRange: nextDateRange,
@@ -233,6 +246,7 @@ function ToursPageContent() {
         prev.region === next.region &&
         prev.duration === next.duration &&
         prev.featured === next.featured &&
+        prev.tourType === next.tourType &&
         prev.minPrice === next.minPrice &&
         prev.maxPrice === next.maxPrice &&
         (prev.dateRange[0]?.getTime() ?? null) ===
@@ -255,6 +269,7 @@ function ToursPageContent() {
     urlDestinationScope,
     durationParam,
     featuredParam,
+    urlTourCategory,
     urlMinPrice,
     urlMaxPrice,
     urlSort,

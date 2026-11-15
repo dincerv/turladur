@@ -236,7 +236,10 @@ export function AgencyShell({ children }: { children: ReactNode }) {
 
   if (isBootstrapping || gate === 'checking') {
     return (
-      <div className="flex min-h-screen items-center justify-center text-neutral-600">
+      <div
+        className="flex min-h-screen items-center justify-center text-neutral-600"
+        data-testid="agency-shell-loading"
+      >
         Yükleniyor…
       </div>
     );
@@ -244,7 +247,10 @@ export function AgencyShell({ children }: { children: ReactNode }) {
 
   if (gate !== 'allowed' || !isAuthenticated) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-4 text-center text-neutral-600">
+      <div
+        className="flex min-h-screen flex-col items-center justify-center gap-3 px-4 text-center text-neutral-600"
+        data-testid="agency-shell-denied"
+      >
         <p>Acente paneli için giriş gerekli…</p>
         <Link
           href={ACENTE_LOGIN}
@@ -291,7 +297,7 @@ export function AgencyShell({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="flex min-h-screen bg-neutral-50">
+    <div className="flex min-h-screen bg-neutral-50" data-testid="agency-shell">
       {/* Mobile drawer backdrop — always mounted for smooth fade */}
       <div
         className={cn(
@@ -310,6 +316,7 @@ export function AgencyShell({ children }: { children: ReactNode }) {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}
         aria-label="Acente ana menü"
+        data-testid="agency-shell-nav"
       >
         <div className="flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-2">

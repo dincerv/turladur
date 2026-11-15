@@ -157,10 +157,10 @@ export function TourOperatorPublicClient({
           {error ?? 'Sayfa bulunamadı'}
         </h1>
         <Link
-          href="/tours"
+          href="/tour-operator"
           className="mt-4 inline-flex text-sm font-medium text-neutral-700 underline"
         >
-          Turlara dön
+          Acentelere dön
         </Link>
       </div>
     );
@@ -173,11 +173,11 @@ export function TourOperatorPublicClient({
       <div className="border-b border-neutral-100 bg-white">
         <div className="mx-auto max-w-6xl px-4 pb-8 pt-10 sm:px-6 sm:pb-10 sm:pt-12 lg:px-8">
           <Link
-            href="/tours"
+            href="/tour-operator"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900"
           >
             <ArrowLeft className="h-4 w-4" />
-            Turlara dön
+            Acentelere dön
           </Link>
 
           <div className="mt-6 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">

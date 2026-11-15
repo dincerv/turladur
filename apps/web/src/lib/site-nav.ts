@@ -17,12 +17,13 @@ export const NAV_LINKS: readonly SiteNavLink[] = [
   { label: 'İletişim', href: '/contact' },
 ] as const;
 
-/** Turlar dropdown — no href="#". */
+/** Turlar dropdown — distinct destinations (operators ≠ tour filters). */
 export const TOUR_DROPDOWN_LINKS: readonly SiteNavLink[] = [
   { label: 'Tüm Turlar', href: '/tours' },
-  { label: 'Tur Operatörleri', href: '/tour-operator' },
+  { label: 'Acenteler', href: '/tour-operator' },
   { label: 'Günübirlik Turlar', href: '/tours?stayKind=DAY_TRIP' },
-  { label: 'Haftalık Turlar', href: '/tours?duration=7+' },
+  { label: 'Konaklamalı Turlar', href: '/tours?stayKind=OVERNIGHT' },
+  { label: 'Haftalık Turlar', href: '/tours?duration=7%2B' },
 ] as const;
 
 export const MOBILE_TOUR_EXTRA_LINKS: readonly SiteNavLink[] = [
@@ -34,6 +35,7 @@ export const FOOTER_LINK_SECTIONS: readonly SiteNavSection[] = [
     title: 'Keşfet',
     links: [
       { label: 'Turlar', href: '/tours' },
+      { label: 'Acenteler', href: '/tour-operator' },
       { label: 'Rotalar', href: '/routes' },
       { label: 'Aktiviteler', href: '/activities' },
       { label: 'Blog', href: '/blog' },

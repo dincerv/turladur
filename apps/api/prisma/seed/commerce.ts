@@ -194,6 +194,22 @@ export async function seedCommerce(
     });
   }
 
+  // Stable marker for E2E manage-seats (list sort is updatedAt desc; edits move others up).
+  const seatDemoRow = await prisma.tour.findUniqueOrThrow({
+    where: { id: seatDemoTour.id },
+    select: { title: true },
+  });
+  await prisma.tour.update({
+    where: { id: seatDemoTour.id },
+    data: {
+      featured: true,
+      updatedAt: new Date(),
+      title: seatDemoRow.title.includes('[SEAT-DEMO]')
+        ? seatDemoRow.title
+        : `${seatDemoRow.title} [SEAT-DEMO]`,
+    },
+  });
+
   // Other agencies: COMPLETED + review (valid numeric seat codes)
   for (let i = 1; i < 5; i++) {
     const tour = catalog.tours[i * 5];
@@ -333,21 +349,41 @@ export async function seedCommerce(
     });
   }
 
-  // One pending hold (expires in future) — checkout-safe leftover
-  const holdTour = catalog.tours[5];
+  // Pending holds for agency-01 (E2E confirm) + another agency leftover
+  const holdTourAgency1 = catalog.tours[0];
   await prisma.reservation.create({
     data: {
       bookingNumber: 'SEEDHOLD01',
       userId: customer2.id,
-      tourId: holdTour.id,
-      tourDateId: holdTour.tourDateId,
-      agencyId: holdTour.agencyId,
+      tourId: holdTourAgency1.id,
+      tourDateId: holdTourAgency1.tourDateId,
+      agencyId: holdTourAgency1.agencyId,
       status: 'PENDING_PAYMENT',
       paymentStatus: 'UNPAID',
       adults: 1,
       children: 0,
-      totalAmount: holdTour.price,
-      boardingPickupPointId: holdTour.pickupPointId,
+      totalAmount: holdTourAgency1.price,
+      boardingPickupPointId: holdTourAgency1.pickupPointId,
+      contactEmail: customer2.email,
+      holdExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      heldPartySize: 1,
+    },
+  });
+
+  const holdTourAgency2 = catalog.tours[5];
+  await prisma.reservation.create({
+    data: {
+      bookingNumber: 'SEEDHOLD02',
+      userId: customer2.id,
+      tourId: holdTourAgency2.id,
+      tourDateId: holdTourAgency2.tourDateId,
+      agencyId: holdTourAgency2.agencyId,
+      status: 'PENDING',
+      paymentStatus: 'UNPAID',
+      adults: 1,
+      children: 0,
+      totalAmount: holdTourAgency2.price,
+      boardingPickupPointId: holdTourAgency2.pickupPointId,
       contactEmail: customer2.email,
       holdExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
       heldPartySize: 1,

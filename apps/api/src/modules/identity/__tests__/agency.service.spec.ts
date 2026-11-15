@@ -35,6 +35,39 @@ describe('AgencyService', () => {
     });
   });
 
+  describe('search', () => {
+    it('should list verified agencies for public callers', async () => {
+      (prisma.$transaction as jest.Mock).mockResolvedValue([
+        1,
+        [
+          {
+            id: 'a1',
+            companyName: 'Demo Acente',
+            logo: null,
+            city: 'Ankara',
+            country: 'Türkiye',
+            website: null,
+            sellerTier: 'GOLD',
+            averageRating: { toString: () => '4.80' },
+            reviewCount: 5,
+            status: 'VERIFIED',
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          },
+        ],
+      ]);
+      (prisma.tour.groupBy as jest.Mock).mockResolvedValue([
+        { agencyId: 'a1', _count: { _all: 4 } },
+      ]);
+
+      const result = await service.search({ page: 1, limit: 20 });
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].companyName).toBe('Demo Acente');
+      expect(result.data[0].publishedTourCount).toBe(4);
+      expect(result.meta.total).toBe(1);
+      expect(prisma.$transaction).toHaveBeenCalled();
+    });
+  });
+
   describe('getById', () => {
     it('should hide non-verified agency from public', async () => {
       (prisma.agency.findFirst as jest.Mock).mockResolvedValue(null);

@@ -5,7 +5,8 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 @Module({
   imports: [
     ThrottlerModule.forRoot({
-      throttlers: [{ name: 'default', ttl: 60_000, limit: 100 }],
+      // Local/E2E agency suites issue many authenticated GETs per minute.
+      throttlers: [{ name: 'default', ttl: 60_000, limit: 300 }],
     }),
   ],
   providers: [

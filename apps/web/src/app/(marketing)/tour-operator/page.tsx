@@ -1,9 +1,13 @@
-import { redirect } from 'next/navigation';
+import type { Metadata } from 'next';
 
-/**
- * Legacy navbar: Tur Operatörleri.
- * Dedicated Nest listing page henüz yok — tur listesine yönlendir.
- */
-export default function TourOperatorRedirectPage() {
-  redirect('/tours');
+import { TourOperatorsDirectory } from '@/components/features/tour-operator/tour-operators-directory';
+
+export const metadata: Metadata = {
+  title: 'Acenteler / Tur Operatörleri | turta',
+  description:
+    'Onaylı tur operatörlerini keşfedin. Her acentenin yayınladığı turlara profilinden ulaşın.',
+};
+
+export default function TourOperatorDirectoryPage() {
+  return <TourOperatorsDirectory />;
 }

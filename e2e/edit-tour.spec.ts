@@ -1,32 +1,11 @@
 import { test, expect } from '@playwright/test';
 
+import { loginAgency } from './helpers/agency-login';
+
 /**
  * Agency tour edit — prefill, dirty field change, save + success toast.
  * Skips when web / seed agency login unavailable.
  */
-
-const agencyEmail =
-  process.env.E2E_AGENCY_EMAIL ?? 'owner01@agency.demo.turta.com';
-const agencyPassword = process.env.E2E_AGENCY_PASSWORD ?? 'Demo1234!';
-
-async function loginAgency(page: import('@playwright/test').Page) {
-  const loginRes = await page.goto('/acente/giris');
-  if (!loginRes || !loginRes.ok()) return false;
-
-  await page
-    .locator('#email, input[name="email"], input[type="email"]')
-    .first()
-    .fill(agencyEmail);
-  await page
-    .locator('#password, input[name="password"], input[type="password"]')
-    .first()
-    .fill(agencyPassword);
-  await page.getByRole('button', { name: /Giriş/i }).click();
-  await page
-    .waitForURL(/\/acente(\/|$)/, { timeout: 20_000 })
-    .catch(() => null);
-  return page.url().includes('/acente');
-}
 
 test.describe('Acente — Tur düzenle', () => {
   test('prefills form, edits title, saves and shows success toast', async ({
@@ -35,6 +14,10 @@ test.describe('Acente — Tur düzenle', () => {
     test.skip(!(await loginAgency(page)), 'Agency login failed / web down');
 
     await page.goto('/acente/tours', { waitUntil: 'domcontentloaded' });
+    await expect(
+      page.getByRole('complementary', { name: /Acente ana menü/i }),
+    ).toBeVisible({ timeout: 20_000 });
+    await page.getByRole('tab', { name: /Liste/i }).click();
 
     // Prefer detail → edit for stable ownership path.
     const detailLink = page.getByRole('link', { name: /Detaylar/i }).first();
@@ -70,15 +53,11 @@ test.describe('Acente — Tur düzenle', () => {
     await titleInput.fill(nextTitle);
     await expect(page.getByTestId('dirty-indicator')).toBeVisible();
 
-    // Advance to details step (sidebar or footer next).
-    await page
-      .getByTestId('edit-step-next-btn')
-      .or(page.getByTestId('step-1-next-btn'))
-      .first()
-      .click();
+    // Footer next validates basic step and syncs parent formStep.
+    await page.getByTestId('step-1-next-btn').click();
 
     const saveBtn = page.getByTestId('save-tour-btn').first();
-    await expect(saveBtn).toBeVisible({ timeout: 15_000 });
+    await expect(saveBtn).toBeVisible({ timeout: 20_000 });
     await expect(saveBtn).toBeEnabled();
     await saveBtn.click();
 

@@ -24,25 +24,53 @@ export class CacheService implements OnModuleDestroy {
   }
 
   async get<T>(key: string): Promise<T | null> {
-    const raw = await this.client.get(key);
-    if (raw === null) {
+    try {
+      const raw = await this.client.get(key);
+      if (raw === null) {
+        return null;
+      }
+      return JSON.parse(raw) as T;
+    } catch (error) {
+      this.logger.warn(
+        `Redis get failed for ${key}: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return null;
     }
-    return JSON.parse(raw) as T;
   }
 
   async set<T>(key: string, value: T, ttlSeconds: number): Promise<void> {
-    await this.client.set(key, JSON.stringify(value), 'EX', ttlSeconds);
+    try {
+      await this.client.set(key, JSON.stringify(value), 'EX', ttlSeconds);
+    } catch (error) {
+      this.logger.warn(
+        `Redis set failed for ${key}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   async del(key: string): Promise<void> {
-    await this.client.del(key);
+    try {
+      await this.client.del(key);
+    } catch (error) {
+      this.logger.warn(
+        `Redis del failed for ${key}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   async invalidatePattern(pattern: string): Promise<void> {
-    const keys = await this.client.keys(pattern);
-    if (keys.length > 0) {
-      await this.client.del(...keys);
+    try {
+      const keys = await this.client.keys(pattern);
+      if (keys.length > 0) {
+        await this.client.del(...keys);
+      }
+    } catch (error) {
+      // Never fail writes (experience/tour update) because Redis is briefly down.
+      this.logger.warn(
+        `Redis invalidatePattern(${pattern}) failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
   }
 

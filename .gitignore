@@ -27,6 +27,7 @@ apps/web/out
 /coverage
 /test-results
 /playwright-report
+/e2e/.auth
 
 # next.js
 /.next/

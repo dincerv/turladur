@@ -411,6 +411,21 @@ export function buildToursListQuery({
   }
   if (filterOptions.duration) params.set('duration', filterOptions.duration);
   if (filterOptions.featured) params.set('featured', 'true');
+  if (filterOptions.tourType) {
+    const category = filterOptions.tourType.toUpperCase();
+    if (
+      [
+        'CULTURAL',
+        'ADVENTURE',
+        'GASTRONOMY',
+        'NATURE',
+        'CITY',
+        'BEACH',
+      ].includes(category)
+    ) {
+      params.set('category', category);
+    }
+  }
   if (filterOptions.minPrice != null) {
     params.set('minPrice', String(filterOptions.minPrice));
   }

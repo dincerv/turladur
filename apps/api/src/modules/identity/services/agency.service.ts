@@ -41,8 +41,103 @@ export class AgencyService {
     this.gone();
   }
 
-  async search(_dto: SearchAgenciesDto, _actor?: ActorContext) {
-    this.gone();
+  /** Public marketplace directory — VERIFIED sellers only (admin may pass status). */
+  async search(dto: SearchAgenciesDto, actor?: ActorContext) {
+    const page = Math.max(1, dto.page ?? 1);
+    const limit = Math.min(100, Math.max(1, dto.limit ?? 20));
+    const q = dto.q?.trim() ?? '';
+    const isAdmin = this.isAdmin(actor?.role);
+
+    const statusFilter = isAdmin
+      ? dto.status === 'APPROVED'
+        ? ('VERIFIED' as const)
+        : dto.status === 'PENDING'
+          ? ('PENDING' as const)
+          : dto.status === 'SUSPENDED'
+            ? ('SUSPENDED' as const)
+            : dto.status === 'REJECTED'
+              ? ('REJECTED' as const)
+              : undefined
+      : ('VERIFIED' as const);
+
+    const where = {
+      deletedAt: null as null,
+      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(q
+        ? {
+            OR: [
+              { companyName: { contains: q, mode: 'insensitive' as const } },
+              { city: { contains: q, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+    };
+
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.agency.count({ where }),
+      this.prisma.agency.findMany({
+        where,
+        orderBy: [{ sellerTier: 'desc' }, { averageRating: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+        select: {
+          id: true,
+          companyName: true,
+          logo: true,
+          city: true,
+          country: true,
+          website: true,
+          sellerTier: true,
+          averageRating: true,
+          reviewCount: true,
+          status: true,
+          createdAt: true,
+        },
+      }),
+    ]);
+
+    const agencyIds = rows.map((row) => row.id);
+    const tourCounts =
+      agencyIds.length === 0
+        ? []
+        : await this.prisma.tour.groupBy({
+            by: ['agencyId'],
+            where: {
+              agencyId: { in: agencyIds },
+              deletedAt: null,
+              status: 'PUBLISHED',
+            },
+            _count: { _all: true },
+          });
+    const countByAgency = new Map(
+      tourCounts.map((row) => [row.agencyId, row._count._all]),
+    );
+
+    return {
+      success: true,
+      data: rows.map((row) => ({
+        id: row.id,
+        companyName: row.companyName,
+        logo: this.storage.resolvePublicUrl(row.logo),
+        city: row.city,
+        country: row.country,
+        website: row.website,
+        membershipTier: row.sellerTier,
+        averageRating: row.averageRating.toString(),
+        reviewCount: row.reviewCount,
+        status: row.status,
+        publishedTourCount: countByAgency.get(row.id) ?? 0,
+        description: null as string | null,
+        createdAt: row.createdAt.toISOString(),
+      })),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+      error: null,
+    };
   }
 
   /** Public marketplace seller profile (VERIFIED). Admin sees any non-deleted. */

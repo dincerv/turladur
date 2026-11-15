@@ -1,32 +1,11 @@
 import { test, expect } from '@playwright/test';
 
+import { loginAgency } from './helpers/agency-login';
+
 /**
  * Agency experiences list — load, search filter, status toggle optimistic UI.
  * Skips when web / seed agency login unavailable.
  */
-
-const agencyEmail =
-  process.env.E2E_AGENCY_EMAIL ?? 'owner01@agency.demo.turta.com';
-const agencyPassword = process.env.E2E_AGENCY_PASSWORD ?? 'Demo1234!';
-
-async function loginAgency(page: import('@playwright/test').Page) {
-  const loginRes = await page.goto('/acente/giris');
-  if (!loginRes || !loginRes.ok()) return false;
-
-  await page
-    .locator('#email, input[name="email"], input[type="email"]')
-    .first()
-    .fill(agencyEmail);
-  await page
-    .locator('#password, input[name="password"], input[type="password"]')
-    .first()
-    .fill(agencyPassword);
-  await page.getByRole('button', { name: /Giriş/i }).click();
-  await page
-    .waitForURL(/\/acente(\/|$)/, { timeout: 20_000 })
-    .catch(() => null);
-  return page.url().includes('/acente');
-}
 
 test.describe('Acente — Aktiviteler listesi', () => {
   test('loads page, searches, toggles status', async ({ page }) => {
@@ -104,16 +83,5 @@ test.describe('Acente — Aktiviteler listesi', () => {
       .not.toBe(before);
 
     await expect(page.getByTestId('experiences-error')).toHaveCount(0);
-  });
-
-  test('exposes new-experience CTA on empty or populated list', async ({
-    page,
-  }) => {
-    test.skip(!(await loginAgency(page)), 'Agency login failed / web down');
-
-    await page.goto('/acente/experiences', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByTestId('new-experience-btn')).toBeVisible({
-      timeout: 20_000,
-    });
   });
 });

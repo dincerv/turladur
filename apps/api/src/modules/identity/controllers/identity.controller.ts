@@ -100,7 +100,8 @@ export class IdentityController {
   }
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  // Agency panel E2E + staff retries need headroom; still rate-limited.
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
   @Post('agency-staff/login')
   @ApiOperation({
     summary: 'Marketplace AgencyStaff login (OWNER/ADMIN/STAFF)',
@@ -250,7 +251,7 @@ export class IdentityController {
   }
 
   @Public()
-  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Throttle({ default: { limit: 300, ttl: 60_000 } })
   @Get('session')
   @ApiOperation({
     summary:
@@ -278,7 +279,8 @@ export class IdentityController {
   }
 
   @Public()
-  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  // Agency E2E: every test hard-nav + bootstrap hits refresh; keep generous headroom.
+  @Throttle({ default: { limit: 300, ttl: 60_000 } })
   @Post('refresh')
   @ApiOperation({ summary: 'Rotate refresh cookie → new access token' })
   async refresh(

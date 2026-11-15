@@ -151,7 +151,12 @@ export async function seedCatalog(
           departureCities: [tmpl.city],
           extras: {
             departureCity: [tmpl.city],
+            destinations: [{ city: tmpl.city, description: '' }],
             tourType: tmpl.days === 1 ? 'Günübirlik Tur' : 'Kültür Turu',
+            transportation: 'Otobüs',
+            maxParticipants: 24,
+            region: tmpl.city,
+            accommodationType: tmpl.days === 1 ? 'Konaklamasız' : 'Otel',
           },
           childMaxAge: 12,
           minParticipants: 2,

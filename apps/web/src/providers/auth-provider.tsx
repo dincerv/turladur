@@ -208,26 +208,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginSellerPanel = useCallback(
     async (email: string, password: string) => {
+      // AgencyStaff first — avoids burning /identity/login throttle (5/min)
+      // on every acente E2E / portal attempt.
       try {
-        const loggedIn = await login(email, password);
-        if (isSellerPanelRole(loggedIn.role)) return loggedIn;
-        clearSessionLocal();
+        const result = await loginAgencyStaff({ email, password });
+        const synthetic = syntheticActorUser({
+          id: result.staff.id,
+          email: result.staff.email,
+          name: result.staff.name,
+          role: result.staff.role,
+        });
+        accessTokenRef.current = result.accessToken;
+        setAccessToken(result.accessToken);
+        setUser(synthetic);
+        captureProductEvent('login_success', { role: synthetic.role });
+        return synthetic;
       } catch {
         clearSessionLocal();
       }
 
-      const result = await loginAgencyStaff({ email, password });
-      const synthetic = syntheticActorUser({
-        id: result.staff.id,
-        email: result.staff.email,
-        name: result.staff.name,
-        role: result.staff.role,
-      });
-      accessTokenRef.current = result.accessToken;
-      setAccessToken(result.accessToken);
-      setUser(synthetic);
-      captureProductEvent('login_success', { role: synthetic.role });
-      return synthetic;
+      const loggedIn = await login(email, password);
+      if (!isSellerPanelRole(loggedIn.role)) {
+        clearSessionLocal();
+        throw new Error(
+          'Bu giriş yalnızca iş ortakları / acente personeli içindir.',
+        );
+      }
+      return loggedIn;
     },
     [login, clearSessionLocal],
   );

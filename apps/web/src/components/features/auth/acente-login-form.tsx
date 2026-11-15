@@ -83,6 +83,11 @@ export function AcenteLoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [accountStatus, setAccountStatus] = useState<AccountStatus>(null);
+  const [clientReady, setClientReady] = useState(false);
+
+  useEffect(() => {
+    setClientReady(true);
+  }, []);
 
   const {
     register,
@@ -166,7 +171,15 @@ export function AcenteLoginForm() {
         </div>
       ) : null}
 
-      <form className="space-y-5" onSubmit={onSubmit} noValidate>
+      <form
+        method="post"
+        action="#"
+        className="space-y-5"
+        onSubmit={onSubmit}
+        noValidate
+        data-testid="acente-login-form"
+        data-ready={clientReady ? 'true' : 'false'}
+      >
         <div>
           <label htmlFor="acente-email" className={LABEL}>
             E-posta Adresi

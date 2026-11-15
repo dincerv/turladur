@@ -83,6 +83,7 @@ export function createPrismaMock() {
       upsert: jest.fn(),
       delete: jest.fn(),
       aggregate: jest.fn(),
+      groupBy: jest.fn(),
     };
   }
 

@@ -1,36 +1,20 @@
 import { test, expect } from '@playwright/test';
 
+import { loginAgency } from './helpers/agency-login';
+
 /**
  * Agency tour detail — tabs, empty/media states, seats CTA contract.
  * Skips when web/API/seed unavailable.
  */
 
-const agencyEmail =
-  process.env.E2E_AGENCY_EMAIL ?? 'owner01@agency.demo.turta.com';
-const agencyPassword = process.env.E2E_AGENCY_PASSWORD ?? 'Demo1234!';
-
 test.describe('Acente — Tur detay', () => {
   test('renders tabs and manage-seats links for owned tour', async ({
     page,
   }) => {
-    const loginRes = await page.goto('/acente/giris');
-    test.skip(!loginRes || !loginRes.ok(), 'Web app not running');
-
-    await page
-      .locator('#email, input[name="email"], input[type="email"]')
-      .first()
-      .fill(agencyEmail);
-    await page
-      .locator('#password, input[name="password"], input[type="password"]')
-      .first()
-      .fill(agencyPassword);
-    await page.getByRole('button', { name: /Giriş/i }).click();
-    await page
-      .waitForURL(/\/acente(\/|$)/, { timeout: 20_000 })
-      .catch(() => null);
-    test.skip(!page.url().includes('/acente'), 'Agency login failed');
+    test.skip(!(await loginAgency(page)), 'Agency login failed');
 
     await page.goto('/acente/tours', { waitUntil: 'domcontentloaded' });
+    await page.getByRole('tab', { name: /Liste/i }).click();
     const detailLink = page.getByRole('link', { name: /Detaylar/i }).first();
     test.skip(
       !(await detailLink.isVisible().catch(() => false)),
@@ -67,22 +51,7 @@ test.describe('Acente — Tur detay', () => {
   });
 
   test('foreign tour id redirects to list safely', async ({ page }) => {
-    const loginRes = await page.goto('/acente/giris');
-    test.skip(!loginRes || !loginRes.ok(), 'Web app not running');
-
-    await page
-      .locator('#email, input[name="email"], input[type="email"]')
-      .first()
-      .fill(agencyEmail);
-    await page
-      .locator('#password, input[name="password"], input[type="password"]')
-      .first()
-      .fill(agencyPassword);
-    await page.getByRole('button', { name: /Giriş/i }).click();
-    await page
-      .waitForURL(/\/acente(\/|$)/, { timeout: 20_000 })
-      .catch(() => null);
-    test.skip(!page.url().includes('/acente'), 'Agency login failed');
+    test.skip(!(await loginAgency(page)), 'Agency login failed');
 
     await page.goto('/acente/tours/does-not-exist-tour-id', {
       waitUntil: 'domcontentloaded',
@@ -92,7 +61,7 @@ test.describe('Acente — Tur detay', () => {
       page
         .getByTestId('tour-detail-forbidden')
         .or(page.getByTestId('tour-detail-error'))
-        .or(page),
+        .or(page.getByTestId('acente-tours-page')),
     ).toBeVisible({ timeout: 15_000 });
 
     await page

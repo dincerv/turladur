@@ -198,7 +198,13 @@ export function transformNestTourToFormData(input: {
     location: str('location'),
     duration: String(input.durationDays ?? extras.nights ?? ''),
     nights: str('nights'),
-    maxParticipants: Number(extras.maxParticipants ?? 0),
+    maxParticipants: (() => {
+      const fromExtras = Number(extras.maxParticipants ?? 0);
+      if (Number.isFinite(fromExtras) && fromExtras > 0) return fromExtras;
+      const fromDate = Number(input.dates?.[0]?.capacity ?? 0);
+      if (Number.isFinite(fromDate) && fromDate > 0) return fromDate;
+      return 1;
+    })(),
     currentParticipants: 0,
     images,
     includes: arr('includes'),
@@ -215,8 +221,8 @@ export function transformNestTourToFormData(input: {
         ? (extras.departureCity as string[])
         : [''];
     })(),
-    region: str('region'),
-    transportation: str('transportation'),
+    region: str('region') || input.departureCities?.[0] || '',
+    transportation: str('transportation') || 'Otobüs',
     period: str('period'),
     stayKind: inferStayKind({
       stayKind: input.stayKind,
@@ -269,9 +275,18 @@ export function transformNestTourToFormData(input: {
       discount: '0',
     })),
     discount: Number(extras.discount ?? 0),
-    destinations: Array.isArray(extras.destinations)
-      ? (extras.destinations as TourFormData['destinations'])
-      : [{ city: '', description: '' }],
+    destinations: (() => {
+      if (Array.isArray(extras.destinations)) {
+        return extras.destinations as TourFormData['destinations'];
+      }
+      const city =
+        normalizeDepartureCities(input.departureCities)[0] ||
+        (Array.isArray(extras.departureCity)
+          ? String(extras.departureCity[0] ?? '')
+          : '') ||
+        str('region');
+      return [{ city, description: '' }];
+    })(),
     reviews: 0,
     isJointTour: Boolean(extras.isJointTour),
     features: arr('features'),

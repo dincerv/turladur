@@ -1,32 +1,11 @@
 import { test, expect } from '@playwright/test';
 
+import { loginAgency } from './helpers/agency-login';
+
 /**
  * Agency seat map — load, MANUAL select seat-10, Kaydet success (no double-book).
  * Skips when web / seed / layout unavailable.
  */
-
-const agencyEmail =
-  process.env.E2E_AGENCY_EMAIL ?? 'owner01@agency.demo.turta.com';
-const agencyPassword = process.env.E2E_AGENCY_PASSWORD ?? 'Demo1234!';
-
-async function loginAgency(page: import('@playwright/test').Page) {
-  const loginRes = await page.goto('/acente/giris');
-  if (!loginRes || !loginRes.ok()) return false;
-
-  await page
-    .locator('#email, input[name="email"], input[type="email"]')
-    .first()
-    .fill(agencyEmail);
-  await page
-    .locator('#password, input[name="password"], input[type="password"]')
-    .first()
-    .fill(agencyPassword);
-  await page.getByRole('button', { name: /Giriş/i }).click();
-  await page
-    .waitForURL(/\/acente(\/|$)/, { timeout: 20_000 })
-    .catch(() => null);
-  return page.url().includes('/acente');
-}
 
 test.describe('Acente — Koltuk haritası', () => {
   test('loads map, MANUAL selects seat-10, saves without error', async ({
@@ -34,10 +13,24 @@ test.describe('Acente — Koltuk haritası', () => {
   }) => {
     test.skip(!(await loginAgency(page)), 'Agency login failed / web down');
 
-    await page.goto('/acente/tours', { waitUntil: 'domcontentloaded' });
+    // Seed tags the seat-map demo tour with [SEAT-DEMO] for stable lookup.
+    await page.goto('/acente/tours?q=SEAT-DEMO&view=list', {
+      waitUntil: 'domcontentloaded',
+    });
+    await expect(page.getByTestId('agency-shell')).toBeVisible({
+      timeout: 20_000,
+    });
+    const listeTab = page.getByRole('tab', { name: /Liste/i });
+    if (await listeTab.isVisible().catch(() => false)) {
+      await listeTab.click();
+    }
+
     const detailLink = page.getByRole('link', { name: /Detaylar/i }).first();
     test.skip(
-      !(await detailLink.isVisible().catch(() => false)),
+      !(await detailLink
+        .waitFor({ state: 'visible', timeout: 15_000 })
+        .then(() => true)
+        .catch(() => false)),
       'No owned tour',
     );
 
@@ -47,29 +40,45 @@ test.describe('Acente — Koltuk haritası', () => {
     });
     await page.getByTestId('tab-dates').click();
 
-    const seatsLink = page
-      .locator('[data-testid^="manage-seats-link-"]')
-      .first();
-    test.skip(
-      !(await seatsLink.isVisible().catch(() => false)),
-      'No manage-seats link',
-    );
-    await seatsLink.click();
+    const seatsLinks = page.locator('[data-testid^="manage-seats-link-"]');
+    await expect(seatsLinks.first()).toBeVisible({ timeout: 15_000 });
 
-    await expect(page.getByTestId('tour-date-seats-page')).toBeVisible({
-      timeout: 15_000,
-    });
+    const linkCount = await seatsLinks.count();
+    let opened = false;
+    for (let i = 0; i < linkCount; i++) {
+      if (i > 0) {
+        await page.getByTestId('tab-dates').click();
+        await expect(seatsLinks.first()).toBeVisible({ timeout: 10_000 });
+      }
+      await seatsLinks.nth(i).click();
+      await expect(page.getByTestId('tour-date-seats-page')).toBeVisible({
+        timeout: 15_000,
+      });
 
-    // Bind layout if required (seed may already have one).
-    const layoutRequired = page.getByTestId('seats-layout-required');
-    if (await layoutRequired.isVisible().catch(() => false)) {
-      await page.getByTestId('layout-kind-select').selectOption({ index: 1 });
-      await page.getByTestId('bind-layout-btn').click();
+      const layoutRequired = page.getByTestId('seats-layout-required');
+      if (await layoutRequired.isVisible().catch(() => false)) {
+        await page.getByTestId('layout-kind-select').selectOption({ index: 1 });
+        await page.getByTestId('bind-layout-btn').click();
+      }
+
+      await expect(page.getByTestId('bus-seat-map-panel')).toBeVisible({
+        timeout: 20_000,
+      });
+
+      const guest = page.locator('[data-testid^="guest-"]').first();
+      if (await guest.isVisible().catch(() => false)) {
+        opened = true;
+        break;
+      }
+
+      await page.goBack({ waitUntil: 'domcontentloaded' });
+      await expect(page.getByTestId('acente-tour-detail-page')).toBeVisible({
+        timeout: 15_000,
+      });
     }
 
-    await expect(page.getByTestId('bus-seat-map-panel')).toBeVisible({
-      timeout: 20_000,
-    });
+    test.skip(!opened, 'No tourDate with unassigned guest');
+
     await expect(page.getByTestId('seat-map-grid')).toBeVisible({
       timeout: 20_000,
     });
@@ -78,21 +87,28 @@ test.describe('Acente — Koltuk haritası', () => {
 
     await page.getByTestId('mode-manual-btn').click();
 
-    const seat10 = page.getByTestId('seat-10-AVAILABLE');
+    const freeSeat = page
+      .locator('[data-testid^="seat-"][data-testid$="-AVAILABLE"]')
+      .first();
     test.skip(
-      !(await seat10.isVisible().catch(() => false)),
-      'seat-10 not AVAILABLE (layout/seed)',
+      !(await freeSeat
+        .waitFor({ state: 'visible', timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false)),
+      'No AVAILABLE seat (layout/seed)',
     );
+
+    const seatTestId = (await freeSeat.getAttribute('data-testid')) ?? '';
+    const seatCode = seatTestId
+      .replace(/^seat-/, '')
+      .replace(/-AVAILABLE$/, '');
+    test.skip(!seatCode, 'Could not parse seat code');
 
     const guest = page.locator('[data-testid^="guest-"]').first();
-    test.skip(
-      !(await guest.isVisible().catch(() => false)),
-      'No unassigned guest to seat',
-    );
     await guest.click();
 
-    await seat10.click();
-    await expect(page.getByTestId('seat-10-RESERVED')).toBeVisible({
+    await freeSeat.click();
+    await expect(page.getByTestId(`seat-${seatCode}-RESERVED`)).toBeVisible({
       timeout: 5_000,
     });
     await expect(page.getByTestId('pending-count')).toContainText('1');
@@ -106,13 +122,12 @@ test.describe('Acente — Koltuk haritası', () => {
     });
     await expect(page.getByTestId('seats-error')).toHaveCount(0);
 
-    // After save, seat-10 should be SOLD (not double-bookable as AVAILABLE).
     await expect(
       page
-        .getByTestId('seat-10-SOLD')
-        .or(page.getByTestId('seat-10-AVAILABLE')),
+        .getByTestId(`seat-${seatCode}-SOLD`)
+        .or(page.getByTestId(`seat-${seatCode}-AVAILABLE`)),
     ).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByTestId('seat-10-AVAILABLE')).toHaveCount(0);
+    await expect(page.getByTestId(`seat-${seatCode}-AVAILABLE`)).toHaveCount(0);
   });
 
   test('foreign tourDate shows forbidden', async ({ page }) => {

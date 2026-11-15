@@ -1,43 +1,25 @@
 import { test, expect } from '@playwright/test';
 
+import { loginAgency } from './helpers/agency-login';
+
 /**
  * Multi-step agency tour create — UI contract + validation gates.
  * Skips gracefully when web/API are down.
  */
 
-const agencyEmail =
-  process.env.E2E_AGENCY_EMAIL ?? 'owner01@agency.demo.turta.com';
-const agencyPassword = process.env.E2E_AGENCY_PASSWORD ?? 'Demo1234!';
-
 test.describe('Acente — Yeni Tur multi-step', () => {
   test('stepper blocks step-2 without required fields and exposes testids', async ({
     page,
   }) => {
-    const loginRes = await page.goto('/acente/giris');
-    test.skip(!loginRes || !loginRes.ok(), 'Web app not running');
-
-    await page
-      .locator('#email, input[name="email"], input[type="email"]')
-      .first()
-      .fill(agencyEmail);
-    await page
-      .locator('#password, input[name="password"], input[type="password"]')
-      .first()
-      .fill(agencyPassword);
-    await page.getByRole('button', { name: /Giriş/i }).click();
-
-    await page
-      .waitForURL(/\/acente(\/|$)/, { timeout: 20_000 })
-      .catch(() => null);
-    test.skip(
-      !page.url().includes('/acente'),
-      'Agency login failed — seed DB?',
-    );
+    test.skip(!(await loginAgency(page)), 'Agency login failed — seed DB?');
 
     await page.goto('/acente/tours/new', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('agency-shell')).toBeVisible({
+      timeout: 45_000,
+    });
 
     const pageRoot = page.getByTestId('acente-tour-create-page');
-    await expect(pageRoot).toBeVisible({ timeout: 15_000 });
+    await expect(pageRoot).toBeVisible({ timeout: 30_000 });
 
     await expect(page.getByTestId('tour-stepper')).toBeVisible();
     await expect(page.getByTestId('tour-name-input')).toBeVisible();

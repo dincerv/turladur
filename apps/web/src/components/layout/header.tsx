@@ -320,13 +320,15 @@ export function Header() {
               {activeDropdown === 'tours' && (
                 <div className="absolute left-0 z-50 mt-2 w-56 animate-fadeIn rounded-lg bg-white p-1.5 shadow-lg ring-1 ring-black/5">
                   {TOUR_DROPDOWN_LINKS.map((link, index) => (
-                    <span key={link.href}>
+                    <span key={`${link.label}-${link.href}`}>
                       {index === 1 ? (
                         <div className="my-1 border-t border-neutral-100" />
                       ) : null}
                       <Link
                         href={link.href}
+                        scroll
                         className="block rounded px-3 py-1.5 text-sm text-neutral-700 transition-colors duration-150 hover:bg-neutral-100 hover:text-neutral-950"
+                        onClick={() => setActiveDropdown(null)}
                       >
                         {link.label}
                       </Link>
@@ -663,10 +665,14 @@ export function Header() {
                     {[...TOUR_DROPDOWN_LINKS, ...MOBILE_TOUR_EXTRA_LINKS].map(
                       (link) => (
                         <Link
-                          key={link.href}
+                          key={`${link.label}-${link.href}`}
                           href={link.href}
+                          scroll
                           className="block rounded-md px-2 py-1.5 text-sm text-neutral-600 hover:bg-neutral-100 hover:text-neutral-950"
-                          onClick={() => setIsMenuOpen(false)}
+                          onClick={() => {
+                            setActiveDropdown(null);
+                            setIsMenuOpen(false);
+                          }}
                         >
                           {link.label}
                         </Link>
