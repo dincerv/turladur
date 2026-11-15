@@ -18,8 +18,11 @@ import {
   mapTourFromApi,
   matchesClientExtrasFilters,
   normalizeFilterText,
+  normalizeTourCategoryParam,
+  normalizeTourDurationParam,
   parseOptionalInt,
   sanitizeSearchQueryStrict,
+  toursQueryEquals,
 } from './tours-page/tours-page.helpers';
 import {
   ToursPageUiProvider,
@@ -67,8 +70,12 @@ function ToursPageContent() {
   const searchParams = useSearchParams();
   const searchParamsKey = searchParams.toString();
   const readyToSyncUrl = useRef(false);
+  const lastSyncedFromUrlKey = useRef(searchParamsKey);
+  const skipNextUrlWrite = useRef(false);
 
-  const durationParam = searchParams.get('duration');
+  const durationParam = normalizeTourDurationParam(
+    searchParams.get('duration'),
+  );
   const featuredParam = searchParams.get('featured');
   const urlSearch = sanitizeSearchQueryStrict(
     searchParams.get('search') || searchParams.get('q'),
@@ -83,17 +90,9 @@ function ToursPageContent() {
   const urlEndDate = searchParams.get('endDate');
   const urlMinPrice = parseOptionalInt(searchParams.get('minPrice'));
   const urlMaxPrice = parseOptionalInt(searchParams.get('maxPrice'));
-  const urlCategoryRaw = (searchParams.get('category') || '').toUpperCase();
-  const urlTourCategory = [
-    'CULTURAL',
-    'ADVENTURE',
-    'GASTRONOMY',
-    'NATURE',
-    'CITY',
-    'BEACH',
-  ].includes(urlCategoryRaw)
-    ? urlCategoryRaw
-    : null;
+  const urlTourCategory = normalizeTourCategoryParam(
+    searchParams.get('category'),
+  );
   const urlSortRaw = searchParams.get('sort') || 'popular';
   const urlSort = isToursSortBy(urlSortRaw) ? urlSortRaw : 'popular';
   const urlView = searchParams.get('view') === 'list' ? 'list' : 'grid';
@@ -205,8 +204,17 @@ function ToursPageContent() {
     );
   }, [facetSourceRows, departureSearch, regionSearch]);
 
-  // URL → state (paylaşılabilir link / geri-ileri)
+  // URL → state (paylaşılabilir link / nav / geri-ileri).
+  // Soft-nav ile /tours?... gelince bir sonraki state→URL yazımını atla;
+  // aksi halde eski filtre state'i yeni sorguyu siler (flicker).
   useEffect(() => {
+    if (toursQueryEquals(searchParamsKey, lastSyncedFromUrlKey.current)) {
+      readyToSyncUrl.current = true;
+      return;
+    }
+    lastSyncedFromUrlKey.current = searchParamsKey;
+    skipNextUrlWrite.current = true;
+
     setSearchTerm((prev) => (prev === urlSearch ? prev : urlSearch));
     setSortBy((prev) => (prev === urlSort ? prev : urlSort));
     setView((prev) => (prev === urlView ? prev : urlView));
@@ -276,17 +284,27 @@ function ToursPageContent() {
     urlView,
   ]);
 
-  // state → URL
+  // state → URL (replace). URL'den gelen sync sonrası bir tick yazma.
   useEffect(() => {
     if (!readyToSyncUrl.current) return;
+    if (skipNextUrlWrite.current) {
+      skipNextUrlWrite.current = false;
+      return;
+    }
+
     const qs = buildToursListQuery({
       searchTerm,
       filterOptions,
       sortBy,
       view,
     });
-    if (qs === searchParamsKey) return;
+    if (toursQueryEquals(qs, searchParamsKey)) {
+      lastSyncedFromUrlKey.current = qs;
+      return;
+    }
+
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    lastSyncedFromUrlKey.current = qs;
   }, [
     searchTerm,
     filterOptions,

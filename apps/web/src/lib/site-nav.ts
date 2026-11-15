@@ -23,7 +23,7 @@ export const TOUR_DROPDOWN_LINKS: readonly SiteNavLink[] = [
   { label: 'Acenteler', href: '/tour-operator' },
   { label: 'Günübirlik Turlar', href: '/tours?stayKind=DAY_TRIP' },
   { label: 'Konaklamalı Turlar', href: '/tours?stayKind=OVERNIGHT' },
-  { label: 'Haftalık Turlar', href: '/tours?duration=7%2B' },
+  { label: 'Haftalık Turlar', href: '/tours?duration=7+' },
 ] as const;
 
 export const MOBILE_TOUR_EXTRA_LINKS: readonly SiteNavLink[] = [

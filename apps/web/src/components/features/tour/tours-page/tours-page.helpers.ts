@@ -385,6 +385,45 @@ type ToursListQueryInput = {
   view: 'grid' | 'list';
 };
 
+const TOUR_DURATION_VALUES = new Set(['1', '2-3', '4-6', '7+']);
+const TOUR_CATEGORY_VALUES = new Set([
+  'CULTURAL',
+  'ADVENTURE',
+  'GASTRONOMY',
+  'NATURE',
+  'CITY',
+  'BEACH',
+]);
+
+/** Normalize duration from URL (`7+`, `7%2B`, spaces). */
+export function normalizeTourDurationParam(
+  raw: string | null | undefined,
+): string | null {
+  if (!raw) return null;
+  const value = decodeURIComponent(raw).replace(/ /g, '+').trim();
+  return TOUR_DURATION_VALUES.has(value) ? value : null;
+}
+
+export function normalizeTourCategoryParam(
+  raw: string | null | undefined,
+): string | null {
+  if (!raw) return null;
+  const value = raw.trim().toUpperCase();
+  return TOUR_CATEGORY_VALUES.has(value) ? value : null;
+}
+
+/** Stable compare so `a=1&b=2` matches `b=2&a=1` and encoding variants. */
+export function toursQueryEquals(a: string, b: string): boolean {
+  if (a === b) return true;
+  const pa = new URLSearchParams(a);
+  const pb = new URLSearchParams(b);
+  const keys = new Set([...pa.keys(), ...pb.keys()]);
+  for (const key of keys) {
+    if (pa.get(key) !== pb.get(key)) return false;
+  }
+  return true;
+}
+
 /** Build shareable /tours query string from UI state. */
 export function buildToursListQuery({
   searchTerm,
@@ -409,23 +448,11 @@ export function buildToursListQuery({
   if (filterOptions.region) {
     params.set('region', sanitizeSearchQueryStrict(filterOptions.region));
   }
-  if (filterOptions.duration) params.set('duration', filterOptions.duration);
+  const duration = normalizeTourDurationParam(filterOptions.duration);
+  if (duration) params.set('duration', duration);
   if (filterOptions.featured) params.set('featured', 'true');
-  if (filterOptions.tourType) {
-    const category = filterOptions.tourType.toUpperCase();
-    if (
-      [
-        'CULTURAL',
-        'ADVENTURE',
-        'GASTRONOMY',
-        'NATURE',
-        'CITY',
-        'BEACH',
-      ].includes(category)
-    ) {
-      params.set('category', category);
-    }
-  }
+  const category = normalizeTourCategoryParam(filterOptions.tourType);
+  if (category) params.set('category', category);
   if (filterOptions.minPrice != null) {
     params.set('minPrice', String(filterOptions.minPrice));
   }
