@@ -16,7 +16,7 @@ FROM deps AS build
 COPY apps/api apps/api
 COPY packages packages
 # Workspace packages export ./dist — build them before nest
-RUN pnpm --filter @turta/shared-constants --filter @turta/shared-types build \
+RUN pnpm --filter @turta/shared-constants --filter @turta/shared-types --filter @turta/shared-validators build \
   && pnpm --filter api build
 
 FROM node:20-alpine AS runner
