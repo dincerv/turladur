@@ -157,6 +157,14 @@ export async function seedCatalog(
             maxParticipants: 24,
             region: tmpl.city,
             accommodationType: tmpl.days === 1 ? 'Konaklamasız' : 'Otel',
+            entertainmentLevel:
+              tmpl.category === 'ADVENTURE'
+                ? 'HIGH'
+                : tmpl.category === 'CULTURAL' ||
+                    tmpl.category === 'GASTRONOMY' ||
+                    tmpl.category === 'CITY'
+                  ? 'LOW'
+                  : 'MEDIUM',
           },
           childMaxAge: 12,
           minParticipants: 2,

@@ -1,5 +1,9 @@
 import { apiRequest, apiRequestWithMeta } from './api-client';
-import type { Review } from '@turta/shared-types';
+import type {
+  Review,
+  TourPersonaMatchResponse,
+  TravelerPersona,
+} from '@turta/shared-types';
 
 export async function listTourReviews(
   tourId: string,
@@ -11,6 +15,19 @@ export async function listTourReviews(
   const q = qs.toString();
   return apiRequestWithMeta<Review[]>(
     `/review/tours/${tourId}${q ? `?${q}` : ''}`,
+  );
+}
+
+export async function matchTourPersona(
+  tourId: string,
+  body: { persona: TravelerPersona; intent?: string },
+) {
+  return apiRequest<TourPersonaMatchResponse>(
+    `/review/tours/${tourId}/persona-match`,
+    {
+      method: 'POST',
+      body,
+    },
   );
 }
 

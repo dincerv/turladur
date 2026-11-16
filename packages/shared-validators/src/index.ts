@@ -225,6 +225,88 @@ export const contactMessageSchema = z.object({
 
 export type ContactMessageFormValues = z.infer<typeof contactMessageSchema>;
 
+/** Public tour compare — max 4 ids, DoS / UI matrix guard. */
+export const COMPARE_TOURS_MAX = 4;
+
+export const compareToursRequestSchema = z.object({
+  ids: z
+    .array(z.string().trim().min(1).max(64))
+    .min(1, 'En az 1 tur seçilmelidir')
+    .max(COMPARE_TOURS_MAX, `En fazla ${COMPARE_TOURS_MAX} tur kıyaslanabilir`)
+    .superRefine((ids, ctx) => {
+      if (new Set(ids).size !== ids.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Tekrarlayan tur kimlikleri gönderilemez',
+        });
+      }
+    }),
+});
+
+export type CompareToursRequest = z.infer<typeof compareToursRequestSchema>;
+
+export function parseCompareToursRequest(input: unknown): CompareToursRequest {
+  return compareToursRequestSchema.parse(input);
+}
+
+/** AI conversational search prompt — length + injection surface guard. */
+export const AI_SEARCH_PROMPT_MAX = 500;
+export const AI_SEARCH_PROMPT_MIN = 3;
+
+export const aiSearchPromptSchema = z.object({
+  prompt: z
+    .string()
+    .trim()
+    .min(AI_SEARCH_PROMPT_MIN, 'Lütfen biraz daha detay yazın')
+    .max(
+      AI_SEARCH_PROMPT_MAX,
+      `En fazla ${AI_SEARCH_PROMPT_MAX} karakter yazabilirsiniz`,
+    )
+    .refine((value) => !/<script|javascript:|on\w+=/i.test(value), {
+      message: 'Geçersiz arama metni',
+    }),
+});
+
+export type AiSearchPromptInput = z.infer<typeof aiSearchPromptSchema>;
+
+export function parseAiSearchPrompt(input: unknown): AiSearchPromptInput {
+  return aiSearchPromptSchema.parse(input);
+}
+
+export function sanitizeAiSearchPrompt(raw: string): string {
+  return raw
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, AI_SEARCH_PROMPT_MAX);
+}
+
+export const TRAVELER_PERSONAS = [
+  'PARTY',
+  'CALM',
+  'FAMILY',
+  'BUDGET',
+  'ADVENTURE',
+  'CULTURE',
+] as const;
+
+export const personaMatchRequestSchema = z.object({
+  persona: z.enum(TRAVELER_PERSONAS),
+  intent: z
+    .string()
+    .trim()
+    .max(300, 'Tercih metni en fazla 300 karakter olabilir')
+    .optional()
+    .or(z.literal('')),
+});
+
+export type PersonaMatchRequest = z.infer<typeof personaMatchRequestSchema>;
+
+export function parsePersonaMatchRequest(input: unknown): PersonaMatchRequest {
+  return personaMatchRequestSchema.parse(input);
+}
+
 export type ContactMessagePayload = {
   name: string;
   email: string;

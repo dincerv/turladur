@@ -12,6 +12,7 @@ import { seedCatalog } from './seed/catalog';
 import { seedCommerce } from './seed/commerce';
 import { DEMO_PASSWORD } from './seed/constants';
 import { seedIdentity } from './seed/identity';
+import { seedPersonaCompareScenario } from './seed/persona-compare';
 import { seedCustomerReviews } from './seed/reviews';
 import { wipeAllData } from './seed/wipe';
 
@@ -89,14 +90,22 @@ async function main() {
   console.log('Seed: customer reviews…');
   const reviewStats = await seedCustomerReviews(prisma, identity, catalog);
 
+  console.log('Seed: persona compare (Likya / Ege Akademi)…');
+  const persona = await seedPersonaCompareScenario(prisma, identity);
+
   console.log('═══════════════════════════════════════');
   console.log('Seed OK');
   console.log(`  password: ${DEMO_PASSWORD}`);
-  console.log(`  agencies: ${identity.agencies.length}`);
-  console.log(`  tours: ${catalog.tours.length}`);
+  console.log(
+    `  agencies: ${identity.agencies.length + persona.agencies.length}`,
+  );
+  console.log(`  tours: ${catalog.tours.length + persona.tours.length}`);
   console.log(`  experiences: ${catalog.experiences.length}`);
   console.log(
     `  reviews: tour ${reviewStats.tourReviews} · experience ${reviewStats.experienceReviews}`,
+  );
+  console.log(
+    `  persona tours: ${persona.tours.map((t) => t.slug).join(', ')}`,
   );
   console.log(`  customers: customer01..05@demo.turta.com`);
   console.log(`  admins: admin01..05@demo.turta.com`);

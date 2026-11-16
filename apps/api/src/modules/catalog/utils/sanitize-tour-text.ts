@@ -80,6 +80,9 @@ export function sanitizeTourExtras(
     'location',
     'meetingPoint',
     'meetingTime',
+    'cancellationPolicy',
+    'cancellation',
+    'cancelPolicy',
   ] as const) {
     if (typeof out[key] === 'string') {
       out[key] = sanitizeTourPlainText(out[key] as string, 300);

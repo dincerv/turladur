@@ -33,6 +33,8 @@ import { DeleteTourCommand } from '../commands/delete-tour/delete-tour.command';
 import { UpdateTourCommand } from '../commands/update-tour/update-tour.command';
 import { CancelTourDatesDto } from '../dto/cancel-tour-dates.dto';
 import { CancelTourDto } from '../dto/cancel-tour.dto';
+import { AiSearchToursDto } from '../dto/ai-search-tours.dto';
+import { CompareToursDto } from '../dto/compare-tours.dto';
 import { CreateTourDateDto } from '../dto/create-tour-date.dto';
 import { CreateTourDto } from '../dto/create-tour.dto';
 import { SearchToursDto } from '../dto/search-tours.dto';
@@ -57,6 +59,27 @@ export class TourController {
   @ApiOperation({ summary: 'Search published tours (Redis cached)' })
   search(@Query() dto: SearchToursDto) {
     return this.queryBus.execute(new SearchToursQuery(dto));
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Post('compare')
+  @ApiOperation({
+    summary: 'Compare up to 4 tours in one query (normalized matrix DTO)',
+  })
+  compare(@Body() dto: CompareToursDto) {
+    return this.tourService.compareTours(dto);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 15, ttl: 60_000 } })
+  @Post('ai-search')
+  @ApiOperation({
+    summary:
+      'Conversational tour search (NL → filters → catalog; heuristic parser)',
+  })
+  aiSearch(@Body() dto: AiSearchToursDto) {
+    return this.tourService.aiSearch(dto);
   }
 
   @Public()

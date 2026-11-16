@@ -301,6 +301,142 @@ export interface TourSearchResponse {
   meta: ApiMeta;
 }
 
+/** Normalized column for side-by-side tour comparison matrix. */
+export type ComparedTourUnavailable = {
+  id: string;
+  available: false;
+  message: string;
+};
+
+/** Tour vibe / entertainment tempo for comparison matrix. */
+export type EntertainmentLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+
+export type ComparedTourAvailable = {
+  id: string;
+  available: true;
+  title: string;
+  slug: string;
+  coverUrl: string | null;
+  price: number;
+  currency: string;
+  durationDays: number;
+  averageRating: number;
+  reviewCount: number;
+  hotelStars: number | null;
+  accommodationName: string | null;
+  accommodationType: string | null;
+  transportation: string | null;
+  cancellationPolicy: string | null;
+  inclusions: string[];
+  partnerName: string | null;
+  entertainmentLevel: EntertainmentLevel | null;
+  entertainmentLabel: string | null;
+};
+
+export type ComparedTourColumn =
+  ComparedTourAvailable | ComparedTourUnavailable;
+
+export type CompareToursResponse = {
+  columns: ComparedTourColumn[];
+};
+
+/** Structured filters extracted from natural-language AI search. */
+export type AiSearchFilters = {
+  q: string | null;
+  departureCity: string | null;
+  stayKind: TourStayKind | null;
+  destinationScope: TourDestinationScope | null;
+  durationDays: number | null;
+  duration: '1' | '2-3' | '4-6' | '7+' | null;
+  nights: number | null;
+  region: string | null;
+  destinations: string[];
+  featured: boolean;
+};
+
+export type AiSearchSummaryPill = {
+  id: string;
+  label: string;
+  kind:
+    | 'departure'
+    | 'region'
+    | 'destination'
+    | 'duration'
+    | 'stay'
+    | 'scope'
+    | 'featured'
+    | 'query';
+};
+
+export type AiSearchPersonaBadge = {
+  persona: TravelerPersona;
+  fitScore: number;
+  tone: 'aligned' | 'conflict' | 'neutral';
+  label: string;
+};
+
+export type AiSearchTourHit = {
+  id: string;
+  title: string;
+  slug: string;
+  coverUrl: string | null;
+  price: string;
+  currency: string;
+  durationDays: number;
+  averageRating: string;
+  reviewCount: number;
+  departureCities: string[];
+  partnerName: string | null;
+  /** Present when NL prompt implies a traveler persona. */
+  personaBadge: AiSearchPersonaBadge | null;
+};
+
+export type AiSearchResponse = {
+  reply: string;
+  filters: AiSearchFilters;
+  summaryPills: AiSearchSummaryPill[];
+  tours: AiSearchTourHit[];
+  /** `heuristic` today; reserved for future LLM-backed parse. */
+  parser: 'heuristic' | 'llm';
+  empty: boolean;
+};
+
+/** Persona tags inferred from review text (LLM-ready contract). */
+export type ReviewPersonaTag =
+  | 'gece-hayati'
+  | 'sakin-dinlenme'
+  | 'cocuklu-aile'
+  | 'butce-dostu'
+  | 'macera'
+  | 'kultur';
+
+export type TravelerPersona =
+  'PARTY' | 'CALM' | 'FAMILY' | 'BUDGET' | 'ADVENTURE' | 'CULTURE';
+
+export type PersonaAlignment = 'positive' | 'negative' | 'neutral';
+
+export type PersonaMatchedReview = {
+  id: string;
+  rating: number;
+  comment: string | null;
+  tags: ReviewPersonaTag[];
+  alignment: PersonaAlignment;
+  createdAt: string;
+};
+
+export type TourPersonaMatchResponse = {
+  tourId: string;
+  persona: TravelerPersona;
+  fitScore: number;
+  summary: string;
+  alignedTags: ReviewPersonaTag[];
+  conflictTags: ReviewPersonaTag[];
+  warnings: string[];
+  highlights: PersonaMatchedReview[];
+  reviewCount: number;
+  parser: 'heuristic' | 'llm';
+};
+
 export type BookingStatus =
   | 'PENDING'
   | 'PENDING_PAYMENT'

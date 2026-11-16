@@ -13,6 +13,7 @@ import { formatDepartureCityLabel, formatPrice } from './tours-page.helpers';
 import { parseJsonString } from '@/lib/tours/parse';
 import type { TourDateWithPromotions } from './tours-page.types';
 import { useFavorites } from '@/hooks/use-favorites';
+import { TourCompareSelectButton } from '@/components/features/tour/compare/tour-compare-select-button';
 
 const PLACEHOLDER = 'https://placehold.co/800x600/e5e7eb/6b7280?text=Tur';
 
@@ -162,7 +163,7 @@ export function ModernTourCard({
   const title = (tour.name || 'Tur').trim() || 'Tur';
 
   return (
-    <article className="h-full">
+    <article className="h-full" data-testid={`tour-card-${tour.id}`}>
       <Link
         href={`/tours/${tour.id}`}
         className={`group overflow-hidden rounded-2xl border border-neutral-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-neutral-200 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 ${
@@ -217,7 +218,7 @@ export function ModernTourCard({
               e.stopPropagation();
               void toggleTourFavorite(tour.id, `/tours/${tour.id}`);
             }}
-            className={`absolute top-2 right-2 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-neutral-600 shadow-sm transition-colors hover:text-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 disabled:opacity-60 ${
+            className={`absolute top-2 right-2 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-neutral-600 shadow-sm transition-colors hover:text-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 disabled:opacity-60 ${
               isFavorite ? 'text-red-500' : ''
             }`}
           >
@@ -226,6 +227,15 @@ export function ModernTourCard({
               aria-hidden
             />
           </button>
+
+          <TourCompareSelectButton
+            tour={{
+              id: tour.id,
+              title,
+              coverUrl: tourImages[0] ?? null,
+              priceLabel: `₺${formatPrice(discountedPrice)}`,
+            }}
+          />
 
           {departureText ? (
             <div className="absolute bottom-3 left-3 max-w-[calc(100%-3.5rem)] rounded-lg bg-neutral-950/65 px-2 py-1 backdrop-blur-sm">

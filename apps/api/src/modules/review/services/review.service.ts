@@ -13,11 +13,13 @@ import { PrismaService } from '../../../core/database/prisma.service';
 import { BusinessException } from '../../../shared/exceptions/business.exception';
 import { CreateReviewDto } from '../dto/create-review.dto';
 import { ListReviewsQueryDto } from '../dto/list-reviews-query.dto';
+import { PersonaMatchDto } from '../dto/persona-match.dto';
 import { ReplyReviewDto } from '../dto/reply-review.dto';
 import { UpdateReviewDto } from '../dto/update-review.dto';
 import { ReviewCreatedEvent } from '../events/review-created.event';
 import { ReviewDeletedEvent } from '../events/review-deleted.event';
 import { ReviewUpdatedEvent } from '../events/review-updated.event';
+import { buildTourPersonaMatch } from '../utils/persona-review-engine';
 
 @Injectable()
 export class ReviewService {
@@ -311,6 +313,47 @@ export class ReviewService {
       error: null,
       meta: { page, limit, total },
     };
+  }
+
+  /**
+   * Persona-based review matching — tags + fit score for traveler intent.
+   */
+  async matchPersona(tourId: string, dto: PersonaMatchDto) {
+    const tour = await this.prisma.tour.findFirst({
+      where: { id: tourId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!tour) {
+      throw new NotFoundException({
+        code: 'TOUR_NOT_FOUND',
+        message: 'Tur bulunamadı',
+      });
+    }
+
+    const reviews = await this.prisma.review.findMany({
+      where: {
+        tourId,
+        deletedAt: null,
+        targetType: 'TOUR',
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 40,
+      select: {
+        id: true,
+        rating: true,
+        comment: true,
+        createdAt: true,
+      },
+    });
+
+    const data = buildTourPersonaMatch({
+      tourId,
+      persona: dto.persona,
+      intent: dto.intent,
+      reviews,
+    });
+
+    return { success: true, data, error: null };
   }
 
   async listForPartner(agencyId: string | undefined) {

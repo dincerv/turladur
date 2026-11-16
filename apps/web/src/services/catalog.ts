@@ -1,4 +1,5 @@
-import type { Tour } from '@turta/shared-types';
+import type { CompareToursResponse, Tour } from '@turta/shared-types';
+import { parseCompareToursRequest } from '@turta/shared-validators';
 
 import { apiRequest, apiRequestWithMeta } from './api-client';
 
@@ -57,6 +58,20 @@ export async function searchTours(params: TourSearchParams = {}) {
 export async function getTourById(id: string) {
   return apiRequest<Tour>(`/catalog/tours/${id}`, {
     next: { revalidate: 60 },
+  });
+}
+
+/** Bulk compare — validated client-side (max 4) before Nest Zod/class-validator. */
+export async function getComparedTours(
+  ids: string[],
+  signal?: AbortSignal,
+): Promise<CompareToursResponse> {
+  const body = parseCompareToursRequest({ ids });
+  return apiRequest<CompareToursResponse>('/catalog/tours/compare', {
+    method: 'POST',
+    body,
+    signal,
+    cache: 'no-store',
   });
 }
 

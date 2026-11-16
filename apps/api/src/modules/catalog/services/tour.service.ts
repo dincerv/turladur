@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -11,11 +12,23 @@ import {
   normalizeDepartureCity,
   TOUR_CANCEL_REASON_LABELS,
   TourCancelReason,
+  TourDestinationScope,
+  TourStayKind,
 } from '@turta/shared-constants';
 import type {
+  AiSearchResponse,
+  AiSearchTourHit,
+  ComparedTourColumn,
+  CompareToursResponse,
   Tour as SharedTour,
   TourDate as SharedTourDate,
 } from '@turta/shared-types';
+import {
+  parseAiSearchPrompt,
+  parseCompareToursRequest,
+  sanitizeAiSearchPrompt,
+} from '@turta/shared-validators';
+import { ZodError } from 'zod';
 import { Prisma } from '../../../generated/prisma';
 
 import { CacheService } from '../../../core/cache/cache.service';
@@ -23,10 +36,22 @@ import { AgencyLinkService } from '../../../core/agency/agency-link.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { StorageService } from '../../../core/storage/storage.service';
 import { BusinessException } from '../../../shared/exceptions/business.exception';
+import { AiSearchToursDto } from '../dto/ai-search-tours.dto';
+import { CompareToursDto } from '../dto/compare-tours.dto';
 import { CreateTourDateDto } from '../dto/create-tour-date.dto';
 import { CreateTourDto } from '../dto/create-tour.dto';
 import { SearchToursDto } from '../dto/search-tours.dto';
 import { UpdateTourDto } from '../dto/update-tour.dto';
+import {
+  buildAiSearchReply,
+  buildAiSearchSummaryPills,
+  parseTourSearchPrompt,
+} from '../utils/parse-tour-prompt';
+import { entertainmentLevelFromExtras } from '../utils/entertainment-level';
+import {
+  buildTourPersonaMatch,
+  inferPersonaFromIntent,
+} from '../../review/utils/persona-review-engine';
 import { TourCancelledEvent } from '../events/tour-cancelled.event';
 import { TourDatesCancelledEvent } from '../events/tour-dates-cancelled.event';
 import { TourCreatedEvent } from '../events/tour-created.event';
@@ -704,6 +729,220 @@ export class TourService {
     return { success: true, data: mapped, error: null };
   }
 
+  /**
+   * Bulk compare — single findMany, request-order columns, unavailable fallbacks.
+   */
+  async compareTours(dto: CompareToursDto) {
+    let ids: string[];
+    try {
+      ids = parseCompareToursRequest(dto).ids;
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'COMPARE_TOURS_INVALID',
+          message: error.issues[0]?.message ?? 'Geçersiz kıyaslama isteği',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
+
+    const rows = await this.prisma.tour.findMany({
+      where: {
+        id: { in: ids },
+        deletedAt: null,
+      },
+      include: {
+        agency: {
+          select: {
+            companyName: true,
+          },
+        },
+        accommodation: {
+          include: {
+            hotel: {
+              select: {
+                name: true,
+                stars: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const columns: ComparedTourColumn[] = ids.map((id) => {
+      const row = byId.get(id);
+      if (!row || row.status !== 'PUBLISHED') {
+        return {
+          id,
+          available: false,
+          message: 'Bu tur artık yayında değil',
+        };
+      }
+      return this.toComparedTourColumn(row);
+    });
+
+    const data: CompareToursResponse = { columns };
+    return { success: true, data, error: null };
+  }
+
+  /**
+   * Conversational search: NL prompt → filters → single catalog search.
+   * Parser is heuristic today; response contract supports future LLM swap.
+   */
+  async aiSearch(dto: AiSearchToursDto) {
+    let prompt: string;
+    try {
+      prompt = sanitizeAiSearchPrompt(parseAiSearchPrompt(dto).prompt);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'AI_SEARCH_INVALID',
+          message: error.issues[0]?.message ?? 'Geçersiz arama metni',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
+
+    const filters = parseTourSearchPrompt(prompt);
+    const searchDto: SearchToursDto = {
+      q: filters.q ?? undefined,
+      departureCity: filters.departureCity ?? undefined,
+      stayKind:
+        filters.stayKind === 'DAY_TRIP'
+          ? TourStayKind.DAY_TRIP
+          : filters.stayKind === 'OVERNIGHT'
+            ? TourStayKind.OVERNIGHT
+            : undefined,
+      destinationScope:
+        filters.destinationScope === 'DOMESTIC'
+          ? TourDestinationScope.DOMESTIC
+          : filters.destinationScope === 'INTERNATIONAL'
+            ? TourDestinationScope.INTERNATIONAL
+            : undefined,
+      durationDays: filters.durationDays ?? undefined,
+      duration: filters.duration ?? undefined,
+      featured: filters.featured ? true : undefined,
+      page: 1,
+      limit: 8,
+      sortBy: 'rating',
+      sortOrder: 'desc',
+    };
+
+    let searchResult = await this.search(searchDto);
+    let items = Array.isArray(searchResult.data) ? searchResult.data : [];
+
+    // Broader recall if strict NL filters yield nothing.
+    if (items.length === 0 && (filters.q || filters.region)) {
+      searchResult = await this.search({
+        q: filters.q ?? filters.region ?? undefined,
+        page: 1,
+        limit: 8,
+        sortBy: 'rating',
+        sortOrder: 'desc',
+      });
+      items = Array.isArray(searchResult.data) ? searchResult.data : [];
+    }
+
+    const inferredPersona = inferPersonaFromIntent(prompt);
+    const tourIds = items.map((tour) => tour.id);
+    const reviewRows =
+      inferredPersona && tourIds.length > 0
+        ? await this.prisma.review.findMany({
+            where: {
+              tourId: { in: tourIds },
+              deletedAt: null,
+              targetType: 'TOUR',
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 120,
+            select: {
+              id: true,
+              tourId: true,
+              rating: true,
+              comment: true,
+              createdAt: true,
+            },
+          })
+        : [];
+
+    const reviewsByTour = new Map<
+      string,
+      { id: string; rating: number; comment: string | null; createdAt: Date }[]
+    >();
+    for (const row of reviewRows) {
+      if (!row.tourId) continue;
+      const list = reviewsByTour.get(row.tourId) ?? [];
+      if (list.length < 20) {
+        list.push({
+          id: row.id,
+          rating: row.rating,
+          comment: row.comment,
+          createdAt: row.createdAt,
+        });
+        reviewsByTour.set(row.tourId, list);
+      }
+    }
+
+    const tours: AiSearchTourHit[] = items.map((tour) => {
+      let personaBadge: AiSearchTourHit['personaBadge'] = null;
+      if (inferredPersona) {
+        const match = buildTourPersonaMatch({
+          tourId: tour.id,
+          persona: inferredPersona,
+          intent: prompt,
+          reviews: reviewsByTour.get(tour.id) ?? [],
+        });
+        const tone =
+          match.fitScore >= 70
+            ? 'aligned'
+            : match.fitScore < 45
+              ? 'conflict'
+              : 'neutral';
+        personaBadge = {
+          persona: match.persona,
+          fitScore: match.fitScore,
+          tone,
+          label:
+            tone === 'aligned'
+              ? `Size uygun · ${match.fitScore}`
+              : tone === 'conflict'
+                ? `Dikkat · ${match.fitScore}`
+                : `Karışık · ${match.fitScore}`,
+        };
+      }
+
+      return {
+        id: tour.id,
+        title: tour.title,
+        slug: tour.slug,
+        coverUrl: tour.coverUrl,
+        price: tour.price,
+        currency: tour.currency,
+        durationDays: tour.durationDays,
+        averageRating: tour.averageRating,
+        reviewCount: tour.reviewCount,
+        departureCities: tour.departureCities ?? [],
+        partnerName: tour.partner?.companyName ?? null,
+        personaBadge,
+      };
+    });
+
+    const data: AiSearchResponse = {
+      reply: buildAiSearchReply(filters, tours.length),
+      filters,
+      summaryPills: buildAiSearchSummaryPills(filters),
+      tours,
+      parser: 'heuristic',
+      empty: tours.length === 0,
+    };
+
+    return { success: true, data, error: null };
+  }
+
   async search(dto: SearchToursDto) {
     const page = dto.page ?? DEFAULT_PAGE;
     const limit = dto.limit ?? DEFAULT_PAGE_LIMIT;
@@ -1175,6 +1414,99 @@ export class TourService {
       default:
         return null;
     }
+  }
+
+  private toComparedTourColumn(tour: {
+    id: string;
+    title: string;
+    slug: string;
+    coverUrl: string | null;
+    category?: string | null;
+    extras: Prisma.JsonValue;
+    price: Prisma.Decimal;
+    currency: string;
+    durationDays: number;
+    averageRating: Prisma.Decimal;
+    reviewCount: number;
+    agency?: { companyName: string } | null;
+    accommodation?: {
+      name: string;
+      type: string;
+      rating: number;
+      deletedAt?: Date | null;
+      hotel?: { name: string; stars: number | null } | null;
+    } | null;
+  }): ComparedTourColumn {
+    const extras = this.readExtrasRecord(tour.extras);
+    const inclusions = this.readStringList(extras.includes);
+    const transportation = this.readOptionalString(extras.transportation);
+    const cancellationPolicy =
+      this.readOptionalString(extras.cancellationPolicy) ??
+      this.readOptionalString(extras.cancellation) ??
+      this.readOptionalString(extras.cancelPolicy);
+    const entertainment = entertainmentLevelFromExtras(extras, tour.category);
+
+    const accommodation =
+      tour.accommodation && !tour.accommodation.deletedAt
+        ? tour.accommodation
+        : null;
+
+    const hotelStars =
+      accommodation?.hotel?.stars ??
+      (accommodation && accommodation.rating > 0
+        ? Math.round(accommodation.rating)
+        : null);
+
+    const accommodationName =
+      accommodation?.hotel?.name ??
+      accommodation?.name ??
+      this.readOptionalString(extras.accommodationName);
+
+    const accommodationType =
+      accommodation?.type ?? this.readOptionalString(extras.accommodationType);
+
+    return {
+      id: tour.id,
+      available: true,
+      title: tour.title,
+      slug: tour.slug,
+      coverUrl: this.storage.resolvePublicUrl(tour.coverUrl),
+      price: Number(tour.price.toString()),
+      currency: tour.currency,
+      durationDays: tour.durationDays,
+      averageRating: Number(tour.averageRating.toString()),
+      reviewCount: tour.reviewCount,
+      hotelStars,
+      accommodationName,
+      accommodationType,
+      transportation,
+      cancellationPolicy,
+      inclusions,
+      partnerName: tour.agency?.companyName ?? null,
+      entertainmentLevel: entertainment.level,
+      entertainmentLabel: entertainment.label,
+    };
+  }
+
+  private readExtrasRecord(extras: Prisma.JsonValue): Record<string, unknown> {
+    if (extras && typeof extras === 'object' && !Array.isArray(extras)) {
+      return extras as Record<string, unknown>;
+    }
+    return {};
+  }
+
+  private readOptionalString(value: unknown): string | null {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  private readStringList(value: unknown): string[] {
+    if (!Array.isArray(value)) return [];
+    return value
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
   }
 
   private toSharedTour(tour: {

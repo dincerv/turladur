@@ -14,6 +14,7 @@ import {
 import OperatorReviewsSection from '@/components/features/tour-operator/OperatorReviewsSection';
 import TourItineraryMobile from '@/components/features/tour/itinerary/tour-itinerary-mobile';
 import { stripDayPrefixFromTitle } from '@/components/features/tour/itinerary/normalize-itinerary';
+import { ReviewPersonaCard } from '@/components/features/tour/reviews/review-persona-card';
 import { getDestinationLabel, sanitizePlainText } from './tour-detail.helpers';
 import { TourDetailExpandableText } from './tour-detail-expandable-text';
 import { TourDetailGallery } from './tour-detail-gallery';
@@ -622,6 +623,10 @@ export function TourDetailLeftColumn() {
           </div>
         </div>
       )}
+      {tour?.id ? (
+        <ReviewPersonaCard tourId={tour.id} initialPersona="CALM" />
+      ) : null}
+
       {tourReviewCount > 0 && (
         <OperatorReviewsSection
           reviews={tourReviews}

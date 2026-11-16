@@ -19,6 +19,7 @@ import { Roles } from '../../../core/auth/decorators/roles.decorator';
 import { UserPayload } from '../../../core/auth/types/auth.types';
 import { CreateReviewDto } from '../dto/create-review.dto';
 import { ListReviewsQueryDto } from '../dto/list-reviews-query.dto';
+import { PersonaMatchDto } from '../dto/persona-match.dto';
 import { ReplyReviewDto } from '../dto/reply-review.dto';
 import { UpdateReviewDto } from '../dto/update-review.dto';
 import { ReviewService } from '../services/review.service';
@@ -36,6 +37,15 @@ export class ReviewController {
     @Query() query: ListReviewsQueryDto,
   ) {
     return this.reviewService.listByTour(tourId, query);
+  }
+
+  @Public()
+  @Post('tours/:tourId/persona-match')
+  @ApiOperation({
+    summary: 'Persona-based review matching — fit score and customized summary',
+  })
+  matchPersona(@Param('tourId') tourId: string, @Body() dto: PersonaMatchDto) {
+    return this.reviewService.matchPersona(tourId, dto);
   }
 
   @ApiBearerAuth()
