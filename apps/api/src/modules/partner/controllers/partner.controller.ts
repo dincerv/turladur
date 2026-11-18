@@ -49,6 +49,29 @@ class UpdatePartnerReservationDto {
   seatNumbers?: string;
 }
 
+class ListPartnerCustomersQueryDto {
+  @ApiPropertyOptional({ description: 'Name / email / phone search' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  q?: string;
+
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ default: 20 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  pageSize?: number;
+}
+
 class ListPartnerReservationsQueryDto {
   @ApiPropertyOptional({ description: 'Customer / booking / tour search' })
   @IsOptional()
@@ -411,6 +434,36 @@ export class PartnerController {
   async users(@CurrentUser() user: UserPayload) {
     const agencyId = await this.sellerAgencyId(user);
     return this.partnerService.listSubUsers(agencyId);
+  }
+
+  @Get('customers')
+  @RequireStaffPermissions('customers', 'reservations')
+  @ApiOperation({
+    summary: 'List agency customers (tenant-scoped, paginated, searchable)',
+  })
+  async customers(
+    @CurrentUser() user: UserPayload,
+    @Query() query: ListPartnerCustomersQueryDto,
+  ) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.partnerService.listCustomers(agencyId, {
+      q: query.q,
+      page: query.page,
+      pageSize: query.pageSize,
+    });
+  }
+
+  @Get('customers/:customerKey')
+  @RequireStaffPermissions('customers', 'reservations')
+  @ApiOperation({
+    summary: 'Customer detail — tour and payment history (IDOR-safe)',
+  })
+  async customerDetail(
+    @Param('customerKey') customerKey: string,
+    @CurrentUser() user: UserPayload,
+  ) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.partnerService.getCustomerDetail(agencyId, customerKey);
   }
 
   @Get('reservations')

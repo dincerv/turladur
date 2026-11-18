@@ -1,10 +1,19 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import {
+  decodeCustomerKey,
+  encodeCustomerKey,
+  maskEmail,
+  maskPhone,
+  parseAgencyCustomersQuery,
+} from '@turta/shared-validators';
+import { ZodError } from 'zod';
 import { Prisma } from '../../../generated/prisma';
 
 import { CacheService } from '../../../core/cache/cache.service';
@@ -1844,6 +1853,331 @@ export class PartnerService {
       },
       error: null,
     };
+  }
+
+  /**
+   * Tenant-scoped CRM list: distinct contactEmail for this agency's
+   * reservations, with pagination + name/email/phone search (no N+1).
+   */
+  async listCustomers(
+    agencyId: string | undefined,
+    options?: { q?: string; page?: number; pageSize?: number },
+  ) {
+    this.requireAgencyId(agencyId);
+
+    let parsed: ReturnType<typeof parseAgencyCustomersQuery>;
+    try {
+      parsed = parseAgencyCustomersQuery(options ?? {});
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'CUSTOMERS_QUERY_INVALID',
+          message: error.issues[0]?.message ?? 'Geçersiz müşteri araması',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
+
+    const { q, page, pageSize } = parsed;
+    const where = await this.buildCustomerReservationWhere(agencyId, q);
+
+    const [groups, groupKeys] = await Promise.all([
+      this.prisma.reservation.groupBy({
+        by: ['contactEmail'],
+        where,
+        _count: { _all: true },
+        _max: { createdAt: true, startDate: true },
+        _sum: { totalAmount: true },
+        orderBy: { _max: { createdAt: 'desc' } },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.reservation.groupBy({
+        by: ['contactEmail'],
+        where,
+      }),
+    ]);
+
+    const emails = groups.map((g) => g.contactEmail);
+    const latestRows = emails.length
+      ? await this.prisma.reservation.findMany({
+          where: {
+            agencyId,
+            deletedAt: null,
+            contactEmail: { in: emails },
+          },
+          distinct: ['contactEmail'],
+          orderBy: { createdAt: 'desc' },
+          select: {
+            contactEmail: true,
+            contactPhone: true,
+            userId: true,
+          },
+        })
+      : [];
+
+    const userIds = [
+      ...new Set(latestRows.map((r) => r.userId).filter(Boolean)),
+    ];
+    const users = emails.length
+      ? await this.prisma.user.findMany({
+          where: {
+            deletedAt: null,
+            OR: [
+              ...emails.map((email) => ({
+                email: { equals: email, mode: 'insensitive' as const },
+              })),
+              ...(userIds.length ? [{ id: { in: userIds } }] : []),
+            ],
+          },
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+          },
+        })
+      : [];
+
+    const latestByEmail = new Map(
+      latestRows.map((r) => [r.contactEmail.toLowerCase(), r]),
+    );
+    const userByEmail = new Map(users.map((u) => [u.email.toLowerCase(), u]));
+    const userById = new Map(users.map((u) => [u.id, u]));
+
+    const items = groups.map((g) => {
+      const email = g.contactEmail;
+      const latest = latestByEmail.get(email.toLowerCase());
+      const user =
+        (latest?.userId ? userById.get(latest.userId) : undefined) ??
+        userByEmail.get(email.toLowerCase());
+      const displayName =
+        [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
+        email.split('@')[0] ||
+        'Müşteri';
+      const phone = latest?.contactPhone ?? user?.phone ?? null;
+      const lastTourDate =
+        g._max.startDate?.toISOString() ??
+        g._max.createdAt?.toISOString() ??
+        null;
+
+      return {
+        id: encodeCustomerKey(email),
+        displayName,
+        emailMasked: maskEmail(email),
+        phoneMasked: maskPhone(phone),
+        reservationCount: g._count._all,
+        totalSpent: (g._sum.totalAmount ?? new Prisma.Decimal(0)).toString(),
+        currency: 'TRY',
+        lastTourDate,
+        lastBookingAt: g._max.createdAt?.toISOString() ?? null,
+      };
+    });
+
+    return {
+      success: true,
+      data: {
+        items,
+        meta: {
+          page,
+          pageSize,
+          total: groupKeys.length,
+          totalPages: Math.max(1, Math.ceil(groupKeys.length / pageSize)),
+        },
+      },
+      error: null,
+    };
+  }
+
+  /** Detail drawer — full contact for owning agency only (IDOR-safe). */
+  async getCustomerDetail(agencyId: string | undefined, customerKey: string) {
+    this.requireAgencyId(agencyId);
+
+    let email: string;
+    try {
+      email = decodeCustomerKey(customerKey);
+    } catch {
+      throw new BadRequestException({
+        code: 'CUSTOMER_KEY_INVALID',
+        message: 'Geçersiz müşteri anahtarı',
+      });
+    }
+
+    const ownedCount = await this.prisma.reservation.count({
+      where: {
+        agencyId,
+        deletedAt: null,
+        contactEmail: { equals: email, mode: 'insensitive' },
+      },
+    });
+    if (ownedCount === 0) {
+      throw new NotFoundException({
+        code: 'CUSTOMER_NOT_FOUND',
+        message: 'Müşteri bulunamadı veya erişim yetkiniz yok',
+      });
+    }
+
+    const reservations = await this.prisma.reservation.findMany({
+      where: {
+        agencyId,
+        deletedAt: null,
+        contactEmail: { equals: email, mode: 'insensitive' },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: {
+        id: true,
+        bookingNumber: true,
+        status: true,
+        paymentStatus: true,
+        paymentMethod: true,
+        totalAmount: true,
+        currency: true,
+        contactEmail: true,
+        contactPhone: true,
+        tourId: true,
+        experienceId: true,
+        startDate: true,
+        endDate: true,
+        createdAt: true,
+        userId: true,
+      },
+    });
+
+    const tourIds = [
+      ...new Set(reservations.map((r) => r.tourId).filter(Boolean)),
+    ] as string[];
+    const experienceIds = [
+      ...new Set(reservations.map((r) => r.experienceId).filter(Boolean)),
+    ] as string[];
+
+    const [tours, experiences, user] = await Promise.all([
+      tourIds.length
+        ? this.prisma.tour.findMany({
+            where: { id: { in: tourIds }, agencyId },
+            select: { id: true, title: true },
+          })
+        : [],
+      experienceIds.length
+        ? this.prisma.experience.findMany({
+            where: { id: { in: experienceIds }, agencyId },
+            select: { id: true, title: true },
+          })
+        : [],
+      this.prisma.user.findFirst({
+        where: {
+          deletedAt: null,
+          OR: [
+            { email: { equals: email, mode: 'insensitive' } },
+            {
+              id: {
+                in: [...new Set(reservations.map((r) => r.userId))],
+              },
+            },
+          ],
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+        },
+      }),
+    ]);
+
+    const tourTitleById = new Map(tours.map((t) => [t.id, t.title]));
+    const experienceTitleById = new Map(
+      experiences.map((e) => [e.id, e.title]),
+    );
+    const latest = reservations[0];
+    const displayName =
+      [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
+      email.split('@')[0] ||
+      'Müşteri';
+
+    const history = reservations.map((r) => ({
+      id: r.id,
+      bookingNumber: r.bookingNumber,
+      title:
+        (r.tourId ? tourTitleById.get(r.tourId) : null) ??
+        (r.experienceId ? experienceTitleById.get(r.experienceId) : null) ??
+        'Rezervasyon',
+      status: r.status,
+      paymentStatus: r.paymentStatus,
+      paymentMethod: r.paymentMethod,
+      totalAmount: r.totalAmount.toString(),
+      currency: r.currency,
+      startDate: r.startDate?.toISOString() ?? null,
+      endDate: r.endDate?.toISOString() ?? null,
+      createdAt: r.createdAt.toISOString(),
+    }));
+
+    return {
+      success: true,
+      data: {
+        id: encodeCustomerKey(email),
+        displayName,
+        email,
+        emailMasked: maskEmail(email),
+        phone: latest?.contactPhone ?? user?.phone ?? null,
+        phoneMasked: maskPhone(latest?.contactPhone ?? user?.phone),
+        reservationCount: ownedCount,
+        totalSpent: reservations
+          .reduce((sum, r) => sum.add(r.totalAmount), new Prisma.Decimal(0))
+          .toString(),
+        currency: latest?.currency ?? 'TRY',
+        tours: history,
+        payments: history.map((h) => ({
+          id: h.id,
+          bookingNumber: h.bookingNumber,
+          amount: h.totalAmount,
+          currency: h.currency,
+          paymentStatus: h.paymentStatus,
+          paymentMethod: h.paymentMethod,
+          createdAt: h.createdAt,
+        })),
+      },
+      error: null,
+    };
+  }
+
+  private async buildCustomerReservationWhere(
+    agencyId: string,
+    q: string,
+  ): Promise<Prisma.ReservationWhereInput> {
+    const where: Prisma.ReservationWhereInput = {
+      agencyId,
+      deletedAt: null,
+    };
+
+    if (!q) return where;
+
+    const matchingUsers = await this.prisma.user.findMany({
+      where: {
+        deletedAt: null,
+        OR: [
+          { email: { contains: q, mode: 'insensitive' } },
+          { phone: { contains: q, mode: 'insensitive' } },
+          { firstName: { contains: q, mode: 'insensitive' } },
+          { lastName: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+      select: { id: true },
+      take: 100,
+    });
+
+    where.OR = [
+      { contactEmail: { contains: q, mode: 'insensitive' } },
+      { contactPhone: { contains: q, mode: 'insensitive' } },
+      ...(matchingUsers.length
+        ? [{ userId: { in: matchingUsers.map((u) => u.id) } }]
+        : []),
+    ];
+
+    return where;
   }
 
   private requireAgencyId(

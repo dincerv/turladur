@@ -364,6 +364,90 @@ export function parseCreateAssignmentInvite(
   return createAssignmentInviteSchema.parse(input);
 }
 
+/** Agency CRM — customer list query (?q=&page=&pageSize=) */
+export const AGENCY_CUSTOMERS_Q_MAX = 80;
+export const AGENCY_CUSTOMERS_PAGE_SIZE_MAX = 50;
+
+export const agencyCustomersQuerySchema = z.object({
+  q: z
+    .string()
+    .trim()
+    .max(AGENCY_CUSTOMERS_Q_MAX)
+    .optional()
+    .default('')
+    .transform((v) => v.replace(/[\u0000-\u001F\u007F]/g, '')),
+  page: z.coerce.number().int().min(1).max(10_000).optional().default(1),
+  pageSize: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(AGENCY_CUSTOMERS_PAGE_SIZE_MAX)
+    .optional()
+    .default(20),
+});
+
+export type AgencyCustomersQuery = z.infer<typeof agencyCustomersQuerySchema>;
+
+export function parseAgencyCustomersQuery(
+  input: unknown,
+): AgencyCustomersQuery {
+  return agencyCustomersQuerySchema.parse(input);
+}
+
+export function maskEmail(email: string): string {
+  const trimmed = email.trim();
+  const at = trimmed.indexOf('@');
+  if (at <= 0) return '***';
+  const local = trimmed.slice(0, at);
+  const domain = trimmed.slice(at + 1);
+  const visible = local.slice(0, Math.min(1, local.length));
+  return `${visible}***@${domain}`;
+}
+
+export function maskPhone(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 4) return '***';
+  return `${digits.slice(0, 2)}** *** **${digits.slice(-2)}`;
+}
+
+function toBase64Url(utf8: string): string {
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(utf8, 'utf8').toString('base64url');
+  }
+  const bytes = new TextEncoder().encode(utf8);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+function fromBase64Url(key: string): string {
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(key, 'base64url').toString('utf8');
+  }
+  const padded =
+    key.replace(/-/g, '+').replace(/_/g, '/') +
+    '='.repeat((4 - (key.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+export function encodeCustomerKey(email: string): string {
+  return toBase64Url(email.trim().toLowerCase());
+}
+
+export function decodeCustomerKey(key: string): string {
+  const decoded = fromBase64Url(key).trim();
+  if (!decoded || !decoded.includes('@')) {
+    throw new Error('Invalid customer key');
+  }
+  return decoded.toLowerCase();
+}
+
 export type ContactMessagePayload = {
   name: string;
   email: string;

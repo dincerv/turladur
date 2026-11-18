@@ -1516,3 +1516,96 @@ export async function getPartnerReports(
     { token },
   );
 }
+
+export type PartnerCustomerListItem = {
+  id: string;
+  displayName: string;
+  emailMasked: string;
+  phoneMasked: string | null;
+  reservationCount: number;
+  totalSpent: string;
+  currency: string;
+  lastTourDate: string | null;
+  lastBookingAt: string | null;
+};
+
+export type PartnerCustomerListMeta = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export type PartnerCustomerListResult = {
+  items: PartnerCustomerListItem[];
+  meta: PartnerCustomerListMeta;
+};
+
+export type PartnerCustomerDetail = {
+  id: string;
+  displayName: string;
+  email: string;
+  emailMasked: string;
+  phone: string | null;
+  phoneMasked: string | null;
+  reservationCount: number;
+  totalSpent: string;
+  currency: string;
+  tours: Array<{
+    id: string;
+    bookingNumber: string;
+    title: string;
+    status: string;
+    paymentStatus: string;
+    paymentMethod: string | null;
+    totalAmount: string;
+    currency: string;
+    startDate: string | null;
+    endDate: string | null;
+    createdAt: string;
+  }>;
+  payments: Array<{
+    id: string;
+    bookingNumber: string;
+    amount: string;
+    currency: string;
+    paymentStatus: string;
+    paymentMethod: string | null;
+    createdAt: string;
+  }>;
+};
+
+export type PartnerCustomerListParams = {
+  q?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+function buildCustomerListQuery(params?: PartnerCustomerListParams): string {
+  const sp = new URLSearchParams();
+  if (params?.q?.trim()) sp.set('q', params.q.trim().slice(0, 80));
+  if (params?.page && params.page > 1) sp.set('page', String(params.page));
+  if (params?.pageSize) sp.set('pageSize', String(params.pageSize));
+  const qs = sp.toString();
+  return qs ? `?${qs}` : '';
+}
+
+export async function listPartnerCustomers(
+  token: string,
+  params?: PartnerCustomerListParams,
+) {
+  return apiRequest<PartnerCustomerListResult>(
+    `/partner/customers${buildCustomerListQuery(params)}`,
+    { token, cache: 'no-store' },
+  );
+}
+
+export async function getPartnerCustomerDetail(
+  token: string,
+  customerKey: string,
+) {
+  return apiRequest<PartnerCustomerDetail>(
+    `/partner/customers/${encodeURIComponent(customerKey)}`,
+    { token, cache: 'no-store' },
+  );
+}
