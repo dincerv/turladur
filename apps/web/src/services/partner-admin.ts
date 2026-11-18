@@ -84,6 +84,8 @@ export type PartnerTourListResult = {
 export type PartnerTourListParams = {
   q?: string;
   status?: 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED';
+  category?:
+    'CULTURAL' | 'ADVENTURE' | 'GASTRONOMY' | 'NATURE' | 'CITY' | 'BEACH';
   page?: number;
   pageSize?: number;
 };
@@ -205,6 +207,7 @@ function buildTourListQuery(params?: PartnerTourListParams): string {
   const sp = new URLSearchParams();
   if (params.q?.trim()) sp.set('q', params.q.trim().slice(0, 80));
   if (params.status) sp.set('status', params.status);
+  if (params.category) sp.set('category', params.category);
   if (params.page && params.page > 1) sp.set('page', String(params.page));
   if (params.pageSize) sp.set('pageSize', String(params.pageSize));
   const qs = sp.toString();
@@ -545,6 +548,7 @@ export type UpdatePartnerTourBody = {
   description?: string;
   price?: number;
   category?: string;
+  status?: 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED';
   durationDays?: number;
   stayKind?: 'DAY_TRIP' | 'OVERNIGHT';
   destinationScope?: 'DOMESTIC' | 'INTERNATIONAL';

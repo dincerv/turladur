@@ -26,6 +26,8 @@ export const ACENTE_ROUTES = {
   /** P0-B4 — SeatAssignment haritası (MANUAL / AUTO_FIFO). */
   tourDateSeats: (tourId: string, tourDateId: string) =>
     `/acente/tours/${tourId}/dates/${tourDateId}/seats`,
+  /** Tur tarihleri arasından koltuk yönetimine geçiş hub’ı. */
+  tourSeats: (tourId: string) => `/acente/tours/${tourId}/seats`,
 } as const;
 
 const ADMIN_PANEL_ROLES = new Set([

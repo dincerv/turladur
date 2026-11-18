@@ -750,6 +750,70 @@ export function parseAgencyReservationStatusUpdate(
   return agencyReservationStatusUpdateSchema.parse(input);
 }
 
+/** Agency tours — list filters (?q=&status=&category=&page=) */
+export const AGENCY_TOURS_Q_MAX = 80;
+export const AGENCY_TOURS_PAGE_SIZE_MAX = 50;
+
+export const AGENCY_TOUR_STATUS_FILTERS = [
+  'DRAFT',
+  'PENDING_REVIEW',
+  'PUBLISHED',
+  'ARCHIVED',
+] as const;
+export type AgencyTourStatusFilter =
+  (typeof AGENCY_TOUR_STATUS_FILTERS)[number];
+
+export const AGENCY_TOUR_CATEGORIES = [
+  'CULTURAL',
+  'ADVENTURE',
+  'GASTRONOMY',
+  'NATURE',
+  'CITY',
+  'BEACH',
+] as const;
+export type AgencyTourCategory = (typeof AGENCY_TOUR_CATEGORIES)[number];
+
+export const agencyToursQuerySchema = z.object({
+  q: z
+    .string()
+    .trim()
+    .max(AGENCY_TOURS_Q_MAX)
+    .optional()
+    .default('')
+    .transform((v) => v.replace(/[\u0000-\u001F\u007F]/g, '')),
+  status: z.enum(AGENCY_TOUR_STATUS_FILTERS).optional(),
+  category: z.enum(AGENCY_TOUR_CATEGORIES).optional(),
+  page: z.coerce.number().int().min(1).max(10_000).optional().default(1),
+  pageSize: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(AGENCY_TOURS_PAGE_SIZE_MAX)
+    .optional()
+    .default(12),
+  view: z.enum(['grid', 'list']).optional().default('list'),
+});
+
+export type AgencyToursQuery = z.infer<typeof agencyToursQuerySchema>;
+
+export function parseAgencyToursQuery(input: unknown): AgencyToursQuery {
+  return agencyToursQuerySchema.parse(input);
+}
+
+export const agencyTourStatusToggleSchema = z.object({
+  status: z.enum(['PUBLISHED', 'ARCHIVED']),
+});
+
+export type AgencyTourStatusToggle = z.infer<
+  typeof agencyTourStatusToggleSchema
+>;
+
+export function parseAgencyTourStatusToggle(
+  input: unknown,
+): AgencyTourStatusToggle {
+  return agencyTourStatusToggleSchema.parse(input);
+}
+
 export function maskEmail(email: string): string {
   const trimmed = email.trim();
   const at = trimmed.indexOf('@');

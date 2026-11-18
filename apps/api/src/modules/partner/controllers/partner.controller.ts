@@ -359,6 +359,14 @@ class ListPartnerToursQueryDto {
   @IsIn(['DRAFT', 'PENDING_REVIEW', 'PUBLISHED', 'ARCHIVED'])
   status?: 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED';
 
+  @ApiPropertyOptional({
+    enum: ['CULTURAL', 'ADVENTURE', 'GASTRONOMY', 'NATURE', 'CITY', 'BEACH'],
+  })
+  @IsOptional()
+  @IsIn(['CULTURAL', 'ADVENTURE', 'GASTRONOMY', 'NATURE', 'CITY', 'BEACH'])
+  category?:
+    'CULTURAL' | 'ADVENTURE' | 'GASTRONOMY' | 'NATURE' | 'CITY' | 'BEACH';
+
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()
   @Type(() => Number)
@@ -812,6 +820,7 @@ export class PartnerController {
     return this.partnerService.listTours(agencyId, {
       q: query.q,
       status: query.status,
+      category: query.category,
       page: query.page,
       pageSize: query.pageSize,
     });

@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import {
   useCallback,
@@ -9,10 +10,18 @@ import {
   useTransition,
 } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { LayoutGrid, List, Plus, Search, X } from 'lucide-react';
+import {
+  Armchair,
+  LayoutGrid,
+  List,
+  Pencil,
+  Plus,
+  Search,
+  X,
+} from 'lucide-react';
 
-import { TourCard } from '@/components/features/partner-dashboard/tour-card';
 import { useDebouncedInput } from '@/components/features/activity/activities-page/use-debounced-input';
+import { resolveMediaUrl, shouldUnoptimizeMedia } from '@/lib/media';
 import { ACENTE_ROUTES } from '@/lib/panel-routes';
 import { useAuth } from '@/providers/auth-provider';
 import { ApiError } from '@/services/api-client';
@@ -20,18 +29,25 @@ import {
   cancelPartnerTour,
   cancelPartnerTourDates,
   listPartnerTours,
+  updatePartnerTour,
   type PartnerTour,
   type PartnerTourListMeta,
   type TourCancelReason,
 } from '@/services/partner-admin';
 
+import { revalidatePartnerTourPaths } from '@/app/(agency)/acente/tours/actions';
+
 import { TourCancelDialog } from './tour-cancel-dialog';
 import { ToursSkeleton } from './tours-skeleton';
 import {
+  isTourLive,
+  nextTourToggleStatus,
   parseToursSearchParams,
   sanitizeTourText,
-  toursSearchToQueryString,
+  TOUR_CATEGORIES,
   TOUR_STATUS_FILTERS,
+  toursSearchToQueryString,
+  type TourCategoryFilter,
   type TourStatusFilter,
   type ToursSearchParams,
 } from './tours-query';
@@ -39,18 +55,28 @@ import {
 const PAGE_SIZE = 12;
 const SAFE_ERROR = 'Tur listesi yüklenemedi. Lütfen tekrar deneyin.';
 
-function mapStatus(status: string): 'active' | 'draft' | 'archived' {
-  if (status === 'PUBLISHED' || status === 'ACTIVE') return 'active';
-  if (status === 'ARCHIVED') return 'archived';
-  return 'draft';
-}
-
 const STATUS_LABELS: Record<TourStatusFilter, string> = {
   DRAFT: 'Taslak',
   PENDING_REVIEW: 'İncelemede',
   PUBLISHED: 'Yayında',
   ARCHIVED: 'Arşiv',
 };
+
+const CATEGORY_LABELS: Record<TourCategoryFilter, string> = {
+  CULTURAL: 'Kültür',
+  ADVENTURE: 'Macera',
+  GASTRONOMY: 'Gastronomi',
+  NATURE: 'Doğa',
+  CITY: 'Şehir',
+  BEACH: 'Plaj',
+};
+
+function statusBadgeClass(status: string): string {
+  if (isTourLive(status)) return 'bg-emerald-50 text-emerald-700';
+  if (status === 'ARCHIVED') return 'bg-neutral-100 text-neutral-600';
+  if (status === 'PENDING_REVIEW') return 'bg-amber-50 text-amber-800';
+  return 'bg-sky-50 text-sky-800';
+}
 
 export function AcenteToursPage() {
   const { accessToken } = useAuth();
@@ -75,16 +101,24 @@ export function AcenteToursPage() {
   const [error, setError] = useState<string | null>(null);
   const [cancelTour, setCancelTour] = useState<PartnerTour | null>(null);
   const [cancelBusy, setCancelBusy] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const replaceFilters = useCallback(
-    (next: Partial<ToursSearchParams>) => {
+    (
+      next: Partial<ToursSearchParams> & {
+        status?: TourStatusFilter | undefined;
+        category?: TourCategoryFilter | undefined;
+      },
+    ) => {
       const merged: ToursSearchParams = {
         q: next.q ?? filters.q,
         status: 'status' in next ? next.status : filters.status,
+        category: 'category' in next ? next.category : filters.category,
         page: next.page ?? filters.page,
+        pageSize: filters.pageSize,
         view: next.view ?? filters.view,
       };
-      if (next.q !== undefined || 'status' in next) {
+      if (next.q !== undefined || 'status' in next || 'category' in next) {
         merged.page = next.page ?? 1;
       }
       const qs = toursSearchToQueryString(merged);
@@ -108,6 +142,7 @@ export function AcenteToursPage() {
       const result = await listPartnerTours(accessToken, {
         q: filters.q || undefined,
         status: filters.status,
+        category: filters.category,
         page: filters.page,
         pageSize: PAGE_SIZE,
       });
@@ -123,13 +158,43 @@ export function AcenteToursPage() {
     } finally {
       setLoading(false);
     }
-  }, [accessToken, filters.page, filters.q, filters.status]);
+  }, [accessToken, filters.category, filters.page, filters.q, filters.status]);
 
   useEffect(() => {
     if (!accessToken) return;
     setLoading(true);
     void load();
   }, [accessToken, load]);
+
+  async function handleToggleStatus(tour: PartnerTour) {
+    if (!accessToken || togglingId) return;
+    const nextStatus = nextTourToggleStatus(tour.status);
+    const previous = tour.status;
+    setTogglingId(tour.id);
+    setError(null);
+    setTours((prev) =>
+      prev.map((row) =>
+        row.id === tour.id ? { ...row, status: nextStatus } : row,
+      ),
+    );
+    try {
+      await updatePartnerTour(tour.id, { status: nextStatus }, accessToken);
+      await revalidatePartnerTourPaths(tour.id);
+    } catch (err) {
+      setTours((prev) =>
+        prev.map((row) =>
+          row.id === tour.id ? { ...row, status: previous } : row,
+        ),
+      );
+      setError(
+        err instanceof ApiError
+          ? err.message || 'Durum güncellenemedi'
+          : 'Durum güncellenemedi',
+      );
+    } finally {
+      setTogglingId(null);
+    }
+  }
 
   async function handleConfirmCancel(input: {
     dateIds: string[];
@@ -158,6 +223,7 @@ export function AcenteToursPage() {
         );
       }
       setCancelTour(null);
+      await revalidatePartnerTourPaths(cancelTour.id);
       setLoading(true);
       await load();
     } finally {
@@ -165,42 +231,31 @@ export function AcenteToursPage() {
     }
   }
 
-  // Legacy Railway payloads ignore q/status — refine client-side as a safety net.
-  const visibleTours = useMemo(() => {
-    const q = filters.q.trim().toLowerCase();
-    return tours.filter((tour) => {
-      if (filters.status && tour.status !== filters.status) return false;
-      if (!q) return true;
-      return (
-        tour.title.toLowerCase().includes(q) ||
-        tour.category.toLowerCase().includes(q) ||
-        (tour.slug ?? '').toLowerCase().includes(q)
-      );
-    });
-  }, [filters.q, filters.status, tours]);
-
   const listView = filters.view === 'list';
-  const hasActiveFilters = Boolean(filters.q || filters.status);
-  const emptyBecauseSearch = hasActiveFilters && visibleTours.length === 0;
+  const hasActiveFilters = Boolean(
+    filters.q || filters.status || filters.category,
+  );
+  const emptyBecauseSearch = hasActiveFilters && tours.length === 0;
 
   if (loading && tours.length === 0) {
     return <ToursSkeleton listView={listView} />;
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="acente-tours-page">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-neutral-950">
             Turlar
           </h1>
           <p className="mt-1 max-w-prose text-sm text-neutral-600">
-            Turlarınızı yönetin. İptal ederken tarih seçin; yalnızca o tarihteki
-            rezervasyonlar iptal edilir.
+            Turlarınızı yönetin. Durum, kategori ve arama filtreleriyle listeyi
+            daraltın; koltuk ve düzenleme işlemlerine hızlıca geçin.
           </p>
         </div>
         <Link
           href={`${ACENTE_ROUTES.tours}/new`}
+          data-testid="new-tour-btn"
           className="inline-flex min-h-11 items-center justify-center rounded-lg bg-neutral-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
         >
           <Plus className="mr-1.5 h-4 w-4" aria-hidden />
@@ -227,12 +282,14 @@ export function AcenteToursPage() {
               }}
               placeholder="Tur ara…"
               aria-label="Tur ara"
+              data-testid="search-tour-input"
               className="w-full rounded-lg border border-neutral-300 py-2.5 pr-10 pl-10 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:outline-none focus:ring-1 focus:ring-neutral-950"
             />
             {draft ? (
               <button
                 type="button"
                 aria-label="Aramayı temizle"
+                data-testid="clear-tour-search"
                 onClick={() => {
                   setDraft('');
                   replaceFilters({ q: '', page: 1 });
@@ -245,6 +302,30 @@ export function AcenteToursPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <label className="sr-only" htmlFor="tour-category-filter">
+              Kategori
+            </label>
+            <select
+              id="tour-category-filter"
+              data-testid="tour-category-filter"
+              value={filters.category ?? ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                replaceFilters({
+                  category: value ? (value as TourCategoryFilter) : undefined,
+                  page: 1,
+                });
+              }}
+              className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-800 focus:border-neutral-950 focus:outline-none focus:ring-1 focus:ring-neutral-950"
+            >
+              <option value="">Tüm kategoriler</option>
+              {TOUR_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>
+                  {CATEGORY_LABELS[cat]}
+                </option>
+              ))}
+            </select>
+
             <div
               role="tablist"
               aria-label="Görünüm"
@@ -254,6 +335,7 @@ export function AcenteToursPage() {
                 type="button"
                 role="tab"
                 aria-selected={!listView}
+                data-testid="tours-view-grid"
                 onClick={() => replaceFilters({ view: 'grid' })}
                 className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 ${
                   !listView
@@ -268,6 +350,7 @@ export function AcenteToursPage() {
                 type="button"
                 role="tab"
                 aria-selected={listView}
+                data-testid="tours-view-list"
                 onClick={() => replaceFilters({ view: 'list' })}
                 className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 ${
                   listView
@@ -286,10 +369,12 @@ export function AcenteToursPage() {
           className="mt-3 flex flex-wrap gap-2"
           role="group"
           aria-label="Durum filtresi"
+          data-testid="tour-status-filters"
         >
           <button
             type="button"
             aria-pressed={!filters.status}
+            data-testid="tour-status-all"
             onClick={() => replaceFilters({ status: undefined, page: 1 })}
             className={`rounded-full px-3 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 ${
               !filters.status
@@ -304,6 +389,7 @@ export function AcenteToursPage() {
               key={status}
               type="button"
               aria-pressed={filters.status === status}
+              data-testid={`tour-status-${status}`}
               onClick={() => replaceFilters({ status, page: 1 })}
               className={`rounded-full px-3 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 ${
                 filters.status === status
@@ -320,6 +406,7 @@ export function AcenteToursPage() {
       {error ? (
         <div
           role="alert"
+          data-testid="tours-error"
           className="flex flex-col items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
         >
           <p className="text-sm text-red-700">{error}</p>
@@ -339,9 +426,13 @@ export function AcenteToursPage() {
       <div
         className={isPending || loading ? 'opacity-60 transition-opacity' : ''}
         aria-busy={isPending || loading}
+        data-testid="tours-results"
       >
-        {visibleTours.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-neutral-200 bg-white px-6 py-16 text-center">
+        {tours.length === 0 ? (
+          <div
+            className="rounded-xl border border-dashed border-neutral-200 bg-white px-6 py-16 text-center"
+            data-testid="tours-empty-state"
+          >
             <p className="text-lg font-semibold text-neutral-800">
               Tur bulunamadı
             </p>
@@ -354,11 +445,13 @@ export function AcenteToursPage() {
               {emptyBecauseSearch ? (
                 <button
                   type="button"
+                  data-testid="clear-tour-filters"
                   onClick={() => {
                     setDraft('');
                     replaceFilters({
                       q: '',
                       status: undefined,
+                      category: undefined,
                       page: 1,
                     });
                   }}
@@ -375,39 +468,49 @@ export function AcenteToursPage() {
               </Link>
             </div>
           </div>
+        ) : listView ? (
+          <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+            <div className="overflow-x-auto">
+              <table
+                className="min-w-full text-left text-sm"
+                data-testid="tours-table"
+              >
+                <thead className="border-b border-neutral-200 bg-neutral-50 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  <tr>
+                    <th className="px-4 py-3">Tur</th>
+                    <th className="px-4 py-3">Kategori</th>
+                    <th className="px-4 py-3">Süre</th>
+                    <th className="px-4 py-3">Fiyat</th>
+                    <th className="px-4 py-3">Durum</th>
+                    <th className="px-4 py-3 text-right">Aksiyonlar</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tours.map((tour) => (
+                    <TourTableRow
+                      key={tour.id}
+                      tour={tour}
+                      toggling={togglingId === tour.id}
+                      onToggle={() => void handleToggleStatus(tour)}
+                      onDeactivate={() => setCancelTour(tour)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         ) : (
           <div
-            className={
-              listView
-                ? 'space-y-4'
-                : 'grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3'
-            }
+            className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3"
+            data-testid="tours-grid"
           >
-            {visibleTours.map((tour) => (
-              <TourCard
+            {tours.map((tour) => (
+              <TourGridCard
                 key={tour.id}
-                id={tour.id}
-                title={sanitizeTourText(tour.title, 80)}
-                price={`${Number(tour.price).toLocaleString('tr-TR')} ${sanitizeTourText(tour.currency, 8)}`}
-                location={sanitizeTourText(tour.category || '—', 40)}
-                duration={`${tour.durationDays} gün`}
-                maxParticipants={20}
-                imageUrl={tour.coverUrl || '/brand/mark-on-light.png'}
-                status={mapStatus(tour.status)}
-                rating={
-                  tour.averageRating && tour.averageRating > 0
-                    ? tour.averageRating
-                    : undefined
-                }
-                listView={listView}
-                onEdit={(id) =>
-                  router.push(`${ACENTE_ROUTES.tours}/${id}/edit`)
-                }
-                onDelete={
-                  mapStatus(tour.status) === 'archived'
-                    ? undefined
-                    : () => setCancelTour(tour)
-                }
+                tour={tour}
+                toggling={togglingId === tour.id}
+                onToggle={() => void handleToggleStatus(tour)}
+                onDeactivate={() => setCancelTour(tour)}
               />
             ))}
           </div>
@@ -417,6 +520,7 @@ export function AcenteToursPage() {
       {meta.totalPages > 1 ? (
         <nav
           aria-label="Sayfalama"
+          data-testid="tours-pagination"
           className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200 pt-4"
         >
           <p className="text-sm text-neutral-600">
@@ -425,6 +529,7 @@ export function AcenteToursPage() {
           <div className="flex gap-2">
             <button
               type="button"
+              data-testid="tours-page-prev"
               disabled={meta.page <= 1 || loading}
               onClick={() => replaceFilters({ page: meta.page - 1 })}
               className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
@@ -433,6 +538,7 @@ export function AcenteToursPage() {
             </button>
             <button
               type="button"
+              data-testid="tours-page-next"
               disabled={meta.page >= meta.totalPages || loading}
               onClick={() => replaceFilters({ page: meta.page + 1 })}
               className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
@@ -453,5 +559,229 @@ export function AcenteToursPage() {
         onConfirm={handleConfirmCancel}
       />
     </div>
+  );
+}
+
+function TourTableRow({
+  tour,
+  toggling,
+  onToggle,
+  onDeactivate,
+}: {
+  tour: PartnerTour;
+  toggling: boolean;
+  onToggle: () => void;
+  onDeactivate: () => void;
+}) {
+  const live = isTourLive(tour.status);
+  const title = sanitizeTourText(tour.title, 80);
+  const category = sanitizeTourText(
+    CATEGORY_LABELS[tour.category as TourCategoryFilter] ?? tour.category,
+    40,
+  );
+  const price = `${Number(tour.price).toLocaleString('tr-TR')} ${sanitizeTourText(tour.currency, 8)}`;
+  const cover = resolveMediaUrl(tour.coverUrl) || '/brand/mark-on-light.png';
+
+  return (
+    <tr
+      className="border-b border-neutral-100 last:border-0"
+      data-testid={`tour-row-${tour.id}`}
+    >
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-3">
+          <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-md bg-neutral-100">
+            <Image
+              src={cover}
+              alt=""
+              fill
+              unoptimized={shouldUnoptimizeMedia(cover)}
+              className="object-cover"
+              sizes="64px"
+            />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate font-medium text-neutral-950">{title}</p>
+            <p className="truncate text-xs text-neutral-500">
+              {sanitizeTourText(tour.slug ?? '', 40)}
+            </p>
+          </div>
+        </div>
+      </td>
+      <td className="px-4 py-3 text-neutral-700">{category}</td>
+      <td className="px-4 py-3 text-neutral-700">{tour.durationDays} gün</td>
+      <td className="px-4 py-3 font-medium text-neutral-950">{price}</td>
+      <td className="px-4 py-3">
+        <span
+          className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(tour.status)}`}
+          data-testid={`tour-status-badge-${tour.id}`}
+        >
+          {STATUS_LABELS[tour.status as TourStatusFilter] ?? tour.status}
+        </span>
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={live}
+            aria-label={live ? 'Pasife al' : 'Yayına al'}
+            data-testid={`toggle-status-btn-${tour.id}`}
+            disabled={toggling}
+            onClick={onToggle}
+            className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition disabled:opacity-50 ${
+              live ? 'bg-emerald-600' : 'bg-neutral-300'
+            }`}
+          >
+            <span
+              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+                live ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+          <Link
+            href={`${ACENTE_ROUTES.tours}/${tour.id}`}
+            data-testid={`detail-tour-btn-${tour.id}`}
+            className="rounded-lg border border-neutral-200 px-2 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            Detaylar
+          </Link>
+          <Link
+            href={`${ACENTE_ROUTES.tours}/${tour.id}/edit`}
+            data-testid={`edit-tour-btn-${tour.id}`}
+            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-2 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            <Pencil className="h-3.5 w-3.5" aria-hidden />
+            Düzenle
+          </Link>
+          <Link
+            href={ACENTE_ROUTES.tourSeats(tour.id)}
+            data-testid={`seats-tour-btn-${tour.id}`}
+            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-2 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            <Armchair className="h-3.5 w-3.5" aria-hidden />
+            Koltuk
+          </Link>
+          {!live ? null : (
+            <button
+              type="button"
+              data-testid={`deactivate-tour-btn-${tour.id}`}
+              onClick={onDeactivate}
+              className="rounded-lg border border-neutral-200 px-2 py-1 text-xs font-medium text-neutral-600 hover:bg-red-50 hover:text-red-700"
+            >
+              Pasife al
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function TourGridCard({
+  tour,
+  toggling,
+  onToggle,
+  onDeactivate,
+}: {
+  tour: PartnerTour;
+  toggling: boolean;
+  onToggle: () => void;
+  onDeactivate: () => void;
+}) {
+  const live = isTourLive(tour.status);
+  const title = sanitizeTourText(tour.title, 80);
+  const category = sanitizeTourText(
+    CATEGORY_LABELS[tour.category as TourCategoryFilter] ?? tour.category,
+    40,
+  );
+  const cover = resolveMediaUrl(tour.coverUrl) || '/brand/mark-on-light.png';
+
+  return (
+    <article
+      className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm"
+      data-testid={`tour-card-${tour.id}`}
+    >
+      <div className="relative aspect-[16/10] bg-neutral-100">
+        <Image
+          src={cover}
+          alt=""
+          fill
+          unoptimized={shouldUnoptimizeMedia(cover)}
+          className="object-cover"
+          sizes="(max-width: 768px) 100vw, 33vw"
+        />
+      </div>
+      <div className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="line-clamp-2 text-base font-semibold text-neutral-950">
+            {title}
+          </h3>
+          <span
+            className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(tour.status)}`}
+            data-testid={`tour-status-badge-${tour.id}`}
+          >
+            {STATUS_LABELS[tour.status as TourStatusFilter] ?? tour.status}
+          </span>
+        </div>
+        <p className="text-sm text-neutral-600">
+          {category} · {tour.durationDays} gün
+        </p>
+        <p className="text-lg font-bold text-neutral-950">
+          {Number(tour.price).toLocaleString('tr-TR')}{' '}
+          {sanitizeTourText(tour.currency, 8)}
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={live}
+            aria-label={live ? 'Pasife al' : 'Yayına al'}
+            data-testid={`toggle-status-btn-${tour.id}`}
+            disabled={toggling}
+            onClick={onToggle}
+            className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition disabled:opacity-50 ${
+              live ? 'bg-emerald-600' : 'bg-neutral-300'
+            }`}
+          >
+            <span
+              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+                live ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+          <Link
+            href={`${ACENTE_ROUTES.tours}/${tour.id}`}
+            data-testid={`detail-tour-btn-${tour.id}`}
+            className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            Detaylar
+          </Link>
+          <Link
+            href={`${ACENTE_ROUTES.tours}/${tour.id}/edit`}
+            data-testid={`edit-tour-btn-${tour.id}`}
+            className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            Düzenle
+          </Link>
+          <Link
+            href={ACENTE_ROUTES.tourSeats(tour.id)}
+            data-testid={`seats-tour-btn-${tour.id}`}
+            className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            Koltuk
+          </Link>
+          {live ? (
+            <button
+              type="button"
+              data-testid={`deactivate-tour-btn-${tour.id}`}
+              onClick={onDeactivate}
+              className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-red-50 hover:text-red-700"
+            >
+              Pasife al
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </article>
   );
 }

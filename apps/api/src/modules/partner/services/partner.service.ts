@@ -28,10 +28,12 @@ import {
   parseAgencyReservationsQuery,
   parseAgencySupportTicketCreate,
   parseAgencySupportTicketsQuery,
+  parseAgencyToursQuery,
   type AgencyFinancialsQuery,
   type AgencyReservationsQuery,
   type AgencyReviewsQuery,
   type AgencySettingsNotificationsInput,
+  type AgencyToursQuery,
   type FinancialPaymentStatus,
 } from '@turta/shared-validators';
 import * as bcrypt from 'bcrypt';
@@ -629,34 +631,31 @@ export class PartnerService {
 
   async listTours(
     agencyId: string | undefined,
-    options?: {
-      q?: string;
-      status?: 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'ARCHIVED';
-      page?: number;
-      pageSize?: number;
-    },
+    options?: Partial<AgencyToursQuery>,
   ) {
     this.requireAgencyId(agencyId);
 
-    const page = Math.max(1, options?.page ?? 1);
-    const pageSize = Math.min(50, Math.max(1, options?.pageSize ?? 12));
-    const rawQ = (options?.q ?? '').trim().slice(0, 80);
-    // Strip control chars — never interpolate raw user input into HTML later.
-    const q = rawQ.replace(/[\u0000-\u001F\u007F]/g, '');
+    let parsed: AgencyToursQuery;
+    try {
+      parsed = parseAgencyToursQuery(options ?? {});
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'TOURS_QUERY_INVALID',
+          message: error.issues[0]?.message ?? 'Geçersiz tur filtresi',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
+
+    const { q, page, pageSize, status, category } = parsed;
 
     const where: Prisma.TourWhereInput = {
       agencyId,
       deletedAt: null,
-      ...(options?.status ? { status: options.status } : {}),
-      ...(q
-        ? {
-            OR: [
-              { title: { contains: q, mode: 'insensitive' } },
-              { slug: { contains: q, mode: 'insensitive' } },
-              // category is enum — exact match only when query looks like one
-            ],
-          }
-        : {}),
+      ...(status ? { status } : {}),
+      ...(category ? { category } : {}),
     };
 
     if (q) {
@@ -671,12 +670,11 @@ export class PartnerService {
       const categoryMatch = categories.find(
         (c) => c.toLowerCase() === q.toLowerCase(),
       );
-      if (categoryMatch) {
-        where.OR = [
-          ...(Array.isArray(where.OR) ? where.OR : []),
-          { category: categoryMatch },
-        ];
-      }
+      where.OR = [
+        { title: { contains: q, mode: 'insensitive' } },
+        { slug: { contains: q, mode: 'insensitive' } },
+        ...(categoryMatch ? [{ category: categoryMatch }] : []),
+      ];
     }
 
     const [total, tours] = await Promise.all([

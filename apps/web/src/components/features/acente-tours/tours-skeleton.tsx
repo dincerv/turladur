@@ -12,6 +12,7 @@ export function ToursSkeleton({ listView = false }: { listView?: boolean }) {
       className="space-y-6"
       aria-busy="true"
       aria-label="Tur listesi yükleniyor"
+      data-testid="tours-skeleton"
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-2">
