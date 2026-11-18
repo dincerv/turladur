@@ -189,8 +189,8 @@ export function Header() {
   };
 
   // Açık zeminli sayfalar: şeffaf + beyaz link (hero stili) kullanılmaz.
-  // Full-bleed dark hero’lu liste/detay (/tours, /activities, /routes[+slug])
-  // ANA SAYFA gibi üstte şeffaf kalır — beyaz bar + banner ayrık görünmesin.
+  // Full-bleed dark hero’lu liste sayfaları (/tours, /blog, /campaigns,
+  // /tour-operator, /activities, /routes) ANA SAYFA gibi üstte şeffaf kalır.
   const lightBackgroundRoutes = [
     '/about',
     '/contact',
@@ -200,8 +200,6 @@ export function Header() {
     '/register',
     '/acente/giris',
     '/partner-register',
-    '/blog',
-    '/campaigns',
     '/careers',
     '/gastronomi',
     '/kultur-turlari',
@@ -209,10 +207,10 @@ export function Header() {
   ];
   // Sadece gerçek App Router path'leri — ghost EN slug'lar ve silinmiş
   // `/destinations/`, `/agency/` kaldırıldı (Sprint 25.3).
-  // Not: /tours/* ve /routes/* dark hero → şeffaf; /activities/* açık zemin → solid.
-  // /tour-operator[+id] full-bleed dark hero → şeffaf (liste/profil tutarlı).
+  // /blog/… yazı detayı açık zemin → solid; /blog liste hero → şeffaf.
+  // /activities/… detay açık zemin → solid; liste dark hero → şeffaf.
   const lightBackgroundPrefixes = [
-    '/blog',
+    '/blog/',
     '/checkout',
     '/activities/',
     '/gastronomi',

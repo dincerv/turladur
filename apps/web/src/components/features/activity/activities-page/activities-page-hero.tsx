@@ -33,22 +33,33 @@ export function ActivitiesPageHero() {
   }, []);
 
   return (
-    <section className="relative h-[520px] w-full md:h-[600px]">
+    <section className="relative overflow-hidden border-b border-sky-900/10 bg-slate-900 pt-28 pb-12 md:pb-16">
       <Image
         src="https://images.unsplash.com/photo-1519451241324-20b4ea2c4220?q=80&w=2070&auto=format&fit=crop"
         alt=""
         fill
         priority
         sizes="100vw"
-        className="object-cover"
+        className="object-cover object-[center_35%]"
       />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-sky-700/70 via-blue-800/60 to-sky-900/70" />
-      <div className="absolute inset-0 flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8">
-        <div className="mb-8 w-full max-w-4xl text-center">
-          <h1 className="text-balance text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
-            Unutulmaz <span className="text-sky-300">Deneyimler</span> Keşfedin
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-gradient-to-br from-sky-950/80 via-teal-900/55 to-slate-900/75"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/50 via-transparent to-sky-950/30"
+      />
+      <div className="container relative mx-auto flex flex-col items-center px-4 sm:px-6 lg:px-8 xl:px-20">
+        <div className="mb-8 w-full max-w-3xl text-center">
+          <div className="mb-4 inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-medium text-sky-50 shadow-sm backdrop-blur-md">
+            <span className="mr-2 h-2 w-2 rounded-full bg-teal-300" />
+            Deneyimler
+          </div>
+          <h1 className="mb-3 text-balance text-3xl font-bold tracking-tight text-white md:text-5xl">
+            Unutulmaz <span className="text-teal-200">deneyimler</span> keşfet
           </h1>
-          <p className="mx-auto mt-4 max-w-3xl text-base font-light text-sky-100/90 sm:text-lg">
+          <p className="text-base text-sky-50/85 md:px-6 md:text-lg">
             Türkiye&apos;nin dört bir yanındaki en popüler turları ve
             aktiviteleri bulun.
           </p>
