@@ -33,17 +33,37 @@ export type UserRole =
   | 'GUIDE'
   | 'BUS_COMPANY';
 
-/** Partner staff (PARTNER_STAFF) permission keys set in /partner/users. */
+/** Agency staff module keys — /acente/users permission matrix. */
 export type StaffPermissionKey =
-  'tours' | 'reservations' | 'customers' | 'reports';
+  | 'tours'
+  | 'reservations'
+  | 'customers'
+  | 'reports'
+  | 'financials'
+  | 'settings';
+
+/** Per-module read/write flags (preferred). */
+export type StaffModuleAccess = {
+  read: boolean;
+  write: boolean;
+};
 
 /**
- * Stored as `{ tours: ['read','write'] }` or legacy `{ tours: true }`.
- * Empty array / false / missing = no access.
+ * Preferred: `{ tours: { read: true, write: false } }`
+ * Legacy: `{ tours: true }` or `{ tours: ['read','write'] }`
  */
 export type StaffPermissions = Partial<
-  Record<StaffPermissionKey, boolean | string[]>
+  Record<StaffPermissionKey, boolean | string[] | StaffModuleAccess>
 >;
+
+export const STAFF_PERMISSION_KEYS: readonly StaffPermissionKey[] = [
+  'tours',
+  'reservations',
+  'customers',
+  'reports',
+  'financials',
+  'settings',
+] as const;
 
 export type PartnerCapability = 'TOURS' | 'EXPERIENCES' | 'HOTELS';
 
@@ -92,6 +112,7 @@ export interface AgencyStaff {
   email: string;
   role: AgencyStaffRole;
   status: string;
+  permissions?: StaffPermissions | Record<string, unknown>;
 }
 
 export interface User {

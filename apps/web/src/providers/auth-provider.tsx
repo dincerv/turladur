@@ -27,13 +27,17 @@ import {
   probeSession,
   registerUser,
 } from '@/services/identity';
-import { isSellerPanelRole } from '@/lib/partner-permissions';
+import {
+  isSellerPanelRole,
+  normalizeStaffPermissions,
+} from '@/lib/partner-permissions';
 
 function syntheticActorUser(input: {
   id: string;
   email: string;
   name: string;
   role: User['role'] | string;
+  permissions?: User['permissions'];
 }): User {
   const now = new Date().toISOString();
   return {
@@ -53,7 +57,7 @@ function syntheticActorUser(input: {
     billingCountry: null,
     role: input.role as User['role'],
     partnerId: null,
-    permissions: null,
+    permissions: input.permissions ?? null,
     isActive: true,
     createdAt: now,
     updatedAt: now,
@@ -146,6 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               email: session.email ?? '',
               name: session.name ?? 'Acente',
               role: session.role,
+              permissions: normalizeStaffPermissions(session.permissions),
             }),
           );
           return;
@@ -217,6 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: result.staff.email,
           name: result.staff.name,
           role: result.staff.role,
+          permissions: normalizeStaffPermissions(result.staff.permissions),
         });
         accessTokenRef.current = result.accessToken;
         setAccessToken(result.accessToken);

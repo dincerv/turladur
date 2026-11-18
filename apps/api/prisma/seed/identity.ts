@@ -156,6 +156,15 @@ export async function seedIdentity(
         passwordHash,
         role: 'AGENCY_STAFF',
         status: 'ACTIVE',
+        // Seed: tours read-only — sidebar/write-gate E2E baseline
+        permissions: {
+          tours: { read: true, write: false },
+          reservations: { read: false, write: false },
+          financials: { read: false, write: false },
+          reports: { read: false, write: false },
+          settings: { read: false, write: false },
+          customers: { read: false, write: false },
+        },
       },
     });
 

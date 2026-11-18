@@ -29,6 +29,7 @@ import {
   parseAgencySupportTicketCreate,
   parseAgencySupportTicketsQuery,
   parseAgencyToursQuery,
+  hasStaffModuleAccess,
   type AgencyFinancialsQuery,
   type AgencyReservationsQuery,
   type AgencyReviewsQuery,
@@ -57,7 +58,11 @@ import {
 
 const DASHBOARD_CACHE_TTL_SECONDS = 60;
 
-type DashboardActor = { userId: string; role: string };
+type DashboardActor = {
+  userId: string;
+  role: string;
+  agencyStaffId?: string;
+};
 
 type DashboardCachePayload = {
   tours: {
@@ -590,7 +595,10 @@ export class PartnerService {
     }
 
     const staff = await this.prisma.agencyStaff.findFirst({
-      where: { id: actor.userId, deletedAt: null },
+      where: {
+        id: actor.agencyStaffId ?? actor.userId,
+        deletedAt: null,
+      },
       select: { permissions: true, agencyId: true },
     });
     const permissions = staff?.permissions;
@@ -605,15 +613,9 @@ export class PartnerService {
         canSeeTours: false,
       };
     }
-    const map = permissions as Record<string, unknown>;
-    const has = (key: string) => {
-      const value = map[key];
-      if (value === true) return true;
-      if (Array.isArray(value) && value.length > 0) return true;
-      return false;
-    };
+    const has = (key: string) => hasStaffModuleAccess(permissions, key, 'any');
     return {
-      canSeeRevenue: has('reports'),
+      canSeeRevenue: has('financials'),
       canSeeReservations: has('reservations') || has('customers'),
       canSeeTours: has('tours'),
     };
@@ -2334,7 +2336,8 @@ export class PartnerService {
     } = {},
   ) {
     this.requireAgencyId(agencyId);
-    if (options.role) this.assertReportsManagerAccess(options.role);
+    // Access control: @RequireStaffPermissions('reports') on controller.
+    // OWNER/MANAGER bypass in StaffPermissionsGuard.
 
     let parsed;
     try {
@@ -2730,7 +2733,8 @@ export class PartnerService {
     input: unknown,
   ) {
     this.requireAgencyId(agencyId);
-    this.assertReportsManagerAccess(role);
+    // Access: @RequireStaffPermissions('reports') on PUT (write).
+    void role;
 
     let parsed;
     try {

@@ -33,7 +33,6 @@ import { Role } from '@turta/shared-constants';
 
 import {
   AGENCY_OWNER_ONLY_ROLES,
-  AGENCY_REPORTS_MANAGER_ROLES,
   AGENCY_SELLER_ROLES,
   PLATFORM_ADMIN_ROLES,
 } from '../../../core/auth/utils/role-access';
@@ -659,6 +658,7 @@ export class PartnerController {
     return this.partnerService.getDashboardStats(agencyId, {
       userId: user.userId,
       role: user.role,
+      agencyStaffId: user.agencyStaffId,
     });
   }
 
@@ -683,6 +683,7 @@ export class PartnerController {
   }
 
   @Get('settings')
+  @RequireStaffPermissions('settings')
   @ApiOperation({
     summary: 'Settings bootstrap — staff profile, company, notifications',
   })
@@ -787,7 +788,7 @@ export class PartnerController {
   }
 
   @Get('financials/bank-accounts')
-  @RequireStaffPermissions('reports')
+  @RequireStaffPermissions('financials')
   @ApiOperation({ summary: 'List agency bank accounts (tenant-scoped)' })
   async listBankAccounts(@CurrentUser() user: UserPayload) {
     const agencyId = await this.sellerAgencyId(user);
@@ -795,7 +796,7 @@ export class PartnerController {
   }
 
   @Post('financials/bank-accounts')
-  @RequireStaffPermissions('reports')
+  @RequireStaffPermissions('financials')
   @ApiOperation({ summary: 'Create agency bank account (tenant-scoped)' })
   async createBankAccount(
     @CurrentUser() user: UserPayload,
@@ -811,7 +812,7 @@ export class PartnerController {
   }
 
   @Patch('financials/bank-accounts/:bankInfoId/default')
-  @RequireStaffPermissions('reports')
+  @RequireStaffPermissions('financials')
   @ApiOperation({ summary: 'Set default bank account (tenant-scoped)' })
   async setDefaultBankAccount(
     @CurrentUser() user: UserPayload,
@@ -827,7 +828,7 @@ export class PartnerController {
   }
 
   @Post('financials/bank-accounts/:bankInfoId/delete')
-  @RequireStaffPermissions('reports')
+  @RequireStaffPermissions('financials')
   @ApiOperation({ summary: 'Soft-delete bank account (tenant-scoped)' })
   async deleteBankAccount(
     @CurrentUser() user: UserPayload,
@@ -843,7 +844,7 @@ export class PartnerController {
   }
 
   @Get('financials/payouts')
-  @RequireStaffPermissions('reports')
+  @RequireStaffPermissions('financials')
   @ApiOperation({ summary: 'List agency payout requests (tenant-scoped)' })
   async listPayouts(@CurrentUser() user: UserPayload) {
     const agencyId = await this.sellerAgencyId(user);
@@ -851,7 +852,7 @@ export class PartnerController {
   }
 
   @Post('financials/payouts')
-  @RequireStaffPermissions('reports')
+  @RequireStaffPermissions('financials')
   @ApiOperation({
     summary: 'Create payout request — blocks ACCRUED earnings in a transaction',
   })
@@ -869,7 +870,7 @@ export class PartnerController {
   }
 
   @Get('financials/transactions')
-  @RequireStaffPermissions('reports')
+  @RequireStaffPermissions('financials')
   @ApiOperation({
     summary: 'Paginated agency earnings ledger (tenant-scoped)',
   })
@@ -882,7 +883,7 @@ export class PartnerController {
   }
 
   @Get('financials/export')
-  @RequireStaffPermissions('reports')
+  @RequireStaffPermissions('financials')
   @ApiOperation({ summary: 'Export financial ledger as CSV (tenant-scoped)' })
   async financialExport(
     @CurrentUser() user: UserPayload,
@@ -893,7 +894,7 @@ export class PartnerController {
   }
 
   @Get('financials')
-  @RequireStaffPermissions('reports')
+  @RequireStaffPermissions('financials')
   @ApiOperation({
     summary: 'Financial KPIs + monthly revenue (AgencyEarning aggregates)',
   })
@@ -909,10 +910,11 @@ export class PartnerController {
   }
 
   @Get('reports')
-  @Roles(...AGENCY_REPORTS_MANAGER_ROLES)
+  @Roles(...AGENCY_SELLER_ROLES)
+  @RequireStaffPermissions('reports')
   @ApiOperation({
     summary:
-      'Agency analytics (OWNER/MANAGER only) — aggregates, occupancy, goals',
+      'Agency analytics — requires reports module permission (OWNER/MANAGER bypass)',
   })
   async reports(
     @CurrentUser() user: UserPayload,
@@ -929,8 +931,9 @@ export class PartnerController {
   }
 
   @Put('reports/goals')
-  @Roles(...AGENCY_REPORTS_MANAGER_ROLES)
-  @ApiOperation({ summary: 'Upsert period sales goal (OWNER/MANAGER)' })
+  @Roles(...AGENCY_SELLER_ROLES)
+  @RequireStaffPermissions('reports')
+  @ApiOperation({ summary: 'Upsert period sales goal (reports write)' })
   async upsertReportGoal(
     @CurrentUser() user: UserPayload,
     @Body() body: UpsertPartnerSalesGoalDto,

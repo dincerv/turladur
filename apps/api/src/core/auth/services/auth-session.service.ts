@@ -59,6 +59,7 @@ export class AuthSessionService {
       email: string;
       name: string;
       role: string;
+      permissions: unknown;
     };
   }> {
     const staff = await this.prisma.agencyStaff.findFirst({
@@ -118,7 +119,8 @@ export class AuthSessionService {
         agencyId: staff.agencyId,
         email: staff.email,
         name: staff.name,
-        role: staff.role,
+        role: this.mapAgencyStaffRole(staff.role),
+        permissions: staff.permissions ?? {},
       },
     };
   }
@@ -272,6 +274,7 @@ export class AuthSessionService {
     busCompanyId?: string;
     email?: string;
     name?: string;
+    permissions?: unknown;
     expiresAt: string;
   }> {
     if (!this.refreshTokens.isEnabled()) {
@@ -285,13 +288,15 @@ export class AuthSessionService {
 
     let email: string | undefined;
     let name: string | undefined;
+    let permissions: unknown;
     if (peeked.actor.actorType === 'AGENCY_STAFF') {
       const staff = await this.prisma.agencyStaff.findFirst({
         where: { id: peeked.actor.agencyStaffId, deletedAt: null },
-        select: { email: true, name: true },
+        select: { email: true, name: true, permissions: true },
       });
       email = staff?.email;
       name = staff?.name;
+      permissions = staff?.permissions ?? {};
     }
 
     return {
@@ -300,12 +305,12 @@ export class AuthSessionService {
       actorType: payload.actorType,
       userId: payload.sub,
       agencyId: payload.agencyId,
-
       agencyStaffId: payload.agencyStaffId,
       guideId: payload.guideId,
       busCompanyId: payload.busCompanyId,
       email,
       name,
+      permissions,
       expiresAt: peeked.expiresAt.toISOString(),
     };
   }

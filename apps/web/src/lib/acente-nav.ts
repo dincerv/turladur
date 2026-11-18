@@ -68,13 +68,13 @@ export const ACENTE_SIDEBAR_LINKS: readonly AcenteSidebarLink[] = [
     href: ACENTE_ROUTES.financials,
     icon: Wallet,
     description: 'Gelir ve ödemeler',
-    permission: 'reports',
+    permission: 'financials',
   },
   {
     name: 'Raporlar',
     href: ACENTE_ROUTES.reports,
     icon: BarChart3,
-    permission: 'owner',
+    permission: 'reports',
   },
   {
     name: 'Kullanıcılar',
@@ -93,7 +93,7 @@ export const ACENTE_SIDEBAR_LINKS: readonly AcenteSidebarLink[] = [
     name: 'Ayarlar',
     href: ACENTE_ROUTES.settings,
     icon: Cog,
-    permission: 'owner',
+    permission: 'settings',
   },
   {
     name: 'Yardım',

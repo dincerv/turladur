@@ -12,7 +12,10 @@ export function PartnerForbidden({
   fallbackHref = '/acente/dashboard',
 }: PartnerForbiddenProps) {
   return (
-    <div className="flex min-h-[50vh] flex-col items-center justify-center px-4 text-center">
+    <div
+      className="flex min-h-[50vh] flex-col items-center justify-center px-4 text-center"
+      data-testid="partner-forbidden"
+    >
       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-600">
         <ShieldAlert className="h-7 w-7" />
       </div>

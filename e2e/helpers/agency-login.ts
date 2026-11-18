@@ -60,7 +60,11 @@ async function waitForLoginFormHydrated(page: Page): Promise<boolean> {
   }
 }
 
-async function loginAgencyOnce(page: Page): Promise<boolean> {
+async function loginAgencyOnce(
+  page: Page,
+  email: string,
+  password: string,
+): Promise<boolean> {
   await page.goto('/acente/giris', { waitUntil: 'domcontentloaded' });
 
   // Existing refresh cookie → soft redirect off /giris
@@ -75,12 +79,8 @@ async function loginAgencyOnce(page: Page): Promise<boolean> {
   if (!hydrated) return false;
 
   try {
-    await page
-      .locator('#acente-email')
-      .fill(E2E_AGENCY_EMAIL, { timeout: 10_000 });
-    await page
-      .locator('#acente-password')
-      .fill(E2E_AGENCY_PASSWORD, { timeout: 10_000 });
+    await page.locator('#acente-email').fill(email, { timeout: 10_000 });
+    await page.locator('#acente-password').fill(password, { timeout: 10_000 });
   } catch {
     // Detached by soft redirect while filling
     if (isAgencyAuthenticatedUrl(page.url())) {
@@ -108,7 +108,41 @@ async function loginAgencyOnce(page: Page): Promise<boolean> {
  * Full agency-staff login each test (refresh tokens rotate; storageState breaks).
  */
 export async function loginAgency(page: Page): Promise<boolean> {
-  if (await loginAgencyOnce(page)) return true;
+  if (await loginAgencyOnce(page, E2E_AGENCY_EMAIL, E2E_AGENCY_PASSWORD)) {
+    return true;
+  }
   await page.waitForTimeout(1_000);
-  return loginAgencyOnce(page);
+  return loginAgencyOnce(page, E2E_AGENCY_EMAIL, E2E_AGENCY_PASSWORD);
+}
+
+/** Login with explicit agency staff credentials (restricted staff E2E). */
+export async function loginAgencyAs(
+  page: Page,
+  email: string,
+  password: string,
+): Promise<boolean> {
+  if (await loginAgencyOnce(page, email, password)) return true;
+  await page.waitForTimeout(1_000);
+  return loginAgencyOnce(page, email, password);
+}
+
+export async function logoutAgency(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    try {
+      await fetch('/api/v1/identity/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      /* ignore */
+    }
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch {
+      /* ignore */
+    }
+  });
+  await page.context().clearCookies();
+  await page.goto('/acente/giris', { waitUntil: 'domcontentloaded' });
 }

@@ -18,11 +18,13 @@ import { getPartnerProfile } from '@/services/partner-admin';
 import { useAuth } from '@/providers/auth-provider';
 import {
   canAccessStaffPermission,
+  canMutateStaffPermission,
   hasAgencyOwnerAccess,
   hasFullPartnerAccess,
   isSellerPanelRole,
 } from '@/lib/partner-permissions';
 import {
+  partnerRouteRequiresWrite,
   resolvePartnerRouteAccess,
   type PartnerNavPermission,
 } from '@/lib/partner-route-access';
@@ -144,6 +146,10 @@ export function AgencyShell({ children }: { children: ReactNode }) {
     if (routeAccess === null) return true;
     if (routeAccess === 'owner') return hasFullPartnerAccess(user.role);
     if (routeAccess === 'agency_owner') return hasAgencyOwnerAccess(user.role);
+    const needsWrite = partnerRouteRequiresWrite(pathname);
+    if (needsWrite) {
+      return canMutateStaffPermission(user.role, user.permissions, routeAccess);
+    }
     return canAccessStaffPermission(user.role, user.permissions, routeAccess);
   })();
 
@@ -275,10 +281,13 @@ export function AgencyShell({ children }: { children: ReactNode }) {
 
   const renderNavItem = (item: AcenteSidebarLink) => {
     const active = isActive(item.href);
+    const navKey = item.href.replace(/^\/acente\/?/, '') || 'dashboard';
     return (
       <Link
         key={item.href}
         href={item.href}
+        data-testid={`agency-nav-${navKey}`}
+        data-nav-permission={item.permission ?? 'any'}
         className={cn(
           'group flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150',
           active
@@ -515,7 +524,7 @@ export function AgencyShell({ children }: { children: ReactNode }) {
                       <p className="text-xs text-gray-500">{user?.email}</p>
                     </div>
                     <div className="py-1">
-                      {canSeeNavLink('owner') ? (
+                      {canSeeNavLink('settings') ? (
                         <Link
                           href={ACENTE_ROUTES.settings}
                           className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -523,7 +532,7 @@ export function AgencyShell({ children }: { children: ReactNode }) {
                           Profil ve Ayarlar
                         </Link>
                       ) : null}
-                      {canSeeNavLink('reports') ? (
+                      {canSeeNavLink('financials') ? (
                         <Link
                           href={ACENTE_ROUTES.financials}
                           className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"

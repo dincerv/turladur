@@ -71,7 +71,7 @@ export function AcenteDashboard() {
   const canSeeRevenue = canAccessStaffPermission(
     user?.role,
     user?.permissions,
-    'reports',
+    'financials',
   );
   const canManageTours = canAccessStaffPermission(
     user?.role,

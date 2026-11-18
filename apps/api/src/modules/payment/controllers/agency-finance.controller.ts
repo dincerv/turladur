@@ -32,7 +32,7 @@ export class AgencyFinanceController {
 
   @Get(':agencyId/earnings')
   @Roles(...AGENCY_SELLER_ROLES)
-  @RequireStaffPermissions('reports')
+  @RequireStaffPermissions('financials')
   @ApiOperation({ summary: 'List agency earnings (own agency only)' })
   listEarnings(
     @Param('agencyId') agencyId: string,
@@ -49,7 +49,7 @@ export class AgencyFinanceController {
 
   @Get(':agencyId/payouts')
   @Roles(...AGENCY_SELLER_ROLES)
-  @RequireStaffPermissions('reports')
+  @RequireStaffPermissions('financials')
   @ApiOperation({ summary: 'List agency payouts (own agency only)' })
   listPayouts(
     @Param('agencyId') agencyId: string,
@@ -94,7 +94,7 @@ export class AgencyFinanceController {
 
   @Get(':agencyId/bank-info')
   @Roles(...AGENCY_SELLER_ROLES)
-  @RequireStaffPermissions('reports')
+  @RequireStaffPermissions('financials')
   @ApiOperation({ summary: 'Get AgencyBankInfo' })
   getBank(
     @Param('agencyId') agencyId: string,
@@ -105,7 +105,7 @@ export class AgencyFinanceController {
 
   @Put(':agencyId/bank-info')
   @Roles(...AGENCY_SELLER_ROLES)
-  @RequireStaffPermissions('reports')
+  @RequireStaffPermissions('financials')
   @ApiOperation({ summary: 'Upsert AgencyBankInfo' })
   upsertBank(
     @Param('agencyId') agencyId: string,

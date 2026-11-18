@@ -1,4 +1,12 @@
-import type { StaffPermissionKey, StaffPermissions } from '@turta/shared-types';
+import type {
+  StaffModuleAccess,
+  StaffPermissionKey,
+  StaffPermissions,
+} from '@turta/shared-types';
+import {
+  hasStaffModuleAccess,
+  normalizeStaffModuleAccess,
+} from '@turta/shared-validators';
 
 export function normalizeStaffPermissions(
   raw: unknown,
@@ -13,11 +21,22 @@ export function isStaffPermissionGranted(
   permissions: StaffPermissions | null | undefined,
   key: StaffPermissionKey,
 ): boolean {
-  if (!permissions) return false;
-  const value = permissions[key];
-  if (value === true) return true;
-  if (Array.isArray(value) && value.length > 0) return true;
-  return false;
+  return hasStaffModuleAccess(permissions, key, 'any');
+}
+
+export function canWriteStaffPermission(
+  permissions: StaffPermissions | null | undefined,
+  key: StaffPermissionKey,
+): boolean {
+  return hasStaffModuleAccess(permissions, key, 'write');
+}
+
+export function getStaffModuleAccess(
+  permissions: StaffPermissions | null | undefined,
+  key: StaffPermissionKey,
+): StaffModuleAccess {
+  if (!permissions) return { read: false, write: false };
+  return normalizeStaffModuleAccess(permissions[key]);
 }
 
 /** Partner owner / Agency owner-admin / platform admins bypass staff permission checks. */
@@ -33,11 +52,12 @@ export function hasFullPartnerAccess(role: string | undefined | null): boolean {
   );
 }
 
-/** Users CRUD — yalnızca OWNER (AGENCY_ADMIN hariç). */
+/** Users CRUD — OWNER + MANAGER (AGENCY_ADMIN). */
 export function hasAgencyOwnerAccess(role: string | undefined | null): boolean {
   return (
     role === 'PARTNER' ||
     role === 'AGENCY_OWNER' ||
+    role === 'AGENCY_ADMIN' ||
     role === 'ADMIN' ||
     role === 'SUPER_ADMIN' ||
     role === 'PLATFORM_ADMIN' ||
@@ -67,4 +87,14 @@ export function canAccessStaffPermission(
   if (hasFullPartnerAccess(role)) return true;
   if (role !== 'PARTNER_STAFF' && role !== 'AGENCY_STAFF') return false;
   return isStaffPermissionGranted(permissions, key);
+}
+
+export function canMutateStaffPermission(
+  role: string | undefined | null,
+  permissions: StaffPermissions | null | undefined,
+  key: StaffPermissionKey,
+): boolean {
+  if (hasFullPartnerAccess(role)) return true;
+  if (role !== 'PARTNER_STAFF' && role !== 'AGENCY_STAFF') return false;
+  return canWriteStaffPermission(permissions, key);
 }

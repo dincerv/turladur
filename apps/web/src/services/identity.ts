@@ -103,6 +103,7 @@ export type AgencyStaffLoginResult = {
     email: string;
     name: string;
     role: string;
+    permissions?: unknown;
   };
 };
 
@@ -266,6 +267,7 @@ export type SessionProbe =
       agencyStaffId?: string;
       email?: string;
       name?: string;
+      permissions?: unknown;
     };
 
 /** Cookie-based session probe (no refresh rotate). */

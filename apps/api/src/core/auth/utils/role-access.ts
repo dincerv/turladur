@@ -29,10 +29,14 @@ export const AGENCY_REPORTS_MANAGER_ROLES: readonly Role[] = [
   ...PLATFORM_ADMIN_ROLES,
 ] as const;
 
-/** Users CRUD — yalnızca OWNER (AGENCY_OWNER / legacy PARTNER) + platform. */
+/**
+ * Users CRUD — OWNER + MANAGER (AGENCY_ADMIN) + legacy PARTNER + platform.
+ * AGENT (AGENCY_STAFF) excluded.
+ */
 export const AGENCY_OWNER_ONLY_ROLES: readonly Role[] = [
   Role.PARTNER,
   Role.AGENCY_OWNER,
+  Role.AGENCY_ADMIN,
   ...PLATFORM_ADMIN_ROLES,
 ] as const;
 

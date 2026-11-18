@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -8,8 +8,10 @@ import {
   AGENCY_STAFF_STATUSES,
   AGENCY_STAFF_UI_ROLES,
   createAgencyStaffSchema,
+  normalizeStaffModuleAccess,
   type AgencyStaffUiRole,
 } from '@turta/shared-validators';
+import type { StaffPermissions } from '@turta/shared-types';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -23,7 +25,55 @@ import {
 import { Input } from '@/components/ui/input';
 import { ROLE_LABEL } from './role-badge';
 
-const createFormSchema = createAgencyStaffSchema;
+/** Formda gösterilen ana modüller (granüler read/write). */
+export const STAFF_FORM_PERMISSION_MODULES = [
+  { key: 'tours', label: 'Turlar' },
+  { key: 'reservations', label: 'Rezervasyonlar' },
+  { key: 'financials', label: 'Finans' },
+  { key: 'reports', label: 'Raporlar' },
+  { key: 'settings', label: 'Ayarlar' },
+] as const;
+
+type StaffFormPermissionKey =
+  (typeof STAFF_FORM_PERMISSION_MODULES)[number]['key'];
+
+export type StaffPermissionMatrix = Record<
+  StaffFormPermissionKey,
+  { read: boolean; write: boolean }
+>;
+
+function emptyPermissionMatrix(): StaffPermissionMatrix {
+  return {
+    tours: { read: false, write: false },
+    reservations: { read: false, write: false },
+    financials: { read: false, write: false },
+    reports: { read: false, write: false },
+    settings: { read: false, write: false },
+  };
+}
+
+export function toPermissionMatrix(raw: unknown): StaffPermissionMatrix {
+  const base = emptyPermissionMatrix();
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return base;
+  const source = raw as Record<string, unknown>;
+  for (const { key } of STAFF_FORM_PERMISSION_MODULES) {
+    base[key] = normalizeStaffModuleAccess(source[key]);
+  }
+  return base;
+}
+
+const permissionMatrixSchema = z.object({
+  tours: z.object({ read: z.boolean(), write: z.boolean() }),
+  reservations: z.object({ read: z.boolean(), write: z.boolean() }),
+  financials: z.object({ read: z.boolean(), write: z.boolean() }),
+  reports: z.object({ read: z.boolean(), write: z.boolean() }),
+  settings: z.object({ read: z.boolean(), write: z.boolean() }),
+});
+
+const createFormSchema = createAgencyStaffSchema.extend({
+  permissions: permissionMatrixSchema.default(emptyPermissionMatrix()),
+});
+
 const editFormSchema = z.object({
   name: z.string().trim().min(2).max(200).optional(),
   email: z.string().email().optional(),
@@ -36,6 +86,7 @@ const editFormSchema = z.object({
       (v) => !v || (v.length >= 8 && /[A-Z]/.test(v) && /\d/.test(v)),
       'Şifre en az 8 karakter, 1 büyük harf ve 1 rakam içermelidir',
     ),
+  permissions: permissionMatrixSchema.optional(),
 });
 
 export type StaffCreateFormValues = z.infer<typeof createFormSchema>;
@@ -51,6 +102,7 @@ type StaffFormDialogProps = {
     email: string;
     role: AgencyStaffUiRole;
     status: 'ACTIVE' | 'INACTIVE';
+    permissions?: StaffPermissions | unknown;
   };
   /** Self-edit: rol düşürme ve pasife alma UI'da kilitlenir */
   lockOwnerSelf?: boolean;
@@ -60,6 +112,93 @@ type StaffFormDialogProps = {
   onSubmitCreate: (values: StaffCreateFormValues) => Promise<void>;
   onSubmitEdit: (values: StaffEditFormValues) => Promise<void>;
 };
+
+function PermissionMatrixFields({
+  matrix,
+  disabled,
+  onChange,
+}: {
+  matrix: StaffPermissionMatrix;
+  disabled: boolean;
+  onChange: (next: StaffPermissionMatrix) => void;
+}) {
+  return (
+    <div
+      className="rounded-lg border border-neutral-200 bg-neutral-50/80 p-3"
+      data-testid="staff-permissions-matrix"
+    >
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-sm font-medium text-neutral-800">
+          Modül İzin Matrisi
+        </p>
+        <p className="text-xs text-neutral-500">Okuma / Yazma</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="text-left text-xs uppercase tracking-wide text-neutral-500">
+              <th className="pb-2 pr-3 font-semibold">Modül</th>
+              <th className="pb-2 px-2 text-center font-semibold">Read</th>
+              <th className="pb-2 px-2 text-center font-semibold">Write</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-neutral-200">
+            {STAFF_FORM_PERMISSION_MODULES.map(({ key, label }) => {
+              const row = matrix[key];
+              return (
+                <tr key={key} data-testid={`staff-perm-row-${key}`}>
+                  <td className="py-2 pr-3 font-medium text-neutral-800">
+                    {label}
+                  </td>
+                  <td className="px-2 py-2 text-center">
+                    <input
+                      type="checkbox"
+                      data-testid={`staff-perm-${key}-read`}
+                      checked={row.read}
+                      disabled={disabled}
+                      aria-label={`${label} okuma`}
+                      onChange={(e) => {
+                        const read = e.target.checked;
+                        onChange({
+                          ...matrix,
+                          [key]: {
+                            read,
+                            write: read ? row.write : false,
+                          },
+                        });
+                      }}
+                      className="h-4 w-4 rounded border-neutral-300"
+                    />
+                  </td>
+                  <td className="px-2 py-2 text-center">
+                    <input
+                      type="checkbox"
+                      data-testid={`staff-perm-${key}-write`}
+                      checked={row.write}
+                      disabled={disabled}
+                      aria-label={`${label} yazma`}
+                      onChange={(e) => {
+                        const write = e.target.checked;
+                        onChange({
+                          ...matrix,
+                          [key]: {
+                            read: write ? true : row.read,
+                            write,
+                          },
+                        });
+                      }}
+                      className="h-4 w-4 rounded border-neutral-300"
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 export function StaffFormDialog({
   open,
@@ -82,6 +221,7 @@ export function StaffFormDialog({
       password: '',
       role: 'AGENT',
       status: 'ACTIVE',
+      permissions: emptyPermissionMatrix(),
     },
   });
 
@@ -93,6 +233,7 @@ export function StaffFormDialog({
       password: '',
       role: 'AGENT',
       status: 'ACTIVE',
+      permissions: emptyPermissionMatrix(),
     },
   });
 
@@ -105,6 +246,7 @@ export function StaffFormDialog({
         password: '',
         role: 'AGENT',
         status: 'ACTIVE',
+        permissions: emptyPermissionMatrix(),
       });
     } else if (initial) {
       editForm.reset({
@@ -113,9 +255,20 @@ export function StaffFormDialog({
         password: '',
         role: initial.role,
         status: initial.status,
+        permissions: toPermissionMatrix(initial.permissions),
       });
     }
   }, [open, isCreate, initial, createForm, editForm]);
+
+  const createPermissions = createForm.watch('permissions');
+  const editPermissions = editForm.watch('permissions');
+
+  const activeMatrix = useMemo(() => {
+    if (isCreate) {
+      return createPermissions ?? emptyPermissionMatrix();
+    }
+    return editPermissions ?? emptyPermissionMatrix();
+  }, [isCreate, createPermissions, editPermissions]);
 
   const formError = isCreate
     ? createForm.formState.errors
@@ -130,7 +283,7 @@ export function StaffFormDialog({
     >
       <DialogContent
         data-testid="staff-form-dialog"
-        className="sm:max-w-md"
+        className="sm:max-w-lg"
         showCloseButton={!submitting}
       >
         <DialogHeader>
@@ -139,7 +292,7 @@ export function StaffFormDialog({
           </DialogTitle>
           <DialogDescription>
             {isCreate
-              ? 'Şifre bcrypt ile saklanır. Rol: OWNER, MANAGER veya AGENT.'
+              ? 'Rol ve granüler modül izinlerini tanımlayın. OWNER / MANAGER personel yönetebilir.'
               : 'Şifreyi boş bırakırsanız değişmez. Kendinizi düşüremez / silemezsiniz.'}
           </DialogDescription>
         </DialogHeader>
@@ -281,6 +434,24 @@ export function StaffFormDialog({
               </select>
             </div>
           </div>
+
+          <PermissionMatrixFields
+            matrix={activeMatrix}
+            disabled={submitting}
+            onChange={(next) => {
+              if (isCreate) {
+                createForm.setValue('permissions', next, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
+              } else {
+                editForm.setValue('permissions', next, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
+              }
+            }}
+          />
 
           {error ? (
             <p

@@ -1274,13 +1274,76 @@ const agencyStaffPasswordSchema = z
   .regex(/[A-Z]/, 'Şifrede en az 1 büyük harf olmalı')
   .regex(/\d/, 'Şifrede en az 1 rakam olmalı');
 
+export const STAFF_PERMISSION_MODULE_KEYS = [
+  'tours',
+  'reservations',
+  'customers',
+  'reports',
+  'financials',
+  'settings',
+] as const;
+
+export const staffModuleAccessSchema = z.object({
+  read: z.boolean(),
+  write: z.boolean(),
+});
+
+export const staffPermissionsSchema = z
+  .record(z.string(), staffModuleAccessSchema)
+  .optional();
+
+export type StaffModuleAccessInput = z.infer<typeof staffModuleAccessSchema>;
+export type StaffPermissionsInput = z.infer<typeof staffPermissionsSchema>;
+
+/** Normalize any stored permission value → { read, write }. */
+export function normalizeStaffModuleAccess(value: unknown): {
+  read: boolean;
+  write: boolean;
+} {
+  if (value === true) return { read: true, write: true };
+  if (value === false || value == null) return { read: false, write: false };
+  if (Array.isArray(value)) {
+    const set = new Set(value.map((v) => String(v).toLowerCase()));
+    const write = set.has('write');
+    const read = write || set.has('read');
+    return { read, write };
+  }
+  if (typeof value === 'object') {
+    const row = value as Record<string, unknown>;
+    const write = Boolean(row.write);
+    const read = Boolean(row.read) || write;
+    return { read, write };
+  }
+  return { read: false, write: false };
+}
+
+export function hasStaffModuleAccess(
+  permissions: unknown,
+  key: string,
+  mode: 'read' | 'write' | 'any' = 'any',
+): boolean {
+  if (
+    !permissions ||
+    typeof permissions !== 'object' ||
+    Array.isArray(permissions)
+  ) {
+    return false;
+  }
+  const access = normalizeStaffModuleAccess(
+    (permissions as Record<string, unknown>)[key],
+  );
+  if (mode === 'write') return access.write;
+  if (mode === 'read') return access.read;
+  return access.read || access.write;
+}
+
 export const createAgencyStaffSchema = z.object({
   name: z.string().trim().min(2).max(200),
   email: z.string().trim().email().max(200),
   password: agencyStaffPasswordSchema,
   role: z.enum(AGENCY_STAFF_UI_ROLES).default('AGENT'),
   status: z.enum(AGENCY_STAFF_STATUSES).optional().default('ACTIVE'),
-  permissions: z.record(z.unknown()).optional(),
+  permissions: staffPermissionsSchema,
 });
 
 export const updateAgencyStaffSchema = z
@@ -1289,7 +1352,7 @@ export const updateAgencyStaffSchema = z
     role: z.enum(AGENCY_STAFF_UI_ROLES).optional(),
     status: z.enum(AGENCY_STAFF_STATUSES).optional(),
     password: agencyStaffPasswordSchema.optional(),
-    permissions: z.record(z.unknown()).optional(),
+    permissions: staffPermissionsSchema,
   })
   .refine(
     (v) =>

@@ -15,9 +15,12 @@ import {
   type PartnerSubUser,
 } from '@/services/partner-admin';
 
+import { revalidateAgencyUsersPath } from '@/app/(agency)/acente/users/actions';
+
 import { RoleBadge, resolveUiRole } from './role-badge';
 import {
   StaffFormDialog,
+  toPermissionMatrix,
   type StaffCreateFormValues,
   type StaffEditFormValues,
 } from './staff-form-dialog';
@@ -129,9 +132,11 @@ export function AcenteUsersPage() {
           email: values.email,
           password: values.password,
           role: values.role,
+          permissions: values.permissions,
         },
         accessToken,
       );
+      await revalidateAgencyUsersPath();
       setDialogOpen(false);
       setFlash('Personel eklendi');
       await load();
@@ -154,13 +159,16 @@ export function AcenteUsersPage() {
         role?: string;
         status?: string;
         password?: string;
+        permissions?: StaffCreateFormValues['permissions'];
       } = {};
       if (values.name) body.name = values.name;
       if (values.role) body.role = values.role;
       if (values.status) body.status = values.status;
       if (values.password) body.password = values.password;
+      if (values.permissions) body.permissions = values.permissions;
 
       await updatePartnerSubUser(partnerId, selected.id, body, accessToken);
+      await revalidateAgencyUsersPath();
       setDialogOpen(false);
       setSelected(null);
       setFlash('Personel güncellendi');
@@ -220,6 +228,7 @@ export function AcenteUsersPage() {
     }
     try {
       await deletePartnerSubUser(partnerId, row.id, accessToken);
+      await revalidateAgencyUsersPath();
       setFlash('Personel silindi');
       await load();
     } catch (err) {
@@ -235,6 +244,7 @@ export function AcenteUsersPage() {
       role: resolveUiRole(selected.role, selected.uiRole),
       status: (selected.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE') as
         'ACTIVE' | 'INACTIVE',
+      permissions: toPermissionMatrix(selected.permissions),
     };
   }, [selected]);
 
@@ -256,7 +266,7 @@ export function AcenteUsersPage() {
           Yetkisiz erişim
         </h1>
         <p className="mt-2 text-sm text-amber-800">
-          Personel yönetimi yalnızca acente sahibine (OWNER) açıktır.
+          Personel yönetimi yalnızca OWNER veya MANAGER rollerine açıktır.
         </p>
       </div>
     );
@@ -270,8 +280,8 @@ export function AcenteUsersPage() {
             Personel Yönetimi
           </h1>
           <p className="mt-1 text-sm text-neutral-500">
-            Yalnızca bu acentenin personeli listelenir. OWNER koruması sunucu
-            tarafında zorunludur.
+            Yalnızca bu acentenin personeli listelenir. OWNER / MANAGER ve
+            tenant izolasyonu sunucu tarafında zorunludur.
           </p>
         </div>
         <Button

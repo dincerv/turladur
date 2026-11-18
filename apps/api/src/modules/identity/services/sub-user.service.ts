@@ -8,8 +8,10 @@ import type { SubUser as SharedSubUser } from '@turta/shared-types';
 import {
   mapAgencyStaffRoleToUi,
   mapUiRoleToAgencyStaffRole,
+  normalizeStaffModuleAccess,
   parseCreateAgencyStaff,
   parseUpdateAgencyStaff,
+  STAFF_PERMISSION_MODULE_KEYS,
 } from '@turta/shared-validators';
 import * as bcrypt from 'bcrypt';
 import { ZodError } from 'zod';
@@ -78,21 +80,22 @@ export class SubUserService {
     }
 
     const passwordHash = await bcrypt.hash(parsed.password, BCRYPT_ROUNDS);
-    const permissions = (parsed.permissions ??
-      {}) as unknown as Prisma.InputJsonValue;
+    const permissions = this.normalizePermissionsJson(parsed.permissions);
     const role = mapUiRoleToAgencyStaffRole(parsed.role);
 
-    const row = await this.prisma.agencyStaff.create({
-      data: {
-        agencyId,
-        name: parsed.name,
-        email,
-        passwordHash,
-        role,
-        permissions,
-        status: parsed.status ?? 'ACTIVE',
-        createdBy: actor.agencyStaffId ?? actor.userId,
-      },
+    const row = await this.prisma.$transaction(async (tx) => {
+      return tx.agencyStaff.create({
+        data: {
+          agencyId,
+          name: parsed.name,
+          email,
+          passwordHash,
+          role,
+          permissions,
+          status: parsed.status ?? 'ACTIVE',
+          createdBy: actor.agencyStaffId ?? actor.userId,
+        },
+      });
     });
 
     return { success: true, data: this.toShared(row), error: null };
@@ -165,15 +168,17 @@ export class SubUserService {
     if (parsed.status !== undefined) data.status = parsed.status;
     if (parsed.role !== undefined) data.role = nextRole;
     if (parsed.permissions !== undefined) {
-      data.permissions = parsed.permissions as unknown as Prisma.InputJsonValue;
+      data.permissions = this.normalizePermissionsJson(parsed.permissions);
     }
     if (parsed.password) {
       data.passwordHash = await bcrypt.hash(parsed.password, BCRYPT_ROUNDS);
     }
 
-    const updated = await this.prisma.agencyStaff.update({
-      where: { id: existing.id },
-      data,
+    const updated = await this.prisma.$transaction(async (tx) => {
+      return tx.agencyStaff.update({
+        where: { id: existing.id },
+        data,
+      });
     });
 
     return { success: true, data: this.toShared(updated), error: null };
@@ -266,11 +271,36 @@ export class SubUserService {
     return agency;
   }
 
+  /** Persist canonical `{ module: { read, write } }` JSON. */
+  private normalizePermissionsJson(raw: unknown): Prisma.InputJsonValue {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      return {} as Prisma.InputJsonValue;
+    }
+    const source = raw as Record<string, unknown>;
+    const out: Record<string, { read: boolean; write: boolean }> = {};
+    for (const key of STAFF_PERMISSION_MODULE_KEYS) {
+      if (key in source) {
+        out[key] = normalizeStaffModuleAccess(source[key]);
+      }
+    }
+    for (const [key, value] of Object.entries(source)) {
+      if (key in out) continue;
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        out[key] = normalizeStaffModuleAccess(value);
+      }
+    }
+    return out as unknown as Prisma.InputJsonValue;
+  }
+
   /** Users CRUD: OWNER only (+ platform). MANAGER/STAFF forbidden. */
   private assertOwnerOnly(agencyId: string, actor: ActorContext) {
     if (isPlatformAdminRole(actor.role)) return;
 
-    if (actor.role === 'AGENCY_OWNER' || actor.role === 'PARTNER') {
+    if (
+      actor.role === 'AGENCY_OWNER' ||
+      actor.role === 'AGENCY_ADMIN' ||
+      actor.role === 'PARTNER'
+    ) {
       if (actor.agencyId && actor.agencyId !== agencyId) {
         throw new ForbiddenException({
           code: 'FORBIDDEN',
@@ -282,7 +312,8 @@ export class SubUserService {
 
     throw new ForbiddenException({
       code: 'FORBIDDEN',
-      message: 'Personel yönetimi yalnızca acente sahibine (OWNER) açıktır',
+      message:
+        'Personel yönetimi yalnızca OWNER veya MANAGER rollerine açıktır',
     });
   }
 

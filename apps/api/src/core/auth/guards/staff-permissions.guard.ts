@@ -6,23 +6,16 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Role } from '@turta/shared-constants';
+import { hasStaffModuleAccess } from '@turta/shared-validators';
 
 import { PrismaService } from '../../database/prisma.service';
 import { STAFF_PERMISSIONS_KEY } from '../decorators/require-staff-permissions.decorator';
 import { UserPayload } from '../types/auth.types';
 
-function isPermissionGranted(permissions: unknown, key: string): boolean {
-  if (
-    !permissions ||
-    typeof permissions !== 'object' ||
-    Array.isArray(permissions)
-  ) {
-    return false;
-  }
-  const value = (permissions as Record<string, unknown>)[key];
-  if (value === true) return true;
-  if (Array.isArray(value) && value.length > 0) return true;
-  return false;
+function modeFromHttpMethod(method: string): 'read' | 'write' {
+  const m = method.toUpperCase();
+  if (m === 'GET' || m === 'HEAD' || m === 'OPTIONS') return 'read';
+  return 'write';
 }
 
 @Injectable()
@@ -42,8 +35,12 @@ export class StaffPermissionsGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<{ user?: UserPayload }>();
+    const request = context.switchToHttp().getRequest<{
+      user?: UserPayload;
+      method?: string;
+    }>();
     const user = request.user;
+    const mode = modeFromHttpMethod(request.method ?? 'GET');
 
     if (!user) {
       throw new ForbiddenException({
@@ -80,7 +77,7 @@ export class StaffPermissionsGuard implements CanActivate {
         });
       }
       const allowed = required.some((key) =>
-        isPermissionGranted(staff.permissions, key),
+        hasStaffModuleAccess(staff.permissions, key, mode),
       );
       if (!allowed) {
         throw new ForbiddenException({
@@ -111,7 +108,7 @@ export class StaffPermissionsGuard implements CanActivate {
     }
 
     const allowed = required.some((key) =>
-      isPermissionGranted(dbUser.permissions, key),
+      hasStaffModuleAccess(dbUser.permissions, key, mode),
     );
 
     if (!allowed) {
