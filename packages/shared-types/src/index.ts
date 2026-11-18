@@ -498,6 +498,8 @@ export interface Reservation {
   metadata?: Record<string, unknown> | null;
   startDate?: string | null;
   endDate?: string | null;
+  /** PENDING_PAYMENT seat hold deadline (ISO). */
+  holdExpiresAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

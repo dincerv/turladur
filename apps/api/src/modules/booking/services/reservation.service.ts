@@ -1155,6 +1155,7 @@ export class ReservationService {
     metadata?: Prisma.JsonValue | null;
     startDate?: Date | null;
     endDate?: Date | null;
+    holdExpiresAt?: Date | null;
     createdAt: Date;
     updatedAt: Date;
   }): SharedReservation {
@@ -1182,6 +1183,7 @@ export class ReservationService {
       metadata: (row.metadata as Record<string, unknown> | null) ?? null,
       startDate: row.startDate?.toISOString() ?? null,
       endDate: row.endDate?.toISOString() ?? null,
+      holdExpiresAt: row.holdExpiresAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };

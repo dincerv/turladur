@@ -123,6 +123,7 @@ export function EmailOtpPanel({
         </div>
         <button
           type="button"
+          data-testid="otp-send-btn"
           disabled={
             disabled || pending || !email.trim() || expiresIn > 0 || verified
           }
@@ -140,6 +141,7 @@ export function EmailOtpPanel({
       {sent ? (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <input
+            data-testid="otp-code-input"
             value={code}
             onChange={(e) => updateCode(e.target.value)}
             inputMode="numeric"
@@ -152,6 +154,7 @@ export function EmailOtpPanel({
           {verifyOnSubmit ? (
             <button
               type="button"
+              data-testid="otp-verify-btn"
               disabled={disabled || pending || code.length !== 6 || verified}
               onClick={() => void handleVerify()}
               className="h-10 rounded-lg bg-neutral-950 px-4 text-xs font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
@@ -177,7 +180,11 @@ export function EmailOtpPanel({
       )}
 
       {debugCode ? (
-        <p className="rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
+        <p
+          className="rounded bg-amber-50 px-2 py-1 text-xs text-amber-800"
+          data-testid="otp-debug-code"
+          data-code={debugCode}
+        >
           Dev kod: <strong>{debugCode}</strong> (Mailhog: localhost:8025)
         </p>
       ) : null}

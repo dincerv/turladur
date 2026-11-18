@@ -809,6 +809,7 @@ export default function BottomBookingBar({
           {canCheckout && checkoutUrl ? (
             <Link
               href={checkoutUrl}
+              data-testid="tour-checkout-cta"
               className="inline-flex shrink-0 items-center justify-center rounded-xl bg-neutral-950 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-neutral-800 hover:shadow-md active:scale-[0.97]"
             >
               Rezervasyon Yap
@@ -817,6 +818,7 @@ export default function BottomBookingBar({
           ) : (
             <button
               type="button"
+              data-testid="tour-checkout-expand"
               onClick={handleExpandClick}
               className="inline-flex shrink-0 items-center justify-center rounded-xl bg-neutral-950 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-neutral-800 hover:shadow-md active:scale-[0.97]"
             >
@@ -896,6 +898,7 @@ export default function BottomBookingBar({
               {canCheckout && checkoutUrl ? (
                 <Link
                   href={checkoutUrl}
+                  data-testid="tour-checkout-cta-panel"
                   className="inline-flex items-center justify-center rounded-lg bg-neutral-950 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-neutral-800 hover:shadow-md active:scale-[0.97]"
                 >
                   <span>Rezervasyon Yap</span>

@@ -77,6 +77,7 @@ export function CheckoutStepGuests() {
                   Ad <span className="text-red-500">*</span>
                 </label>
                 <input
+                  data-testid={`checkout-guest-first-${index}`}
                   value={guest.firstName}
                   onChange={(e) =>
                     updateGuest(index, {
@@ -93,6 +94,7 @@ export function CheckoutStepGuests() {
                   Soyad <span className="text-red-500">*</span>
                 </label>
                 <input
+                  data-testid={`checkout-guest-last-${index}`}
                   value={guest.lastName}
                   onChange={(e) =>
                     updateGuest(index, { lastName: e.target.value })
@@ -107,6 +109,7 @@ export function CheckoutStepGuests() {
                   TC Kimlik No <span className="text-red-500">*</span>
                 </label>
                 <input
+                  data-testid={`checkout-guest-tckn-${index}`}
                   value={guest.identityNumber}
                   onChange={(e) =>
                     updateGuest(index, {
@@ -157,6 +160,7 @@ export function CheckoutStepGuests() {
                       E-posta <span className="text-red-500">*</span>
                     </label>
                     <input
+                      data-testid={`checkout-guest-email-${index}`}
                       value={guest.email}
                       onChange={(e) =>
                         updateGuest(index, {
@@ -175,6 +179,7 @@ export function CheckoutStepGuests() {
                       <span className="text-red-500"> *</span>
                     </label>
                     <input
+                      data-testid={`checkout-guest-address-${index}`}
                       value={guest.address}
                       onChange={(e) =>
                         updateGuest(index, {
@@ -200,6 +205,7 @@ export function CheckoutStepGuests() {
             Kalkış noktası
           </h2>
           <select
+            data-testid="checkout-pickup-select"
             value={pickupPointId}
             onChange={(e) => setPickupPointId(e.target.value)}
             className="h-11 w-full rounded-lg border border-neutral-300 px-3 text-sm"
@@ -239,6 +245,7 @@ export function CheckoutStepGuests() {
               Ödeme / fatura sahibi <span className="text-red-500">*</span>
             </label>
             <input
+              data-testid="checkout-billing-name"
               value={billingFullName}
               onChange={(e) => setBillingFullName(e.target.value)}
               placeholder="Ad Soyad"
@@ -251,6 +258,7 @@ export function CheckoutStepGuests() {
               Fatura adresi <span className="text-red-500">*</span>
             </label>
             <input
+              data-testid="checkout-billing-line1"
               value={billingLine1}
               onChange={(e) => setBillingLine1(e.target.value)}
               placeholder="Fatura adresi"
@@ -263,6 +271,7 @@ export function CheckoutStepGuests() {
               Şehir <span className="text-red-500">*</span>
             </label>
             <input
+              data-testid="checkout-billing-city"
               value={billingCity}
               onChange={(e) => setBillingCity(e.target.value)}
               placeholder="Şehir"
@@ -318,6 +327,7 @@ export function CheckoutStepGuests() {
         </button>
         <button
           type="button"
+          data-testid="checkout-guests-next"
           onClick={handleStep2Next}
           className="inline-flex items-center gap-2 rounded-lg bg-neutral-950 px-5 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800"
         >

@@ -68,6 +68,7 @@ export type CheckoutUiContextValue = {
   canProceedPayment: boolean;
   submitting: boolean;
   handleSubmit: () => void | Promise<void>;
+  holdExpiresAt: string | null;
 };
 
 const CheckoutUiContext = createContext<CheckoutUiContextValue | null>(null);

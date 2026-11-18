@@ -61,6 +61,7 @@ export function CheckoutStepPayment() {
         </button>
         <button
           type="button"
+          data-testid="checkout-pay-card"
           onClick={() => {
             setPaymentMethod('card');
             setBankTransferAck(false);
@@ -131,6 +132,7 @@ export function CheckoutStepPayment() {
       {paymentMethod === 'card' ? (
         <div className="mt-6 space-y-3">
           <input
+            data-testid="checkout-card-name"
             value={cardName}
             onChange={(e) => setCardName(e.target.value)}
             placeholder="Kart üzerindeki isim"
@@ -139,6 +141,7 @@ export function CheckoutStepPayment() {
           />
           <div className="relative">
             <input
+              data-testid="checkout-card-number"
               value={cardNumber}
               onChange={(e) => {
                 const nextBrand = detectCardBrand(e.target.value);
@@ -159,6 +162,7 @@ export function CheckoutStepPayment() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <input
+              data-testid="checkout-card-expiry"
               value={cardExpiry}
               onChange={(e) => setCardExpiry(formatExpiryInput(e.target.value))}
               placeholder="AA/YY"
@@ -168,6 +172,7 @@ export function CheckoutStepPayment() {
               className="h-11 rounded-lg border border-neutral-300 px-3 text-sm"
             />
             <input
+              data-testid="checkout-card-cvc"
               value={cardCvc}
               onChange={(e) =>
                 setCardCvc(formatCvcInput(e.target.value, cardBrand))
@@ -208,6 +213,7 @@ export function CheckoutStepPayment() {
         </button>
         <button
           type="button"
+          data-testid="checkout-payment-next"
           disabled={!canProceedPayment}
           onClick={() => setCurrentStep(3)}
           className="inline-flex items-center gap-2 rounded-lg bg-neutral-950 px-5 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"

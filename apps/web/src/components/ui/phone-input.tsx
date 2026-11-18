@@ -196,6 +196,7 @@ export function PhoneInput({
 
         <input
           type="tel"
+          data-testid="phone-local-input"
           value={displayValue}
           onChange={(e) => handleLocalChange(e.target.value)}
           className={`flex-1 rounded-r-lg border-0 text-sm text-neutral-900 placeholder-neutral-400 focus:ring-0 ${

@@ -58,7 +58,10 @@ function CheckoutSuccessContent() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 px-4 py-16">
+    <div
+      className="min-h-screen bg-neutral-50 px-4 py-16"
+      data-testid="checkout-success-page"
+    >
       <div className="mx-auto max-w-lg rounded-xl border border-neutral-200 bg-white p-8 text-center shadow-sm">
         <CheckCircle2 className="mx-auto mb-4 h-14 w-14 text-emerald-600" />
         <h1 className="text-2xl font-bold text-neutral-900">

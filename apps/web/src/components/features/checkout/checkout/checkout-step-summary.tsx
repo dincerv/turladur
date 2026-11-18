@@ -53,6 +53,7 @@ export function CheckoutStepSummary() {
       <div className="mt-8 flex justify-end">
         <button
           type="button"
+          data-testid="checkout-summary-next"
           onClick={() => setCurrentStep(1)}
           className="inline-flex items-center gap-2 rounded-lg bg-neutral-950 px-5 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800"
         >

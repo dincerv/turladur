@@ -43,6 +43,7 @@ import { CheckoutStepGuests } from './checkout/checkout-step-guests';
 import { CheckoutStepPayment } from './checkout/checkout-step-payment';
 import { CheckoutStepConfirm } from './checkout/checkout-step-confirm';
 import { CheckoutSidebar } from './checkout/checkout-sidebar';
+import { CheckoutHoldBanner } from './checkout/checkout-hold-banner';
 
 export function CheckoutClient() {
   const router = useRouter();
@@ -86,6 +87,7 @@ export function CheckoutClient() {
   const [threeDsHtml, setThreeDsHtml] = useState<string | null>(null);
   const [emailOtpVerified, setEmailOtpVerified] = useState(false);
   const [bankTransferAck, setBankTransferAck] = useState(false);
+  const [holdExpiresAt, setHoldExpiresAt] = useState<string | null>(null);
 
   const cardBrand = useMemo(() => detectCardBrand(cardNumber), [cardNumber]);
   const cardBrandLabel = CARD_BRAND_LABEL[cardBrand];
@@ -402,6 +404,10 @@ export function CheckoutClient() {
         token,
       );
 
+      if (reservation.holdExpiresAt) {
+        setHoldExpiresAt(reservation.holdExpiresAt);
+      }
+
       if (paymentMethod === 'card') {
         const [month, year] = cardExpiry.includes('/')
           ? cardExpiry.split('/')
@@ -481,15 +487,23 @@ export function CheckoutClient() {
 
   if (threeDsHtml) {
     return (
-      <div className="min-h-screen bg-neutral-950 px-4 py-8 text-white">
+      <div
+        className="min-h-screen bg-neutral-950 px-4 py-8 text-white"
+        data-testid="checkout-3ds"
+      >
         <div className="mx-auto max-w-3xl">
           <h1 className="mb-2 text-center text-xl font-semibold">
             3D Secure doğrulama
           </h1>
-          <p className="mb-6 text-center text-sm text-neutral-400">
+          <p className="mb-4 text-center text-sm text-neutral-400">
             Banka doğrulama ekranı. Sandbox SMS kodu genelde{' '}
             <strong className="text-white">123456</strong>.
           </p>
+          {holdExpiresAt ? (
+            <div className="mb-6">
+              <CheckoutHoldBanner holdExpiresAt={holdExpiresAt} />
+            </div>
+          ) : null}
           <iframe
             title="3D Secure"
             className="h-[70vh] w-full rounded-xl border border-neutral-800 bg-white"
@@ -574,11 +588,15 @@ export function CheckoutClient() {
     canProceedPayment,
     submitting,
     handleSubmit,
+    holdExpiresAt,
   };
 
   return (
     <CheckoutUiProvider value={ui}>
-      <div className="min-h-screen bg-neutral-50 pb-14 pt-8 sm:pt-10">
+      <div
+        className="min-h-screen bg-neutral-50 pb-14 pt-8 sm:pt-10"
+        data-testid="checkout-page"
+      >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-5xl">
             <div className="mb-8 text-center">
@@ -605,8 +623,18 @@ export function CheckoutClient() {
               <BookingSteps steps={activeSteps} />
             </div>
 
+            {currentStep >= 2 ? (
+              <CheckoutHoldBanner
+                holdExpiresAt={holdExpiresAt}
+                softCountdown={!holdExpiresAt}
+              />
+            ) : null}
+
             {error ? (
-              <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              <div
+                className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                data-testid="checkout-error"
+              >
                 {error}
               </div>
             ) : null}

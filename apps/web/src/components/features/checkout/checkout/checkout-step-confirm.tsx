@@ -68,6 +68,7 @@ export function CheckoutStepConfirm() {
         </button>
         <button
           type="button"
+          data-testid="checkout-submit"
           disabled={submitting}
           onClick={() => void handleSubmit()}
           className="inline-flex items-center gap-2 rounded-lg bg-neutral-950 px-5 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-60"
