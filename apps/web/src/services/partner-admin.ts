@@ -1035,7 +1035,11 @@ export async function updatePartnerProfile(
   },
   token: string,
 ) {
-  return apiRequest('/partner/me', { method: 'PATCH', body, token });
+  return apiRequest<PartnerCompanyProfile>('/partner/me', {
+    method: 'PATCH',
+    body,
+    token,
+  });
 }
 
 export async function updatePartnerCompanyLogo(
