@@ -13,6 +13,7 @@ describe('parseTourSearchPrompt', () => {
     expect(filters.nights).toBe(3);
     expect(filters.stayKind).toBe('OVERNIGHT');
     expect(filters.region).toBe('Karadeniz');
+    expect(filters.q).toBe('Karadeniz');
     expect(filters.destinations).toEqual(
       expect.arrayContaining(['Uzungöl', 'Ayder']),
     );

@@ -934,9 +934,19 @@ export class TourService {
     let items = Array.isArray(searchResult.data) ? searchResult.data : [];
 
     // Broader recall if strict NL filters yield nothing.
-    if (items.length === 0 && (filters.q || filters.region)) {
+    // 1) Keep departure/stay/duration but force region as q (pin destinations
+    //    like Ayder often aren't in title/description).
+    // 2) Then drop structured filters and search region/q alone.
+    if (items.length === 0 && filters.region) {
       searchResult = await this.search({
-        q: filters.q ?? filters.region ?? undefined,
+        ...searchDto,
+        q: filters.region,
+      });
+      items = Array.isArray(searchResult.data) ? searchResult.data : [];
+    }
+    if (items.length === 0 && (filters.region || filters.q)) {
+      searchResult = await this.search({
+        q: filters.region ?? filters.q ?? undefined,
         page: 1,
         limit: 24,
         sortBy: 'rating',

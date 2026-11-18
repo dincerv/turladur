@@ -144,8 +144,10 @@ function buildQuery(
   region: string | null,
   leftoverHints: string[],
 ): string | null {
-  // Catalog search uses a single `contains` clause — prefer one strong token.
-  const primary = destinations[0] ?? region ?? leftoverHints[0] ?? null;
+  // Catalog `q` is a hard contains filter. Prefer region over pin destinations
+  // ("Uzungöl olsun") so we don't miss titled tours like "Karadeniz ve Batum".
+  // Destinations stay in filters for pills / soft ranking.
+  const primary = region ?? destinations[0] ?? leftoverHints[0] ?? null;
   return primary ? primary.slice(0, 100) : null;
 }
 
