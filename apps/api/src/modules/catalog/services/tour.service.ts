@@ -709,8 +709,38 @@ export class TourService {
     };
   }
 
+  /**
+   * Public catalog lookup — accepts cuid id or slug.
+   * Nested public routes (/dates, /pickup-points) use the same resolver.
+   */
+  private async resolvePublishedTourId(idOrSlug: string): Promise<string> {
+    const key = idOrSlug.trim();
+    if (!key) {
+      throw new NotFoundException({
+        code: 'TOUR_NOT_FOUND',
+        message: 'Tur bulunamadı',
+      });
+    }
+    const tour = await this.prisma.tour.findFirst({
+      where: {
+        deletedAt: null,
+        status: 'PUBLISHED',
+        OR: [{ id: key }, { slug: key }],
+      },
+      select: { id: true },
+    });
+    if (!tour) {
+      throw new NotFoundException({
+        code: 'TOUR_NOT_FOUND',
+        message: 'Tur bulunamadı',
+      });
+    }
+    return tour.id;
+  }
+
   async getById(tourId: string) {
-    const cacheKey = `catalog:tour:${tourId}`;
+    const key = tourId.trim();
+    const cacheKey = `catalog:tour:${key}`;
     const cached = await this.cache.get<SharedTour>(cacheKey);
     if (cached) {
       return { success: true, data: cached, error: null };
@@ -718,9 +748,9 @@ export class TourService {
 
     const tour = await this.prisma.tour.findFirst({
       where: {
-        id: tourId,
         deletedAt: null,
         status: 'PUBLISHED',
+        OR: [{ id: key }, { slug: key }],
       },
       include: {
         agency: {
@@ -745,6 +775,12 @@ export class TourService {
 
     const mapped = this.toSharedTour(tour);
     await this.cache.set(cacheKey, mapped, 900);
+    if (mapped.id !== key) {
+      await this.cache.set(`catalog:tour:${mapped.id}`, mapped, 900);
+    }
+    if (mapped.slug && mapped.slug !== key) {
+      await this.cache.set(`catalog:tour:${mapped.slug}`, mapped, 900);
+    }
 
     return { success: true, data: mapped, error: null };
   }
@@ -1153,8 +1189,9 @@ export class TourService {
 
   /** Shared Tag → related published tours (Post/Tag RelatedTours hikâyesi). */
   async listRelatedTours(tourId: string, limit = 6) {
+    const resolvedId = await this.resolvePublishedTourId(tourId);
     const tags = await this.prisma.tourTag.findMany({
-      where: { tourId },
+      where: { tourId: resolvedId },
       select: { tagId: true },
     });
 
@@ -1166,7 +1203,7 @@ export class TourService {
     const relatedLinks = await this.prisma.tourTag.findMany({
       where: {
         tagId: { in: tagIds },
-        tourId: { not: tourId },
+        tourId: { not: resolvedId },
         tour: { status: 'PUBLISHED', deletedAt: null },
       },
       select: { tourId: true },
@@ -1278,23 +1315,14 @@ export class TourService {
 
   async listTourDates(tourId: string) {
     // Public catalog: only PUBLISHED tours expose departure windows (IDOR).
-    const tour = await this.prisma.tour.findFirst({
-      where: { id: tourId, deletedAt: null, status: 'PUBLISHED' },
-      select: { id: true },
-    });
-
-    if (!tour) {
-      throw new NotFoundException({
-        code: 'TOUR_NOT_FOUND',
-        message: 'Tur bulunamadı',
-      });
-    }
+    // Accept id or slug so /tours/[slug] detail bundles work.
+    const resolvedId = await this.resolvePublishedTourId(tourId);
 
     // Self-heal unused duplicate windows without cancelling bookings.
-    await this.quietDedupeTourDates(tourId);
+    await this.quietDedupeTourDates(resolvedId);
 
     const dates = await this.prisma.tourDate.findMany({
-      where: { tourId, deletedAt: null, isActive: true },
+      where: { tourId: resolvedId, deletedAt: null, isActive: true },
       select: {
         id: true,
         tourId: true,

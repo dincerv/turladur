@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import type { LegacyTourCard as Tour } from '@/lib/tours/legacy-tour';
+import { tourPublicPath } from '@/lib/tours/tour-public-path';
 import MembershipBadge from '@/components/features/tour/membership-badge';
 import StarRating from '@/components/features/tour/star-rating';
 import { resolveMediaUrl, shouldUnoptimizeMedia } from '@/lib/media';
@@ -161,11 +162,13 @@ export function ModernTourCard({
       : `${tour.duration || 1} Gün`;
   const otherDatesCount = Math.max(tourDates.length - 1, 0);
   const title = (tour.name || 'Tur').trim() || 'Tur';
+  const href = tourPublicPath(tour);
 
   return (
     <article className="h-full" data-testid={`tour-card-${tour.id}`}>
       <Link
-        href={`/tours/${tour.id}`}
+        href={href}
+        data-testid={`tour-card-link-${tour.id}`}
         className={`group overflow-hidden rounded-2xl border border-neutral-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-neutral-200 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 ${
           isList ? 'flex h-full flex-col sm:flex-row' : 'flex h-full flex-col'
         }`}
@@ -216,7 +219,7 @@ export function ModernTourCard({
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              void toggleTourFavorite(tour.id, `/tours/${tour.id}`);
+              void toggleTourFavorite(tour.id, href);
             }}
             className={`absolute top-2 right-2 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-neutral-600 shadow-sm transition-colors hover:text-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 disabled:opacity-60 ${
               isFavorite ? 'text-red-500' : ''

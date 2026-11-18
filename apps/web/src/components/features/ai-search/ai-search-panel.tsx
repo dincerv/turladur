@@ -244,7 +244,11 @@ export function AiSearchPanel({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-1">
                         <Link
-                          href={`/tours/${tour.id}`}
+                          href={
+                            tour.slug
+                              ? `/tours/${encodeURIComponent(tour.slug)}`
+                              : `/tours/${encodeURIComponent(tour.id)}`
+                          }
                           className="line-clamp-2 text-xs font-semibold text-neutral-900 hover:underline"
                         >
                           {tour.title}

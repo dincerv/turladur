@@ -288,6 +288,7 @@ export default function TourDetailClient() {
 
         const transformedTour: Tour = {
           id: String(data.id),
+          slug: typeof data.slug === 'string' ? data.slug : null,
           name: sanitizePlainText(String(data.title ?? data.name ?? '')),
           description: sanitizePlainText(String(data.description ?? '')),
           duration: durationDays,
@@ -517,6 +518,7 @@ export default function TourDetailClient() {
                 : null) ?? '/brand/mark-on-light.png';
             return {
               id: String(record.id),
+              slug: typeof record.slug === 'string' ? record.slug : null,
               name: String(record.title ?? ''),
               description: String(record.description ?? ''),
               duration: Number(record.durationDays ?? 1),

@@ -3,6 +3,7 @@ import type { MetadataRoute } from 'next';
 import { searchExperiences } from '@/services/activity';
 import { searchTours } from '@/services/catalog';
 import { listRoutePageOverlays, searchPosts } from '@/services/content';
+import { tourPublicPath } from '@/lib/tours/tour-public-path';
 
 export const revalidate = 3600;
 
@@ -75,7 +76,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     );
     for (const tour of tours) {
       entries.push({
-        url: `${origin}/tours/${encodeURIComponent(tour.id)}`,
+        url: `${origin}${tourPublicPath(tour)}`,
         lastModified: tour.updatedAt ? new Date(tour.updatedAt) : now,
         changeFrequency: 'daily',
         priority: 0.85,

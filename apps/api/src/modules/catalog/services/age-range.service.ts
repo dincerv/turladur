@@ -271,8 +271,22 @@ export class AgeRangeService {
   }
 
   private async requireTourDate(tourId: string, dateId: string) {
+    const key = tourId.trim();
+    const tour = await this.prisma.tour.findFirst({
+      where: {
+        deletedAt: null,
+        OR: [{ id: key }, { slug: key }],
+      },
+      select: { id: true },
+    });
+    if (!tour) {
+      throw new NotFoundException({
+        code: 'TOUR_DATE_NOT_FOUND',
+        message: 'Tur tarihi bulunamadı',
+      });
+    }
     const date = await this.prisma.tourDate.findFirst({
-      where: { id: dateId, tourId, deletedAt: null },
+      where: { id: dateId, tourId: tour.id, deletedAt: null },
       include: { tour: true },
     });
     if (!date || date.tour.deletedAt) {

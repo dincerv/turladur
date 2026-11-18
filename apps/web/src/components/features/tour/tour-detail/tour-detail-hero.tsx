@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Star as StarIconSolid } from 'lucide-react';
 import { shouldUnoptimizeMedia } from '@/lib/media';
+import { tourPublicPath } from '@/lib/tours/tour-public-path';
 import {
   ICON_BUTTON_DARK_BG_CLASSES,
   PRIMARY_BUTTON_CLASSES,
@@ -88,7 +89,7 @@ export function TourDetailHero() {
                 }
                 disabled={isMutating}
                 onClick={() =>
-                  void toggleTourFavorite(tour.id, `/tours/${tour.id}`)
+                  void toggleTourFavorite(tour.id, tourPublicPath(tour))
                 }
               >
                 <HeartIcon
@@ -365,7 +366,7 @@ export function TourDetailHero() {
                   }
                   disabled={isMutating}
                   onClick={() =>
-                    void toggleTourFavorite(tour.id, `/tours/${tour.id}`)
+                    void toggleTourFavorite(tour.id, tourPublicPath(tour))
                   }
                 >
                   <HeartIcon

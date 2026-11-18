@@ -42,6 +42,7 @@ export interface TourDate {
 
 export interface Tour {
   id: string;
+  slug?: string | null;
   name: string;
   description: string;
   duration: number;

@@ -3,6 +3,8 @@ export type MembershipTier = 'BRONZE' | 'SILVER' | 'GOLD';
 /** Shape expected by the legacy tours listing UI (ModernTourCard). */
 export type LegacyTourCard = {
   id: string;
+  /** SEO-friendly path segment when present. */
+  slug?: string | null;
   name: string;
   description: string;
   price: number;

@@ -8,6 +8,7 @@ import type {
   ComparedTourColumn,
 } from '@turta/shared-types';
 import { resolveMediaUrl, shouldUnoptimizeMedia } from '@/lib/media';
+import { tourPublicPath } from '@/lib/tours/tour-public-path';
 import {
   computeCompareHighlights,
   isHighlighted,
@@ -106,7 +107,7 @@ function AvailableHeader({ tour }: { tour: ComparedTourAvailable }) {
           </p>
         ) : null}
         <Link
-          href={`/tours/${tour.id}`}
+          href={tourPublicPath(tour)}
           className="mt-2 inline-flex text-sm font-medium text-neutral-950 underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
         >
           Turu incele

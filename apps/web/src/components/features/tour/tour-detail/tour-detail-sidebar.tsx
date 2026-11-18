@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import MembershipBadge from '@/components/features/tour/membership-badge';
 import { resolveMediaUrl, shouldUnoptimizeMedia } from '@/lib/media';
+import { tourPublicPath } from '@/lib/tours/tour-public-path';
 import { formatPriceTry, sanitizePlainText } from './tour-detail.helpers';
 import { TourDetailExpandableText } from './tour-detail-expandable-text';
 import { useTourDetailUi } from './tour-detail-context';
@@ -469,7 +470,7 @@ export function TourDetailSidebar() {
                   ) : null}
                 </div>
                 <Link
-                  href={`/tours/${otherTour.id}`}
+                  href={tourPublicPath(otherTour)}
                   className="group/link inline-flex flex-shrink-0 items-center rounded-lg bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-950 transition-all hover:bg-neutral-200 active:scale-[0.98]"
                 >
                   <span>Detaylar</span>

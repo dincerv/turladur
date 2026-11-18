@@ -95,7 +95,7 @@ export class TourController {
 
   @Public()
   @Get(':id')
-  @ApiOperation({ summary: 'Get tour detail by id' })
+  @ApiOperation({ summary: 'Get tour detail by id or slug' })
   getById(@Param('id') id: string) {
     return this.queryBus.execute(new GetTourQuery(id));
   }

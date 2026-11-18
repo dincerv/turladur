@@ -4,6 +4,7 @@ import type { Tour } from '@turta/shared-types';
 
 import { resolveMediaUrl, shouldUnoptimizeMedia } from '@/lib/media';
 import { getTourCategoryLabel } from '@/lib/tour-category-label';
+import { tourPublicPath } from '@/lib/tours/tour-public-path';
 
 function formatPrice(price: string, currency: string) {
   const value = Number(price);
@@ -18,7 +19,7 @@ function formatPrice(price: string, currency: string) {
 export function TourCard({ tour }: { tour: Tour }) {
   const coverSrc = resolveMediaUrl(tour.coverUrl);
   const categoryLabel = getTourCategoryLabel(tour.category);
-  const href = `/tours/${tour.id}`;
+  const href = tourPublicPath(tour);
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">

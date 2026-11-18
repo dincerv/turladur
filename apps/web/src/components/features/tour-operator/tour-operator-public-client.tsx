@@ -41,7 +41,11 @@ function TourCard({ tour }: { tour: Tour }) {
 
   return (
     <Link
-      href={`/tours/${tour.id}`}
+      href={
+        tour.slug
+          ? `/tours/${encodeURIComponent(tour.slug)}`
+          : `/tours/${encodeURIComponent(tour.id)}`
+      }
       className="block h-full focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
     >
       <div className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:border-gray-200 hover:shadow-lg">

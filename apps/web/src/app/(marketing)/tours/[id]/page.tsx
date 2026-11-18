@@ -4,10 +4,12 @@ import { cache } from 'react';
 import TourDetailClient from '@/components/features/tour/tour-detail-client';
 import { ApiError } from '@/services/api-client';
 import { getTourById } from '@/services/catalog';
+import { tourPublicPath } from '@/lib/tours/tour-public-path';
 
 type PageProps = { params: Promise<{ id: string }> };
 
-const ID_RE = /^[A-Za-z0-9_-]{1,80}$/;
+/** cuid id or kebab slug */
+const ID_RE = /^[A-Za-z0-9_-]{1,120}$/;
 
 /** Deduped between metadata + future SSR within one request. */
 const loadTour = cache(async (id: string) => {
@@ -42,7 +44,7 @@ export async function generateMetadata({
     }
 
     const description = plainExcerpt(tour.description || tour.title);
-    const canonical = `/tours/${encodeURIComponent(tour.id)}`;
+    const canonical = tourPublicPath(tour);
     const image = tour.coverUrl || tour.galleryUrls?.[0];
 
     return {

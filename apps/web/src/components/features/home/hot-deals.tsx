@@ -14,6 +14,7 @@ import { searchExperiences } from '@/services/activity';
 
 type Deal = {
   id: string;
+  slug?: string | null;
   title: string;
   description: string;
   salePrice: number;
@@ -83,6 +84,7 @@ function mapRowToDeal(row: unknown, kind: 'tour' | 'activity'): Deal | null {
 
   return {
     id: String(id),
+    slug: typeof record.slug === 'string' ? record.slug : null,
     title: String(record.title ?? ''),
     description: String(record.description ?? ''),
     salePrice: Number.isFinite(price) ? price : 0,
@@ -347,7 +349,11 @@ function DealCard({ deal, index }: { deal: Deal; index: number }) {
   }, [deal.image]);
 
   const href =
-    deal.type === 'tour' ? `/tours/${deal.id}` : `/activities/${deal.id}`;
+    deal.type === 'tour'
+      ? deal.slug
+        ? `/tours/${encodeURIComponent(deal.slug)}`
+        : `/tours/${encodeURIComponent(deal.id)}`
+      : `/activities/${encodeURIComponent(deal.id)}`;
 
   return (
     <motion.article

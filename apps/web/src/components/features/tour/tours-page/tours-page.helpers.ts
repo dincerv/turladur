@@ -176,6 +176,7 @@ export const mapTourFromApi = (tour: Record<string, unknown>): Tour => {
 
   return {
     id: String(tour.id),
+    slug: typeof tour.slug === 'string' ? tour.slug : null,
     name:
       (typeof tour.title === 'string' ? tour.title : '') ||
       (typeof tour.name === 'string' ? tour.name : '') ||

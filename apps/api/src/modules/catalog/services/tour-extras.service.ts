@@ -21,9 +21,9 @@ export class TourExtrasService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getAccommodation(tourId: string) {
-    await this.requireTour(tourId);
+    const tour = await this.requireTour(tourId);
     const row = await this.prisma.tourAccommodation.findFirst({
-      where: { tourId, deletedAt: null },
+      where: { tourId: tour.id, deletedAt: null },
     });
     return {
       success: true,
@@ -38,7 +38,7 @@ export class TourExtrasService {
     agencyId: string | undefined,
     role: string,
   ) {
-    await this.findOwnedTour(tourId, agencyId, role);
+    const tour = await this.findOwnedTour(tourId, agencyId, role);
     const data = {
       name: dto.name.trim(),
       image: dto.image,
@@ -51,8 +51,8 @@ export class TourExtrasService {
     };
 
     const row = await this.prisma.tourAccommodation.upsert({
-      where: { tourId },
-      create: { tourId, ...data },
+      where: { tourId: tour.id },
+      create: { tourId: tour.id, ...data },
       update: data,
     });
 
@@ -69,9 +69,9 @@ export class TourExtrasService {
     role: string,
     deletedBy?: string,
   ) {
-    await this.findOwnedTour(tourId, agencyId, role);
+    const tour = await this.findOwnedTour(tourId, agencyId, role);
     const existing = await this.prisma.tourAccommodation.findFirst({
-      where: { tourId, deletedAt: null },
+      where: { tourId: tour.id, deletedAt: null },
     });
     if (!existing) {
       throw new NotFoundException({
@@ -88,15 +88,15 @@ export class TourExtrasService {
     });
     return {
       success: true,
-      data: { tourId, deleted: true },
+      data: { tourId: tour.id, deleted: true },
       error: null,
     };
   }
 
   async listPickupPoints(tourId: string) {
-    await this.requireTour(tourId);
+    const tour = await this.requireTour(tourId);
     const rows = await this.prisma.tourPickupPoint.findMany({
-      where: { tourId, deletedAt: null, isActive: true },
+      where: { tourId: tour.id, deletedAt: null, isActive: true },
       orderBy: { order: 'asc' },
     });
     return {
@@ -112,11 +112,11 @@ export class TourExtrasService {
     agencyId: string | undefined,
     role: string,
   ) {
-    await this.findOwnedTour(tourId, agencyId, role);
+    const tour = await this.findOwnedTour(tourId, agencyId, role);
     const geo = this.normalizePickupGeo(dto.latitude, dto.longitude);
     const row = await this.prisma.tourPickupPoint.create({
       data: {
-        tourId,
+        tourId: tour.id,
         city: dto.city.trim(),
         location: dto.location.trim(),
         time: dto.time.trim(),
@@ -137,9 +137,9 @@ export class TourExtrasService {
     agencyId: string | undefined,
     role: string,
   ) {
-    await this.findOwnedTour(tourId, agencyId, role);
+    const tour = await this.findOwnedTour(tourId, agencyId, role);
     const existing = await this.prisma.tourPickupPoint.findFirst({
-      where: { id: pointId, tourId, deletedAt: null },
+      where: { id: pointId, tourId: tour.id, deletedAt: null },
     });
     if (!existing) {
       throw new NotFoundException({
@@ -176,9 +176,9 @@ export class TourExtrasService {
     role: string,
     deletedBy?: string,
   ) {
-    await this.findOwnedTour(tourId, agencyId, role);
+    const tour = await this.findOwnedTour(tourId, agencyId, role);
     const existing = await this.prisma.tourPickupPoint.findFirst({
-      where: { id: pointId, tourId, deletedAt: null },
+      where: { id: pointId, tourId: tour.id, deletedAt: null },
     });
     if (!existing) {
       throw new NotFoundException({
@@ -202,8 +202,12 @@ export class TourExtrasService {
   }
 
   private async requireTour(tourId: string) {
+    const key = tourId.trim();
     const tour = await this.prisma.tour.findFirst({
-      where: { id: tourId, deletedAt: null },
+      where: {
+        deletedAt: null,
+        OR: [{ id: key }, { slug: key }],
+      },
     });
     if (!tour) {
       throw new NotFoundException({
