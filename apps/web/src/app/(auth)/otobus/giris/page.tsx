@@ -20,6 +20,7 @@ export default function OtobusGirisPage() {
       login={loginBusPanel}
       isAuthenticated={isAuthenticated}
       userRole={user?.role}
+      testIdPrefix="otobus"
     />
   );
 }

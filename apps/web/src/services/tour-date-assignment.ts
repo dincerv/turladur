@@ -48,7 +48,14 @@ export type TourDateAssignmentRow = {
     id: string;
     startDate: string;
     endDate: string;
+    vehicleId?: string | null;
     tour: { id: string; title: string };
+    vehicle?: {
+      id: string;
+      plateNumber: string;
+      seatLayoutKind: string;
+      capacity: number;
+    } | null;
   };
 };
 

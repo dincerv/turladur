@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Bus } from 'lucide-react';
 
+import { revalidateOtobusPanel } from '@/app/(bus)/otobus/actions';
 import { useAuth } from '@/providers/auth-provider';
 import { ApiError } from '@/services/api-client';
 import {
@@ -112,6 +113,7 @@ export default function OtobusAraclarPage() {
         setMessage('Araç kaydedildi.');
       }
       resetForm();
+      await revalidateOtobusPanel();
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Araç kaydedilemedi');
@@ -130,6 +132,7 @@ export default function OtobusAraclarPage() {
       await deleteBusVehicle(accessToken, vehicleId);
       setMessage('Araç silindi.');
       if (editingId === vehicleId) resetForm();
+      await revalidateOtobusPanel(vehicleId);
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Araç silinemedi');
@@ -139,7 +142,10 @@ export default function OtobusAraclarPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div
+      className="mx-auto max-w-3xl space-y-4"
+      data-testid="otobus-araclar-page"
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">Araçlar</h2>
@@ -153,6 +159,7 @@ export default function OtobusAraclarPage() {
             type="button"
             onClick={startCreate}
             className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+            data-testid="otobus-vehicle-add"
           >
             Araç ekle
           </button>
@@ -174,6 +181,7 @@ export default function OtobusAraclarPage() {
         <form
           onSubmit={(event) => void handleSubmit(event)}
           className="space-y-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+          data-testid="otobus-vehicle-form"
         >
           <h3 className="text-sm font-semibold text-gray-900">
             {editingId ? 'Araç düzenle' : 'Yeni araç'}
@@ -187,6 +195,7 @@ export default function OtobusAraclarPage() {
                 onChange={(event) => setPlateNumber(event.target.value)}
                 className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 placeholder="06 ABC 123"
+                data-testid="otobus-vehicle-plate"
               />
             </label>
             <label className="block text-sm text-gray-700">
@@ -198,6 +207,7 @@ export default function OtobusAraclarPage() {
                   setSeatLayoutKind(event.target.value as BusLayoutKindValue)
                 }
                 className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                data-testid="otobus-vehicle-layout"
               >
                 {BUS_LAYOUT_KINDS.map((row) => (
                   <option key={row.kind} value={row.kind}>
@@ -216,6 +226,7 @@ export default function OtobusAraclarPage() {
                 onChange={(event) => setModelYear(event.target.value)}
                 className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 placeholder="2022"
+                data-testid="otobus-vehicle-year"
               />
             </label>
             {editingId ? (
@@ -244,6 +255,7 @@ export default function OtobusAraclarPage() {
               type="submit"
               disabled={busy}
               className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              data-testid="otobus-vehicle-submit"
             >
               {editingId ? 'Kaydet' : 'Ekle'}
             </button>
@@ -262,16 +274,21 @@ export default function OtobusAraclarPage() {
       {loading ? <p className="text-sm text-gray-500">Yükleniyor…</p> : null}
 
       {!loading && vehicles.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-500">
+        <div
+          className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-500"
+          data-testid="otobus-vehicles-empty"
+        >
           Kayıtlı araç yok. “Araç ekle” ile tip seçerek kaydedin.
         </div>
       ) : null}
 
-      <ul className="space-y-3">
+      <ul className="space-y-3" data-testid="otobus-vehicles-list">
         {vehicles.map((vehicle) => (
           <li
             key={vehicle.id}
             className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+            data-testid={`otobus-vehicle-row-${vehicle.id}`}
+            data-plate={vehicle.plateNumber}
           >
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
@@ -292,6 +309,7 @@ export default function OtobusAraclarPage() {
                 <Link
                   href={OTOBUS_ROUTES.vehicleAvailability(vehicle.id)}
                   className="rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                  data-testid={`otobus-vehicle-availability-${vehicle.id}`}
                 >
                   Müsaitlik
                 </Link>
@@ -300,6 +318,7 @@ export default function OtobusAraclarPage() {
                   disabled={busy}
                   onClick={() => startEdit(vehicle)}
                   className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  data-testid={`otobus-vehicle-edit-${vehicle.id}`}
                 >
                   Düzenle
                 </button>
@@ -308,6 +327,7 @@ export default function OtobusAraclarPage() {
                   disabled={busy}
                   onClick={() => void handleDelete(vehicle.id)}
                   className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+                  data-testid={`otobus-vehicle-delete-${vehicle.id}`}
                 >
                   Sil
                 </button>

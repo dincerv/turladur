@@ -235,6 +235,25 @@ export async function loginBusCompany(input: {
   });
 }
 
+export type BusDashboardSummary = {
+  status: string;
+  verifiedAt: string | null;
+  companyName: string;
+  contactEmail: string;
+  vehicleCount: number;
+  activeVehicleCount: number;
+  pendingAssignments: number;
+  acceptedUpcoming: number;
+  fleetUtilizationPercent: number;
+};
+
+export async function getBusDashboard(token: string) {
+  return apiRequest<BusDashboardSummary>(
+    '/identity/bus-companies/me/dashboard',
+    { token },
+  );
+}
+
 export type SessionProbe =
   | { authenticated: false }
   | {

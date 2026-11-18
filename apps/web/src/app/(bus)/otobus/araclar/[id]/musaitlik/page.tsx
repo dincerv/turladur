@@ -8,6 +8,7 @@ import {
   AvailabilityCalendar,
   monthRange,
 } from '@/components/features/availability/availability-calendar';
+import { revalidateOtobusPanel } from '@/app/(bus)/otobus/actions';
 import { useAuth } from '@/providers/auth-provider';
 import { ApiError } from '@/services/api-client';
 import {
@@ -72,6 +73,7 @@ export default function OtobusAracMusaitlikPage() {
         }
         return [...prev, updated];
       });
+      await revalidateOtobusPanel(vehicleId);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Gün güncellenemedi');
     }
@@ -84,7 +86,11 @@ export default function OtobusAracMusaitlikPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div
+      className="mx-auto max-w-3xl space-y-4"
+      data-testid="otobus-musaitlik-page"
+      data-vehicle-id={vehicleId}
+    >
       <div>
         <Link
           href={OTOBUS_ROUTES.vehicles}
@@ -97,7 +103,7 @@ export default function OtobusAracMusaitlikPage() {
           {vehicle ? ` · ${vehicle.plateNumber}` : ''}
         </h2>
         <p className="mt-1 text-sm text-gray-600">
-          Gün seçerek aracı müsait / kapalı yapın. Atama kilitli günler
+          Gün seçerek aracı müsait / bakımda yapın. Atama ile rezerve günler
           değiştirilemez.
         </p>
       </div>

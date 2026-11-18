@@ -124,6 +124,15 @@ export class AvailabilityController {
     });
   }
 
+  @Get('bus-companies/me/dashboard')
+  @Roles(Role.BUS_COMPANY)
+  @ApiOperation({
+    summary: 'Bus company dashboard KPIs (fleet + assignments + utilization)',
+  })
+  getBusDashboard(@CurrentUser() user: UserPayload) {
+    return this.vehicles.getDashboard(this.requireBusCompanyId(user));
+  }
+
   @Get('bus-companies/me/vehicles')
   @Roles(Role.BUS_COMPANY)
   @ApiOperation({ summary: 'List vehicles for logged-in bus company' })

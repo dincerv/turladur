@@ -51,6 +51,125 @@ export class VehicleService {
     return { success: true as const, data: vehicles, error: null };
   }
 
+  /**
+   * Soft-live dashboard KPIs — fleet size, assignments, utilization.
+   */
+  async getDashboard(busCompanyId: string) {
+    const bus = await this.prisma.busCompany.findFirst({
+      where: { id: busCompanyId, deletedAt: null },
+    });
+    if (!bus) {
+      throw new NotFoundException({
+        code: 'BUS_COMPANY_NOT_FOUND',
+        message: 'Otobüs firması bulunamadı',
+      });
+    }
+
+    const now = new Date();
+    const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const fromDay = now.toISOString().slice(0, 10);
+    const toDay = in30.toISOString().slice(0, 10);
+
+    const [
+      vehicleCount,
+      activeVehicleCount,
+      pendingAssignments,
+      acceptedUpcoming,
+      vehicleIds,
+    ] = await Promise.all([
+      this.prisma.vehicle.count({
+        where: { busCompanyId, deletedAt: null },
+      }),
+      this.prisma.vehicle.count({
+        where: { busCompanyId, deletedAt: null, isActive: true },
+      }),
+      this.prisma.tourDateAssignment.count({
+        where: {
+          busCompanyId,
+          deletedAt: null,
+          role: 'BUS',
+          status: 'PENDING',
+        },
+      }),
+      this.prisma.tourDateAssignment.count({
+        where: {
+          busCompanyId,
+          deletedAt: null,
+          role: 'BUS',
+          status: 'ACCEPTED',
+          tourDate: {
+            deletedAt: null,
+            startDate: { gte: now },
+          },
+        },
+      }),
+      this.prisma.vehicle.findMany({
+        where: { busCompanyId, deletedAt: null, isActive: true },
+        select: { id: true },
+      }),
+    ]);
+
+    const ids = vehicleIds.map((row) => row.id);
+    let reservedDaysNext30 = 0;
+    let unavailableDaysNext30 = 0;
+    if (ids.length > 0) {
+      const [lockedTourDates, closedDays] = await Promise.all([
+        this.prisma.tourDate.findMany({
+          where: {
+            vehicleId: { in: ids },
+            deletedAt: null,
+            startDate: { lte: in30 },
+            endDate: { gte: now },
+          },
+          select: { startDate: true, endDate: true },
+        }),
+        this.prisma.vehicleAvailability.count({
+          where: {
+            vehicleId: { in: ids },
+            deletedAt: null,
+            isAvailable: false,
+            date: {
+              gte: new Date(`${fromDay}T00:00:00.000Z`),
+              lte: new Date(`${toDay}T23:59:59.999Z`),
+            },
+          },
+        }),
+      ]);
+      unavailableDaysNext30 = closedDays;
+      for (const tourDate of lockedTourDates) {
+        const start = Math.max(tourDate.startDate.getTime(), now.getTime());
+        const end = Math.min(tourDate.endDate.getTime(), in30.getTime());
+        if (end >= start) {
+          reservedDaysNext30 +=
+            Math.floor((end - start) / (24 * 60 * 60 * 1000)) + 1;
+        }
+      }
+    }
+
+    const capacityDays = Math.max(activeVehicleCount, 1) * 30;
+    const busyDays = Math.min(
+      capacityDays,
+      reservedDaysNext30 + unavailableDaysNext30,
+    );
+    const fleetUtilizationPercent = Math.round((busyDays / capacityDays) * 100);
+
+    return {
+      success: true as const,
+      data: {
+        status: bus.status,
+        verifiedAt: bus.verifiedAt?.toISOString() ?? null,
+        companyName: bus.companyName,
+        contactEmail: bus.contactEmail,
+        vehicleCount,
+        activeVehicleCount,
+        pendingAssignments,
+        acceptedUpcoming,
+        fleetUtilizationPercent,
+      },
+      error: null,
+    };
+  }
+
   async create(busCompanyId: string, dto: CreateVehicleDto) {
     await this.requireBusCompany(busCompanyId);
     const plateNumber = normalizePlate(dto.plateNumber);

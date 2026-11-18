@@ -100,6 +100,14 @@ export class TourDateAssignmentService {
             endDate: true,
             vehicleId: true,
             tour: { select: { id: true, title: true } },
+            vehicle: {
+              select: {
+                id: true,
+                plateNumber: true,
+                seatLayoutKind: true,
+                capacity: true,
+              },
+            },
           },
         },
       },

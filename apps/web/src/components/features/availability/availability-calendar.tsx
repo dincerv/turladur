@@ -76,13 +76,17 @@ export function AvailabilityCalendar({
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+    <div
+      className="rounded-lg border border-gray-200 bg-white shadow-sm"
+      data-testid="availability-calendar"
+    >
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
         <button
           type="button"
           onClick={onPrevMonth}
           className="rounded-lg p-1.5 text-gray-600 hover:bg-gray-100"
           aria-label="Önceki ay"
+          data-testid="availability-prev-month"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -94,6 +98,7 @@ export function AvailabilityCalendar({
           onClick={onNextMonth}
           className="rounded-lg p-1.5 text-gray-600 hover:bg-gray-100"
           aria-label="Sonraki ay"
+          data-testid="availability-next-month"
         >
           <ChevronRight className="h-5 w-5" />
         </button>
@@ -114,6 +119,11 @@ export function AvailabilityCalendar({
           }
           const dayNum = Number(cell.date.slice(8, 10));
           const available = cell.isAvailable && !cell.locked;
+          const state = cell.locked
+            ? 'reserved'
+            : available
+              ? 'available'
+              : 'maintenance';
           return (
             <button
               key={cell.date}
@@ -121,12 +131,15 @@ export function AvailabilityCalendar({
               disabled={cell.locked || loading}
               title={
                 cell.locked
-                  ? 'Atama ile kilitli'
+                  ? 'Rezerve (atama kilitli)'
                   : available
-                    ? 'Müsait — tıkla kapat'
-                    : 'Kapalı — tıkla aç'
+                    ? 'Müsait — tıkla bakıma al'
+                    : 'Bakımda — tıkla müsait yap'
               }
               onClick={() => onToggleDay(cell)}
+              data-testid={`availability-day-${cell.date}`}
+              data-state={state}
+              data-available={available ? 'true' : 'false'}
               className={cn(
                 'flex h-11 flex-col items-center justify-center rounded-lg text-sm font-medium transition-colors',
                 cell.locked && 'cursor-not-allowed bg-gray-200 text-gray-500',
@@ -140,7 +153,7 @@ export function AvailabilityCalendar({
             >
               <span>{dayNum}</span>
               <span className="text-[10px] font-normal leading-none">
-                {cell.locked ? 'Kilit' : available ? 'Açık' : 'Kapalı'}
+                {cell.locked ? 'Rezerve' : available ? 'Müsait' : 'Bakım'}
               </span>
             </button>
           );
@@ -154,11 +167,11 @@ export function AvailabilityCalendar({
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="h-3 w-3 rounded bg-gray-100 ring-1 ring-gray-200" />
-          Kapalı
+          Bakımda
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="h-3 w-3 rounded bg-gray-200 ring-1 ring-gray-300" />
-          Atama kilitli
+          Rezerve
         </span>
       </div>
 
