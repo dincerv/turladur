@@ -12,8 +12,10 @@ import {
   tourCreateDatesPricingSchema,
   tourCreateGeneralSchema,
   tourCreateMediaSchema,
+  tourCreatePickupSchema,
   zodErrorsToRecord,
   type TourCreateCategory,
+  type TourCreatePickupPoint,
 } from '@/components/features/acente-tours/tour-create-schemas';
 import { ACENTE_ROUTES } from '@/lib/panel-routes';
 import { useAuth } from '@/providers/auth-provider';
@@ -21,7 +23,7 @@ import { ApiError } from '@/services/api-client';
 import { createPartnerTour, getPartnerProfile } from '@/services/partner-admin';
 import { revalidatePartnerTourPaths } from '@/app/(agency)/acente/tours/actions';
 
-type Step = 'general' | 'dates' | 'media';
+type Step = 'general' | 'dates' | 'pickup' | 'media';
 
 type FormState = {
   title: string;
@@ -35,6 +37,7 @@ type FormState = {
   dateStart: string;
   dateEnd: string;
   capacity: number;
+  pickupPoints: TourCreatePickupPoint[];
   coverUrl: string | null;
   galleryUrls: string[];
   asDraft: boolean;
@@ -56,6 +59,17 @@ function isoDateOffset(days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+function defaultPickup(city = 'Ankara'): TourCreatePickupPoint {
+  return {
+    city,
+    location: '',
+    time: '08:00',
+    description: '',
+    latitude: null,
+    longitude: null,
+  };
+}
+
 const INITIAL: FormState = {
   title: '',
   description: '',
@@ -68,6 +82,7 @@ const INITIAL: FormState = {
   dateStart: isoDateOffset(30),
   dateEnd: isoDateOffset(32),
   capacity: 20,
+  pickupPoints: [defaultPickup('Ankara')],
   coverUrl: null,
   galleryUrls: [],
   asDraft: false,
@@ -110,7 +125,8 @@ export function AcenteTourCreatePage() {
   const stepIndex = useMemo(() => {
     if (step === 'general') return 0;
     if (step === 'dates') return 1;
-    return 2;
+    if (step === 'pickup') return 2;
+    return 3;
   }, [step]);
 
   function validateCurrentStep(): boolean {
@@ -122,6 +138,14 @@ export function AcenteTourCreatePage() {
       }
     } else if (step === 'dates') {
       const parsed = tourCreateDatesPricingSchema.safeParse(form);
+      if (!parsed.success) {
+        setErrors(zodErrorsToRecord(parsed.error));
+        return false;
+      }
+    } else if (step === 'pickup') {
+      const parsed = tourCreatePickupSchema.safeParse({
+        pickupPoints: form.pickupPoints,
+      });
       if (!parsed.success) {
         setErrors(zodErrorsToRecord(parsed.error));
         return false;
@@ -139,12 +163,33 @@ export function AcenteTourCreatePage() {
 
   function goNext() {
     if (!validateCurrentStep()) return;
-    if (step === 'general') setStep('dates');
-    else if (step === 'dates') setStep('media');
+    if (step === 'general') {
+      setForm((prev) => {
+        if (
+          prev.pickupPoints.length === 1 &&
+          !prev.pickupPoints[0]?.location.trim() &&
+          prev.departureCity.trim()
+        ) {
+          return {
+            ...prev,
+            pickupPoints: [
+              {
+                ...prev.pickupPoints[0],
+                city: prev.departureCity.trim(),
+              },
+            ],
+          };
+        }
+        return prev;
+      });
+      setStep('dates');
+    } else if (step === 'dates') setStep('pickup');
+    else if (step === 'pickup') setStep('media');
   }
 
   function goBack() {
-    if (step === 'media') setStep('dates');
+    if (step === 'media') setStep('pickup');
+    else if (step === 'pickup') setStep('dates');
     else if (step === 'dates') setStep('general');
     else if (
       isDirty &&
@@ -158,8 +203,52 @@ export function AcenteTourCreatePage() {
     }
   }
 
+  function patchPickup(
+    index: number,
+    key: keyof TourCreatePickupPoint,
+    value: string | number | null,
+  ) {
+    setForm((prev) => {
+      const next = prev.pickupPoints.map((point, i) =>
+        i === index ? { ...point, [key]: value } : point,
+      );
+      return { ...prev, pickupPoints: next };
+    });
+    setIsDirty(true);
+  }
+
+  function addPickup() {
+    setForm((prev) => ({
+      ...prev,
+      pickupPoints: [
+        ...prev.pickupPoints,
+        defaultPickup(prev.departureCity.trim() || 'Ankara'),
+      ],
+    }));
+    setIsDirty(true);
+  }
+
+  function removePickup(index: number) {
+    setForm((prev) => {
+      if (prev.pickupPoints.length <= 1) return prev;
+      return {
+        ...prev,
+        pickupPoints: prev.pickupPoints.filter((_, i) => i !== index),
+      };
+    });
+    setIsDirty(true);
+  }
+
   async function handleSubmit() {
     if (!accessToken || !validateCurrentStep()) return;
+    const pickupParsed = tourCreatePickupSchema.safeParse({
+      pickupPoints: form.pickupPoints,
+    });
+    if (!pickupParsed.success) {
+      setErrors(zodErrorsToRecord(pickupParsed.error));
+      setStep('pickup');
+      return;
+    }
     setSaving(true);
     setError(null);
     setSaveSuccess(false);
@@ -186,6 +275,15 @@ export function AcenteTourCreatePage() {
               priceOverride: Number(form.price),
             },
           ],
+          pickupPoints: form.pickupPoints.map((point, order) => ({
+            city: point.city.trim(),
+            location: point.location.trim(),
+            time: point.time.trim(),
+            description: point.description?.trim() || undefined,
+            latitude: point.latitude ?? null,
+            longitude: point.longitude ?? null,
+            order,
+          })),
         },
         accessToken,
       );
@@ -271,14 +369,15 @@ export function AcenteTourCreatePage() {
           <motion.div
             className="h-2.5 rounded-full bg-neutral-950"
             initial={false}
-            animate={{ width: `${((stepIndex + 1) / 3) * 100}%` }}
+            animate={{ width: `${((stepIndex + 1) / 4) * 100}%` }}
           />
         </div>
-        <div className="mt-3 flex justify-between text-sm">
+        <div className="mt-3 flex flex-wrap justify-between gap-2 text-sm">
           {(
             [
               ['general', 'Genel Bilgiler'],
               ['dates', 'Tarih & Fiyat'],
+              ['pickup', 'Kalkış Noktaları'],
               ['media', 'Medya Görselleri'],
             ] as const
           ).map(([key, label], i) => (
@@ -488,6 +587,130 @@ export function AcenteTourCreatePage() {
                 />
               </Field>
             </>
+          ) : null}
+
+          {step === 'pickup' ? (
+            <div className="space-y-4" data-testid="tour-pickup-step">
+              <p className="text-sm text-neutral-600">
+                Rezervasyon için en az bir biniş / kalkış noktası zorunludur.
+              </p>
+              {errors.pickupPoints ? (
+                <p
+                  role="alert"
+                  data-testid="tour-pickup-error"
+                  className="text-xs text-red-600"
+                >
+                  {errors.pickupPoints}
+                </p>
+              ) : null}
+              {form.pickupPoints.map((point, index) => (
+                <div
+                  key={index}
+                  data-testid={`tour-pickup-card-${index}`}
+                  className="space-y-3 rounded-lg border border-neutral-200 bg-neutral-50 p-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-neutral-900">
+                      Nokta {index + 1}
+                    </p>
+                    {form.pickupPoints.length > 1 ? (
+                      <button
+                        type="button"
+                        data-testid={`tour-pickup-remove-${index}`}
+                        onClick={() => removePickup(index)}
+                        className="rounded p-1 text-neutral-500 hover:bg-red-50 hover:text-red-600"
+                        aria-label="Kalkış noktasını kaldır"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field
+                      label="Şehir"
+                      error={errors[`pickupPoints.${index}.city`]}
+                      errorTestId={`tour-pickup-city-error-${index}`}
+                    >
+                      <input
+                        data-testid={`tour-pickup-city-${index}`}
+                        value={point.city}
+                        onChange={(e) =>
+                          patchPickup(
+                            index,
+                            'city',
+                            e.target.value.slice(0, 100),
+                          )
+                        }
+                        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                        placeholder="Ankara"
+                      />
+                    </Field>
+                    <Field
+                      label="Saat"
+                      error={errors[`pickupPoints.${index}.time`]}
+                      errorTestId={`tour-pickup-time-error-${index}`}
+                    >
+                      <input
+                        type="time"
+                        data-testid={`tour-pickup-time-${index}`}
+                        value={point.time}
+                        onChange={(e) =>
+                          patchPickup(index, 'time', e.target.value)
+                        }
+                        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                      />
+                    </Field>
+                    <Field
+                      label="Konum / buluşma yeri"
+                      error={errors[`pickupPoints.${index}.location`]}
+                      errorTestId={`tour-pickup-location-error-${index}`}
+                    >
+                      <input
+                        data-testid={`tour-pickup-location-${index}`}
+                        value={point.location}
+                        onChange={(e) =>
+                          patchPickup(
+                            index,
+                            'location',
+                            e.target.value.slice(0, 200),
+                          )
+                        }
+                        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                        placeholder="AŞTİ Terminal Girişi"
+                      />
+                    </Field>
+                    <Field
+                      label="Açıklama (opsiyonel)"
+                      error={errors[`pickupPoints.${index}.description`]}
+                    >
+                      <input
+                        data-testid={`tour-pickup-description-${index}`}
+                        value={point.description ?? ''}
+                        onChange={(e) =>
+                          patchPickup(
+                            index,
+                            'description',
+                            e.target.value.slice(0, 500),
+                          )
+                        }
+                        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                        placeholder="Kapı 3 önü"
+                      />
+                    </Field>
+                  </div>
+                </div>
+              ))}
+              <button
+                type="button"
+                data-testid="tour-pickup-add-btn"
+                onClick={addPickup}
+                disabled={form.pickupPoints.length >= 20}
+                className="inline-flex items-center rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-50 disabled:opacity-50"
+              >
+                <Plus className="mr-1.5 h-4 w-4" aria-hidden />
+                Nokta ekle
+              </button>
+            </div>
           ) : null}
 
           {step === 'media' ? (

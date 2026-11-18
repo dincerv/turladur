@@ -50,6 +50,25 @@ test.describe('Acente — Yeni tur', () => {
     await page.getByTestId('tour-capacity-input').fill('18');
 
     await page.getByTestId('tour-step-next-btn').click();
+    await expect(page.getByTestId('tour-pickup-step')).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Empty location blocks advance
+    await page.getByTestId('tour-pickup-location-0').fill('');
+    await page.getByTestId('tour-step-next-btn').click();
+    await expect(page.getByTestId('tour-pickup-location-error-0')).toBeVisible({
+      timeout: 5_000,
+    });
+
+    await page.getByTestId('tour-pickup-city-0').fill('Ankara');
+    await page
+      .getByTestId('tour-pickup-location-0')
+      .fill('AŞTİ Terminal Girişi');
+    await page.getByTestId('tour-pickup-time-0').fill('08:30');
+    await page.getByTestId('tour-pickup-description-0').fill('Kapı 3 önü');
+
+    await page.getByTestId('tour-step-next-btn').click();
     await expect(page.getByTestId('tour-media-dropzone')).toBeVisible({
       timeout: 10_000,
     });

@@ -50,6 +50,22 @@ export const tourCreateDatesPricingSchema = z
     }
   });
 
+export const tourCreatePickupPointSchema = z.object({
+  city: z.string().trim().min(2, 'Şehir en az 2 karakter').max(100),
+  location: z.string().trim().min(2, 'Konum en az 2 karakter').max(200),
+  time: z.string().trim().min(4, 'Saat gerekli').max(20),
+  description: z.string().trim().max(500).optional().or(z.literal('')),
+  latitude: z.number().finite().nullable().optional(),
+  longitude: z.number().finite().nullable().optional(),
+});
+
+export const tourCreatePickupSchema = z.object({
+  pickupPoints: z
+    .array(tourCreatePickupPointSchema)
+    .min(1, 'En az bir kalkış noktası gerekli')
+    .max(20),
+});
+
 export const tourCreateMediaSchema = z.object({
   coverUrl: z
     .string()
@@ -66,7 +82,9 @@ export type TourCreateGeneralInput = z.infer<typeof tourCreateGeneralSchema>;
 export type TourCreateDatesPricingInput = z.infer<
   typeof tourCreateDatesPricingSchema
 >;
+export type TourCreatePickupInput = z.infer<typeof tourCreatePickupSchema>;
 export type TourCreateMediaInput = z.infer<typeof tourCreateMediaSchema>;
+export type TourCreatePickupPoint = z.infer<typeof tourCreatePickupPointSchema>;
 
 export function zodErrorsToRecord(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
