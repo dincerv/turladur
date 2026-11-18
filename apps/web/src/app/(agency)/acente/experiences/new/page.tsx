@@ -488,7 +488,7 @@ export default function PartnerNewExperiencePage() {
               {accessToken && uploadEntityId ? (
                 <ImageUploadField
                   token={accessToken}
-                  folder="experiences"
+                  folder="activities"
                   entityId={uploadEntityId}
                   currentUrl={form.imageUrl}
                   onUploaded={(url) => patch('imageUrl', url)}

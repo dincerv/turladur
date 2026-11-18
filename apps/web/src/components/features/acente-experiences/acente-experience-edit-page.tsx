@@ -604,7 +604,7 @@ export function AcenteExperienceEditPage() {
               {accessToken ? (
                 <ImageUploadField
                   token={accessToken}
-                  folder="experiences"
+                  folder="activities"
                   entityId={id}
                   currentUrl={form.imageUrl}
                   onUploaded={(url) => patch('imageUrl', url)}
@@ -652,7 +652,7 @@ export function AcenteExperienceEditPage() {
                   <div className="mt-3">
                     <ImageUploadField
                       token={accessToken}
-                      folder="experiences"
+                      folder="activities"
                       entityId={id}
                       currentUrl={null}
                       onUploaded={(url) =>
