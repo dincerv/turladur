@@ -83,6 +83,65 @@ class ListPartnerCustomersQueryDto {
   pageSize?: number;
 }
 
+class ListPartnerReviewsQueryDto {
+  @ApiPropertyOptional({ description: 'Comment / customer search' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  q?: string;
+
+  @ApiPropertyOptional({ description: 'Star rating 1-5' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  rating?: number;
+
+  @ApiPropertyOptional({ description: 'Owned tour or experience id' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  tourId?: string;
+
+  @ApiPropertyOptional({ enum: ['all', 'responded', 'pending'] })
+  @IsOptional()
+  @IsIn(['all', 'responded', 'pending'])
+  responseStatus?: 'all' | 'responded' | 'pending';
+
+  @ApiPropertyOptional({
+    enum: ['newest', 'oldest', 'highest', 'lowest'],
+  })
+  @IsOptional()
+  @IsIn(['newest', 'oldest', 'highest', 'lowest'])
+  sort?: 'newest' | 'oldest' | 'highest' | 'lowest';
+
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ default: 20 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  pageSize?: number;
+}
+
+class ReplyPartnerReviewDto {
+  @ApiProperty({
+    example: 'Teşekkür ederiz, geri bildiriminiz bizim için değerli.',
+  })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(2000)
+  reply!: string;
+}
+
 class ListPartnerReportsQueryDto {
   @ApiPropertyOptional({ enum: ['monthly', 'yearly'] })
   @IsOptional()
@@ -613,6 +672,46 @@ export class PartnerController {
   async users(@CurrentUser() user: UserPayload) {
     const agencyId = await this.sellerAgencyId(user);
     return this.partnerService.listSubUsers(agencyId, user.role);
+  }
+
+  @Get('reviews')
+  @RequireStaffPermissions('customers')
+  @ApiOperation({
+    summary: 'List agency reviews (tenant-scoped tours, filters, aggregates)',
+  })
+  async reviews(
+    @CurrentUser() user: UserPayload,
+    @Query() query: ListPartnerReviewsQueryDto,
+  ) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.partnerService.listReviews(agencyId, {
+      q: query.q,
+      rating: query.rating,
+      tourId: query.tourId,
+      responseStatus: query.responseStatus,
+      sort: query.sort,
+      page: query.page,
+      pageSize: query.pageSize,
+    });
+  }
+
+  @Patch('reviews/:reviewId/reply')
+  @RequireStaffPermissions('customers')
+  @ApiOperation({
+    summary: 'Reply to a review (IDOR-safe tour ownership check)',
+  })
+  async replyToReview(
+    @Param('reviewId') reviewId: string,
+    @Body() dto: ReplyPartnerReviewDto,
+    @CurrentUser() user: UserPayload,
+  ) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.partnerService.replyToReview(
+      agencyId,
+      reviewId,
+      { reply: dto.reply },
+      user.role,
+    );
   }
 
   @Get('customers')

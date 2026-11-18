@@ -130,7 +130,11 @@ export function ReviewCard({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all hover:shadow-md">
+    <div
+      className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all hover:shadow-md"
+      data-testid={`review-card-${id}`}
+      data-rating={rating}
+    >
       <div className="p-6">
         <div className="flex justify-between items-start">
           <div className="flex items-center">
@@ -152,7 +156,10 @@ export function ReviewCard({
               )}
             </div>
             <div className="ml-3">
-              <h3 className="text-base font-semibold text-gray-900">
+              <h3
+                className="text-base font-semibold text-gray-900"
+                data-testid="review-customer-name"
+              >
                 {customerName}
               </h3>
               <div className="flex items-center text-sm text-gray-500">

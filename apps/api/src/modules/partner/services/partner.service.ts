@@ -16,8 +16,11 @@ import {
   parseAgencyCustomersQuery,
   parseAgencyFinancialsQuery,
   parseAgencyReportsQuery,
+  parseAgencyReviewReply,
+  parseAgencyReviewsQuery,
   parseAgencySalesGoalUpsert,
   type AgencyFinancialsQuery,
+  type AgencyReviewsQuery,
   type FinancialPaymentStatus,
 } from '@turta/shared-validators';
 import { ZodError } from 'zod';
@@ -2888,6 +2891,457 @@ export class PartnerService {
       endDate: row.endDate?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  /**
+   * Agency reviews — tenant-scoped via owned tours/experiences,
+   * paginated filters, aggregate KPIs + star distribution.
+   */
+  async listReviews(
+    agencyId: string | undefined,
+    options?: Partial<AgencyReviewsQuery>,
+  ) {
+    this.requireAgencyId(agencyId);
+
+    let parsed: AgencyReviewsQuery;
+    try {
+      parsed = parseAgencyReviewsQuery(options ?? {});
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'REVIEWS_QUERY_INVALID',
+          message: error.issues[0]?.message ?? 'Geçersiz yorum filtresi',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
+
+    const [tours, experiences] = await Promise.all([
+      this.prisma.tour.findMany({
+        where: { agencyId, deletedAt: null },
+        select: { id: true, title: true },
+        orderBy: { title: 'asc' },
+        take: 500,
+      }),
+      this.prisma.experience.findMany({
+        where: { agencyId, deletedAt: null },
+        select: { id: true, title: true },
+        orderBy: { title: 'asc' },
+        take: 500,
+      }),
+    ]);
+
+    const tourIds = tours.map((t) => t.id);
+    const experienceIds = experiences.map((e) => e.id);
+    const productOptions = [
+      ...tours.map((t) => ({
+        id: t.id,
+        title: t.title,
+        type: 'tour' as const,
+      })),
+      ...experiences.map((e) => ({
+        id: e.id,
+        title: e.title,
+        type: 'experience' as const,
+      })),
+    ];
+
+    if (tourIds.length === 0 && experienceIds.length === 0) {
+      return {
+        success: true,
+        data: {
+          items: [],
+          meta: {
+            page: parsed.page,
+            pageSize: parsed.pageSize,
+            total: 0,
+            totalPages: 0,
+          },
+          stats: {
+            total: 0,
+            averageRating: 0,
+            responded: 0,
+            pending: 0,
+            ratingDistribution: [5, 4, 3, 2, 1].map((rating) => ({
+              rating,
+              count: 0,
+              percent: 0,
+            })),
+          },
+          tours: productOptions,
+        },
+        error: null,
+      };
+    }
+
+    if (parsed.tourId) {
+      const owned =
+        tourIds.includes(parsed.tourId) ||
+        experienceIds.includes(parsed.tourId);
+      if (!owned) {
+        throw new ForbiddenException({
+          code: 'TOUR_FORBIDDEN',
+          message: 'Bu tura ait yorumlara erişemezsiniz',
+        });
+      }
+    }
+
+    const tenantProductScope: Prisma.ReviewWhereInput = {
+      OR: [
+        ...(tourIds.length ? [{ tourId: { in: tourIds } }] : []),
+        ...(experienceIds.length
+          ? [{ experienceId: { in: experienceIds } }]
+          : []),
+      ],
+    };
+
+    const andClauses: Prisma.ReviewWhereInput[] = [
+      { deletedAt: null },
+      { agencyId },
+      tenantProductScope,
+    ];
+
+    if (parsed.tourId) {
+      if (tourIds.includes(parsed.tourId)) {
+        andClauses.push({ tourId: parsed.tourId });
+      } else {
+        andClauses.push({ experienceId: parsed.tourId });
+      }
+    }
+
+    if (parsed.responseStatus === 'responded') {
+      andClauses.push({
+        partnerReply: { not: null },
+        NOT: { partnerReply: '' },
+      });
+    } else if (parsed.responseStatus === 'pending') {
+      andClauses.push({
+        OR: [{ partnerReply: null }, { partnerReply: '' }],
+      });
+    }
+
+    if (parsed.q) {
+      const matchedUsers = await this.prisma.user.findMany({
+        where: {
+          deletedAt: null,
+          OR: [
+            { firstName: { contains: parsed.q, mode: 'insensitive' } },
+            { lastName: { contains: parsed.q, mode: 'insensitive' } },
+            { email: { contains: parsed.q, mode: 'insensitive' } },
+          ],
+        },
+        select: { id: true },
+        take: 100,
+      });
+      const qUserIds = matchedUsers.map((u) => u.id);
+      andClauses.push({
+        OR: [
+          { comment: { contains: parsed.q, mode: 'insensitive' } },
+          ...(qUserIds.length ? [{ userId: { in: qUserIds } }] : []),
+        ],
+      });
+    }
+
+    const facetWhere: Prisma.ReviewWhereInput = { AND: andClauses };
+    const listWhere: Prisma.ReviewWhereInput = {
+      AND: [
+        ...andClauses,
+        ...(parsed.rating ? [{ rating: parsed.rating }] : []),
+      ],
+    };
+
+    const orderBy: Prisma.ReviewOrderByWithRelationInput =
+      parsed.sort === 'oldest'
+        ? { createdAt: 'asc' }
+        : parsed.sort === 'highest'
+          ? { rating: 'desc' }
+          : parsed.sort === 'lowest'
+            ? { rating: 'asc' }
+            : { createdAt: 'desc' };
+
+    const respondedWhere: Prisma.ReviewWhereInput = {
+      AND: [
+        ...andClauses,
+        ...(parsed.rating ? [{ rating: parsed.rating }] : []),
+        {
+          partnerReply: { not: null },
+          NOT: { partnerReply: '' },
+        },
+      ],
+    };
+
+    const [total, aggregate, respondedCount, distribution, rows] =
+      await Promise.all([
+        this.prisma.review.count({ where: listWhere }),
+        this.prisma.review.aggregate({
+          where: listWhere,
+          _avg: { rating: true },
+          _count: { _all: true },
+        }),
+        this.prisma.review.count({ where: respondedWhere }),
+        this.prisma.review.groupBy({
+          by: ['rating'],
+          where: facetWhere,
+          _count: { _all: true },
+        }),
+        this.prisma.review.findMany({
+          where: listWhere,
+          orderBy,
+          skip: (parsed.page - 1) * parsed.pageSize,
+          take: parsed.pageSize,
+          select: {
+            id: true,
+            tourId: true,
+            experienceId: true,
+            userId: true,
+            rating: true,
+            comment: true,
+            guideRating: true,
+            operatorRating: true,
+            routeRating: true,
+            foodRating: true,
+            hotelRating: true,
+            transportRating: true,
+            guideFeedback: true,
+            transportFeedback: true,
+            accommodationFeedback: true,
+            partnerReply: true,
+            partnerRepliedAt: true,
+            createdAt: true,
+          },
+        }),
+      ]);
+
+    const userIds = [...new Set(rows.map((r) => r.userId))];
+    const rowTourIds = [
+      ...new Set(rows.map((r) => r.tourId).filter((id): id is string => !!id)),
+    ];
+    const rowExperienceIds = [
+      ...new Set(
+        rows.map((r) => r.experienceId).filter((id): id is string => !!id),
+      ),
+    ];
+
+    const [users, rowTours, rowExperiences] = await Promise.all([
+      userIds.length
+        ? this.prisma.user.findMany({
+            where: { id: { in: userIds } },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          })
+        : Promise.resolve(
+            [] as Array<{
+              id: string;
+              firstName: string | null;
+              lastName: string | null;
+              email: string;
+            }>,
+          ),
+      rowTourIds.length
+        ? this.prisma.tour.findMany({
+            where: { id: { in: rowTourIds }, agencyId, deletedAt: null },
+            select: { id: true, title: true },
+          })
+        : Promise.resolve([] as Array<{ id: string; title: string }>),
+      rowExperienceIds.length
+        ? this.prisma.experience.findMany({
+            where: {
+              id: { in: rowExperienceIds },
+              agencyId,
+              deletedAt: null,
+            },
+            select: { id: true, title: true },
+          })
+        : Promise.resolve([] as Array<{ id: string; title: string }>),
+    ]);
+
+    const userMap = new Map(users.map((u) => [u.id, u]));
+    const tourTitle = new Map(rowTours.map((t) => [t.id, t.title]));
+    const experienceTitle = new Map(rowExperiences.map((e) => [e.id, e.title]));
+
+    const items = rows.map((r) => {
+      const user = userMap.get(r.userId);
+      const customerName = user
+        ? [user.firstName, user.lastName].filter(Boolean).join(' ').trim() ||
+          user.email
+        : 'Misafir';
+      const productType = r.experienceId
+        ? ('experience' as const)
+        : ('tour' as const);
+      const tourName = r.tourId
+        ? (tourTitle.get(r.tourId) ?? 'Tur')
+        : r.experienceId
+          ? (experienceTitle.get(r.experienceId) ?? 'Aktivite')
+          : 'Ürün';
+
+      return {
+        id: r.id,
+        customerName,
+        customerImage: null as string | null,
+        tourName,
+        tourId: r.tourId ?? r.experienceId ?? '',
+        productType,
+        rating: r.rating,
+        categoryRatings: {
+          guideRating: r.guideRating ?? r.rating,
+          operatorRating: r.operatorRating ?? r.rating,
+          routeRating: r.routeRating ?? r.rating,
+          foodRating: r.foodRating ?? r.rating,
+          hotelRating: r.hotelRating ?? r.rating,
+          transportRating: r.transportRating ?? r.rating,
+        },
+        categoryFeedback: {
+          guideFeedback: r.guideFeedback ?? null,
+          operatorFeedback: null,
+          routeFeedback: null,
+          foodFeedback: null,
+          hotelFeedback: r.accommodationFeedback ?? null,
+          transportFeedback: r.transportFeedback ?? null,
+        },
+        reviewDate: r.createdAt.toLocaleDateString('tr-TR', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }),
+        reviewDateRaw: r.createdAt.toISOString(),
+        reviewText: r.comment ?? '',
+        isResponded: Boolean(r.partnerReply && r.partnerReply.trim()),
+        responseText: r.partnerReply ?? undefined,
+      };
+    });
+
+    const facetTotal = distribution.reduce((s, d) => s + d._count._all, 0);
+    const byRating = new Map(
+      distribution.map((d) => [d.rating, d._count._all]),
+    );
+    const ratingDistribution = [5, 4, 3, 2, 1].map((rating) => {
+      const count = byRating.get(rating) ?? 0;
+      return {
+        rating,
+        count,
+        percent:
+          facetTotal === 0 ? 0 : Math.round((count / facetTotal) * 1000) / 10,
+      };
+    });
+
+    const avg = aggregate._avg.rating ?? 0;
+    const pending = Math.max(0, total - respondedCount);
+
+    return {
+      success: true,
+      data: {
+        items,
+        meta: {
+          page: parsed.page,
+          pageSize: parsed.pageSize,
+          total,
+          totalPages: Math.ceil(total / parsed.pageSize) || 0,
+        },
+        stats: {
+          total,
+          averageRating: Math.round(avg * 10) / 10,
+          responded: respondedCount,
+          pending,
+          ratingDistribution,
+        },
+        tours: productOptions,
+      },
+      error: null,
+    };
+  }
+
+  /** Reply to a review — IDOR-safe (agencyId + tour/experience ownership). */
+  async replyToReview(
+    agencyId: string | undefined,
+    reviewId: string,
+    body: unknown,
+    role?: string,
+  ) {
+    this.requireAgencyId(agencyId);
+
+    let parsed;
+    try {
+      parsed = parseAgencyReviewReply(body);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'REVIEW_REPLY_INVALID',
+          message: error.issues[0]?.message ?? 'Geçersiz yanıt',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
+
+    const review = await this.prisma.review.findFirst({
+      where: { id: reviewId, deletedAt: null },
+    });
+    if (!review) {
+      throw new NotFoundException({
+        code: 'REVIEW_NOT_FOUND',
+        message: 'Değerlendirme bulunamadı',
+      });
+    }
+
+    if (!isPlatformAdminRole(role)) {
+      if (review.agencyId !== agencyId) {
+        throw new ForbiddenException({
+          code: 'PARTNER_MISMATCH',
+          message: 'Bu yoruma yanıt veremezsiniz',
+        });
+      }
+
+      if (review.tourId) {
+        const tour = await this.prisma.tour.findFirst({
+          where: { id: review.tourId, agencyId, deletedAt: null },
+          select: { id: true },
+        });
+        if (!tour) {
+          throw new ForbiddenException({
+            code: 'TOUR_OWNERSHIP_MISMATCH',
+            message: 'Bu yoruma yanıt veremezsiniz',
+          });
+        }
+      }
+
+      if (review.experienceId) {
+        const experience = await this.prisma.experience.findFirst({
+          where: { id: review.experienceId, agencyId, deletedAt: null },
+          select: { id: true },
+        });
+        if (!experience) {
+          throw new ForbiddenException({
+            code: 'EXPERIENCE_OWNERSHIP_MISMATCH',
+            message: 'Bu yoruma yanıt veremezsiniz',
+          });
+        }
+      }
+    }
+
+    const updated = await this.prisma.review.update({
+      where: { id: reviewId },
+      data: {
+        partnerReply: parsed.reply,
+        partnerRepliedAt: new Date(),
+        agencyReply: parsed.reply,
+        agencyRepliedAt: new Date(),
+      },
+    });
+
+    return {
+      success: true,
+      data: {
+        id: updated.id,
+        partnerReply: updated.partnerReply,
+        partnerRepliedAt: updated.partnerRepliedAt?.toISOString() ?? null,
+      },
+      error: null,
     };
   }
 }

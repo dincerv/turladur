@@ -1487,16 +1487,73 @@ export type PartnerReviewItem = {
   responseText?: string;
 };
 
-export async function listPartnerReviews(token: string) {
-  return apiRequest<{
-    reviews: PartnerReviewItem[];
-    stats: {
-      total: number;
-      responded: number;
-      pending: number;
-      averageRating: number;
-    };
-  }>('/review/partner', { token });
+export type PartnerReviewsMeta = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export type PartnerReviewsStats = {
+  total: number;
+  responded: number;
+  pending: number;
+  averageRating: number;
+  ratingDistribution: Array<{
+    rating: number;
+    count: number;
+    percent: number;
+  }>;
+};
+
+export type PartnerReviewTourOption = {
+  id: string;
+  title: string;
+  type: 'tour' | 'experience';
+};
+
+export type PartnerReviewsResult = {
+  items: PartnerReviewItem[];
+  meta: PartnerReviewsMeta;
+  stats: PartnerReviewsStats;
+  tours: PartnerReviewTourOption[];
+};
+
+export type ListPartnerReviewsParams = {
+  q?: string;
+  rating?: number;
+  tourId?: string;
+  responseStatus?: 'all' | 'responded' | 'pending';
+  sort?: 'newest' | 'oldest' | 'highest' | 'lowest';
+  page?: number;
+  pageSize?: number;
+};
+
+function buildReviewsQuery(params: ListPartnerReviewsParams = {}): string {
+  const sp = new URLSearchParams();
+  if (params.q) sp.set('q', params.q);
+  if (params.rating) sp.set('rating', String(params.rating));
+  if (params.tourId) sp.set('tourId', params.tourId);
+  if (params.responseStatus && params.responseStatus !== 'all') {
+    sp.set('responseStatus', params.responseStatus);
+  }
+  if (params.sort && params.sort !== 'newest') sp.set('sort', params.sort);
+  if (params.page && params.page > 1) sp.set('page', String(params.page));
+  if (params.pageSize && params.pageSize !== 20) {
+    sp.set('pageSize', String(params.pageSize));
+  }
+  const qs = sp.toString();
+  return qs ? `?${qs}` : '';
+}
+
+export async function listPartnerReviews(
+  token: string,
+  params: ListPartnerReviewsParams = {},
+) {
+  return apiRequest<PartnerReviewsResult>(
+    `/partner/reviews${buildReviewsQuery(params)}`,
+    { token, cache: 'no-store' },
+  );
 }
 
 export async function replyPartnerReview(
@@ -1504,7 +1561,7 @@ export async function replyPartnerReview(
   reply: string,
   token: string,
 ) {
-  return apiRequest(`/review/${reviewId}/reply`, {
+  return apiRequest(`/partner/reviews/${reviewId}/reply`, {
     method: 'PATCH',
     body: { reply },
     token,

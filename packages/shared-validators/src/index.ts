@@ -394,6 +394,67 @@ export function parseAgencyCustomersQuery(
   return agencyCustomersQuerySchema.parse(input);
 }
 
+/** Agency reviews — list filters (?q=&rating=&tourId=&page=) */
+export const AGENCY_REVIEWS_Q_MAX = 80;
+export const AGENCY_REVIEWS_PAGE_SIZE_MAX = 50;
+export const AGENCY_REVIEW_RESPONSE_STATUSES = [
+  'all',
+  'responded',
+  'pending',
+] as const;
+export const AGENCY_REVIEW_SORTS = [
+  'newest',
+  'oldest',
+  'highest',
+  'lowest',
+] as const;
+
+export const agencyReviewsQuerySchema = z.object({
+  q: z
+    .string()
+    .trim()
+    .max(AGENCY_REVIEWS_Q_MAX)
+    .optional()
+    .default('')
+    .transform((v) => v.replace(/[\u0000-\u001F\u007F]/g, '')),
+  rating: z.coerce.number().int().min(1).max(5).optional(),
+  tourId: z
+    .string()
+    .trim()
+    .max(64)
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : undefined)),
+  responseStatus: z
+    .enum(AGENCY_REVIEW_RESPONSE_STATUSES)
+    .optional()
+    .default('all'),
+  sort: z.enum(AGENCY_REVIEW_SORTS).optional().default('newest'),
+  page: z.coerce.number().int().min(1).max(10_000).optional().default(1),
+  pageSize: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(AGENCY_REVIEWS_PAGE_SIZE_MAX)
+    .optional()
+    .default(20),
+});
+
+export type AgencyReviewsQuery = z.infer<typeof agencyReviewsQuerySchema>;
+
+export function parseAgencyReviewsQuery(input: unknown): AgencyReviewsQuery {
+  return agencyReviewsQuerySchema.parse(input);
+}
+
+export const agencyReviewReplySchema = z.object({
+  reply: z.string().trim().min(2, 'Yanıt en az 2 karakter olmalı').max(2000),
+});
+
+export type AgencyReviewReplyInput = z.infer<typeof agencyReviewReplySchema>;
+
+export function parseAgencyReviewReply(input: unknown): AgencyReviewReplyInput {
+  return agencyReviewReplySchema.parse(input);
+}
+
 export function maskEmail(email: string): string {
   const trimmed = email.trim();
   const at = trimmed.indexOf('@');

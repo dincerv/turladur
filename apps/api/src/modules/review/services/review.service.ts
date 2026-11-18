@@ -268,11 +268,39 @@ export class ReviewService {
   ) {
     const review = await this.findActive(reviewId);
     const isAdmin = isPlatformAdminRole(role);
-    if (!isAdmin && (!agencyId || review.agencyId !== agencyId)) {
-      throw new ForbiddenException({
-        code: 'PARTNER_MISMATCH',
-        message: 'Bu yoruma yanıt veremezsiniz',
-      });
+    if (!isAdmin) {
+      if (!agencyId || review.agencyId !== agencyId) {
+        throw new ForbiddenException({
+          code: 'PARTNER_MISMATCH',
+          message: 'Bu yoruma yanıt veremezsiniz',
+        });
+      }
+
+      if (review.tourId) {
+        const tour = await this.prisma.tour.findFirst({
+          where: { id: review.tourId, agencyId, deletedAt: null },
+          select: { id: true },
+        });
+        if (!tour) {
+          throw new ForbiddenException({
+            code: 'TOUR_OWNERSHIP_MISMATCH',
+            message: 'Bu yoruma yanıt veremezsiniz',
+          });
+        }
+      }
+
+      if (review.experienceId) {
+        const experience = await this.prisma.experience.findFirst({
+          where: { id: review.experienceId, agencyId, deletedAt: null },
+          select: { id: true },
+        });
+        if (!experience) {
+          throw new ForbiddenException({
+            code: 'EXPERIENCE_OWNERSHIP_MISMATCH',
+            message: 'Bu yoruma yanıt veremezsiniz',
+          });
+        }
+      }
     }
 
     const updated = await this.prisma.review.update({
