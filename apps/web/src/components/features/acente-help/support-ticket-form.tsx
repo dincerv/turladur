@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   agencySupportTicketCreateSchema,
@@ -53,7 +53,10 @@ export function SupportTicketForm({
   } | null>(null);
 
   const form = useForm<AgencySupportTicketCreateInput>({
-    resolver: zodResolver(agencySupportTicketCreateSchema),
+    // Zod .default() makes input optional vs output required — RHF resolver mismatch.
+    resolver: zodResolver(
+      agencySupportTicketCreateSchema,
+    ) as Resolver<AgencySupportTicketCreateInput>,
     defaultValues: {
       subject: '',
       message: '',
