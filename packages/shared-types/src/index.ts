@@ -375,6 +375,9 @@ export type AiSearchPersonaBadge = {
   label: string;
 };
 
+/** Curated shortlist roles for conversational tour picks. */
+export type AiSearchPickRole = 'TOP_RATED' | 'BEST_PRICE' | 'BEST_VALUE';
+
 export type AiSearchTourHit = {
   id: string;
   title: string;
@@ -389,6 +392,9 @@ export type AiSearchTourHit = {
   partnerName: string | null;
   /** Present when NL prompt implies a traveler persona. */
   personaBadge: AiSearchPersonaBadge | null;
+  /** Curated pick role when response mode is curated/persona shortlist. */
+  pickRole: AiSearchPickRole | null;
+  pickLabel: string | null;
 };
 
 export type AiSearchResponse = {
@@ -396,6 +402,11 @@ export type AiSearchResponse = {
   filters: AiSearchFilters;
   summaryPills: AiSearchSummaryPill[];
   tours: AiSearchTourHit[];
+  /**
+   * `curated` = top rated / best price / best value trio.
+   * `persona` = same shortlist + review persona matching for specific intent.
+   */
+  mode: 'curated' | 'persona';
   /** `heuristic` today; reserved for future LLM-backed parse. */
   parser: 'heuristic' | 'llm';
   empty: boolean;

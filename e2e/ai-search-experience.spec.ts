@@ -42,6 +42,9 @@ test.describe('AI search experience', () => {
     await expect(tourCards.first()).toBeVisible({ timeout: 15_000 });
     const tourCount = await tourCards.count();
     test.skip(tourCount < 2, 'Need at least 2 AI search hits for compare');
+    await expect(
+      page.locator('[data-testid^="ai-pick-badge-"]').first(),
+    ).toBeVisible();
 
     await page.getByTestId('compact-compare-btn').click();
     await expect(page.getByTestId('compare-modal')).toBeVisible({

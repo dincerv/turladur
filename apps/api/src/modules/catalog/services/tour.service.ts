@@ -49,6 +49,10 @@ import {
 } from '../utils/parse-tour-prompt';
 import { entertainmentLevelFromExtras } from '../utils/entertainment-level';
 import {
+  attachPickMeta,
+  curateAiSearchPicks,
+} from '../utils/curate-ai-search-picks';
+import {
   buildTourPersonaMatch,
   inferPersonaFromIntent,
 } from '../../review/utils/persona-review-engine';
@@ -827,7 +831,7 @@ export class TourService {
       duration: filters.duration ?? undefined,
       featured: filters.featured ? true : undefined,
       page: 1,
-      limit: 8,
+      limit: 24,
       sortBy: 'rating',
       sortOrder: 'desc',
     };
@@ -840,7 +844,7 @@ export class TourService {
       searchResult = await this.search({
         q: filters.q ?? filters.region ?? undefined,
         page: 1,
-        limit: 8,
+        limit: 24,
         sortBy: 'rating',
         sortOrder: 'desc',
       });
@@ -848,9 +852,22 @@ export class TourService {
     }
 
     const inferredPersona = inferPersonaFromIntent(prompt);
-    const tourIds = items.map((tour) => tour.id);
+    const mode = inferredPersona ? 'persona' : 'curated';
+
+    const pool = items.map((tour) => ({
+      id: tour.id,
+      price: Number(tour.price),
+      averageRating: Number(tour.averageRating),
+      reviewCount: tour.reviewCount,
+      tour,
+    }));
+
+    const curated = curateAiSearchPicks(pool);
+    const shortlist = curated.map((entry) => entry.tour.tour);
+    const tourIds = shortlist.map((tour) => tour.id);
+
     const reviewRows =
-      inferredPersona && tourIds.length > 0
+      mode === 'persona' && tourIds.length > 0
         ? await this.prisma.review.findMany({
             where: {
               tourId: { in: tourIds },
@@ -887,55 +904,86 @@ export class TourService {
       }
     }
 
-    const tours: AiSearchTourHit[] = items.map((tour) => {
-      let personaBadge: AiSearchTourHit['personaBadge'] = null;
-      if (inferredPersona) {
-        const match = buildTourPersonaMatch({
-          tourId: tour.id,
-          persona: inferredPersona,
-          intent: prompt,
-          reviews: reviewsByTour.get(tour.id) ?? [],
-        });
-        const tone =
-          match.fitScore >= 70
-            ? 'aligned'
-            : match.fitScore < 45
-              ? 'conflict'
-              : 'neutral';
-        personaBadge = {
-          persona: match.persona,
-          fitScore: match.fitScore,
-          tone,
-          label:
-            tone === 'aligned'
-              ? `Size uygun · ${match.fitScore}`
-              : tone === 'conflict'
-                ? `Dikkat · ${match.fitScore}`
-                : `Karışık · ${match.fitScore}`,
-        };
-      }
+    const personaLabels: Record<string, string> = {
+      PARTY: 'Parti / eğlence',
+      CALM: 'Sakin dinlenme',
+      FAMILY: 'Çocuklu aile',
+      BUDGET: 'Bütçe dostu',
+      ADVENTURE: 'Macera',
+      CULTURE: 'Kültür',
+    };
 
-      return {
-        id: tour.id,
-        title: tour.title,
-        slug: tour.slug,
-        coverUrl: tour.coverUrl,
-        price: tour.price,
-        currency: tour.currency,
-        durationDays: tour.durationDays,
-        averageRating: tour.averageRating,
-        reviewCount: tour.reviewCount,
-        departureCities: tour.departureCities ?? [],
-        partnerName: tour.partner?.companyName ?? null,
-        personaBadge,
-      };
-    });
+    let tours: AiSearchTourHit[] = curated.map(
+      ({ tour: row, pickRole, pickLabel }) => {
+        const tour = row.tour;
+        let personaBadge: AiSearchTourHit['personaBadge'] = null;
+        if (inferredPersona) {
+          const match = buildTourPersonaMatch({
+            tourId: tour.id,
+            persona: inferredPersona,
+            intent: prompt,
+            reviews: reviewsByTour.get(tour.id) ?? [],
+          });
+          const tone =
+            match.fitScore >= 70
+              ? 'aligned'
+              : match.fitScore < 45
+                ? 'conflict'
+                : 'neutral';
+          personaBadge = {
+            persona: match.persona,
+            fitScore: match.fitScore,
+            tone,
+            label:
+              tone === 'aligned'
+                ? `Size uygun · ${match.fitScore}`
+                : tone === 'conflict'
+                  ? `Dikkat · ${match.fitScore}`
+                  : `Karışık · ${match.fitScore}`,
+          };
+        }
+
+        return attachPickMeta(
+          {
+            id: tour.id,
+            title: tour.title,
+            slug: tour.slug,
+            coverUrl: tour.coverUrl,
+            price: tour.price,
+            currency: tour.currency,
+            durationDays: tour.durationDays,
+            averageRating: tour.averageRating,
+            reviewCount: tour.reviewCount,
+            departureCities: tour.departureCities ?? [],
+            partnerName: tour.partner?.companyName ?? null,
+            personaBadge,
+            pickRole: null,
+            pickLabel: null,
+          },
+          pickRole,
+          pickLabel,
+        );
+      },
+    );
+
+    // Specific preference: keep curated trio but surface best persona fit first.
+    if (mode === 'persona') {
+      tours = [...tours].sort((a, b) => {
+        const scoreA = a.personaBadge?.fitScore ?? 0;
+        const scoreB = b.personaBadge?.fitScore ?? 0;
+        return scoreB - scoreA;
+      });
+    }
 
     const data: AiSearchResponse = {
-      reply: buildAiSearchReply(filters, tours.length),
+      reply: buildAiSearchReply(filters, tours.length, {
+        mode,
+        personaLabel: inferredPersona ? personaLabels[inferredPersona] : null,
+      }),
       filters,
       summaryPills: buildAiSearchSummaryPills(filters),
       tours,
+      mode,
       parser: 'heuristic',
       empty: tours.length === 0,
     };

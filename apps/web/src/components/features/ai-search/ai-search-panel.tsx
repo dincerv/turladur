@@ -145,7 +145,7 @@ export function AiSearchPanel({
       return;
     }
     clearCompare();
-    for (const tour of result.tours.slice(0, 2)) {
+    for (const tour of result.tours.slice(0, COMPARE_TOURS_MAX)) {
       toggle({
         id: tour.id,
         title: tour.title,
@@ -249,25 +249,39 @@ export function AiSearchPanel({
                         >
                           {tour.title}
                         </Link>
-                        {tour.personaBadge ? (
-                          <span
-                            data-testid={`ai-persona-badge-${tour.id}`}
-                            data-tone={tour.personaBadge.tone}
-                            className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                              tour.personaBadge.tone === 'aligned'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : tour.personaBadge.tone === 'conflict'
-                                  ? 'bg-rose-100 text-rose-800'
-                                  : 'bg-amber-100 text-amber-900'
-                            }`}
-                          >
-                            {tour.personaBadge.label}
-                          </span>
-                        ) : null}
+                        <div className="flex shrink-0 flex-col items-end gap-0.5">
+                          {tour.pickLabel ? (
+                            <span
+                              data-testid={`ai-pick-badge-${tour.id}`}
+                              data-pick={tour.pickRole ?? undefined}
+                              className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-900"
+                            >
+                              {tour.pickLabel}
+                            </span>
+                          ) : null}
+                          {tour.personaBadge ? (
+                            <span
+                              data-testid={`ai-persona-badge-${tour.id}`}
+                              data-tone={tour.personaBadge.tone}
+                              className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                                tour.personaBadge.tone === 'aligned'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : tour.personaBadge.tone === 'conflict'
+                                    ? 'bg-rose-100 text-rose-800'
+                                    : 'bg-amber-100 text-amber-900'
+                              }`}
+                            >
+                              {tour.personaBadge.label}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                       <p className="mt-0.5 text-[11px] text-neutral-500">
                         {formatPrice(tour.price, tour.currency)} ·{' '}
                         {tour.durationDays} gün
+                        {tour.averageRating
+                          ? ` · ${Number(tour.averageRating).toFixed(1)}★`
+                          : ''}
                       </p>
                       <div className="mt-1">
                         <CompactCompareButton

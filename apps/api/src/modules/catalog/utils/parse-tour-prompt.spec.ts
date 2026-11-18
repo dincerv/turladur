@@ -39,4 +39,10 @@ describe('parseTourSearchPrompt', () => {
     expect(filters.durationDays).toBe(1);
     expect(filters.duration).toBeNull();
   });
+
+  it('parses Ankara çıkışlı Kapadokya', () => {
+    const filters = parseTourSearchPrompt('Ankara çıkışlı Kapadokya turu');
+    expect(filters.departureCity).toBe('Ankara');
+    expect(filters.destinations).toEqual(expect.arrayContaining(['Kapadokya']));
+  });
 });

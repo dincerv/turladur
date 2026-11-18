@@ -208,6 +208,10 @@ export function buildAiSearchSummaryPills(
 export function buildAiSearchReply(
   filters: AiSearchFilters,
   resultCount: number,
+  options?: {
+    mode?: 'curated' | 'persona';
+    personaLabel?: string | null;
+  },
 ): string {
   if (resultCount === 0) {
     return 'Bu kritere uyan yayınlanmış tur bulamadım. Daha genel bir arama deneyebilir veya filtreleri gevşetebilirsiniz.';
@@ -219,8 +223,14 @@ export function buildAiSearchReply(
   if (filters.destinations.length > 0) {
     bits.push(filters.destinations.join(' & '));
   }
-  const focus = bits.length > 0 ? bits.join(', ') : 'isteklerinize';
-  return `${resultCount} tur buldum — ${focus} için en uygun seçenekleri aşağıya sıraladım. İstediklerinizi kıyaslayabilirsiniz.`;
+  const focus = bits.length > 0 ? bits.join(', ') : 'isteğinize';
+  const mode = options?.mode ?? 'curated';
+
+  if (mode === 'persona' && options?.personaLabel) {
+    return `${focus} için ${resultCount} öneri seçtim. “${options.personaLabel}” tercihinize göre yorumları da eşleştirdim — en yüksek puan, en uygun fiyat ve en iyi F/P turlarını yan yana görebilirsiniz.`;
+  }
+
+  return `${focus} için ${resultCount} öneri hazırladım: en yüksek puanlı, en uygun fiyatlı ve en iyi fiyat/performans. İsterseniz doğrudan kıyaslayabilirsiniz.`;
 }
 
 /**
