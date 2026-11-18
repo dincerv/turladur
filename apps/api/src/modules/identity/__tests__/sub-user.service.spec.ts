@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ForbiddenException } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 
 import { PrismaService } from '../../../core/database/prisma.service';
 import { SubUserService } from '../services/sub-user.service';
@@ -10,6 +11,7 @@ const ownerActor = {
   userId: 'staff-owner',
   role: 'AGENCY_OWNER',
   agencyId: 'a1',
+  agencyStaffId: 'staff-owner',
 };
 
 describe('SubUserService', () => {
@@ -34,6 +36,9 @@ describe('SubUserService', () => {
         role: 'AGENCY_STAFF',
         status: 'ACTIVE',
         permissions: { tours: ['read'] },
+        lastLoginAt: null,
+        createdAt: new Date('2026-01-01'),
+        updatedAt: new Date('2026-01-02'),
       },
     ]);
 
@@ -42,6 +47,18 @@ describe('SubUserService', () => {
     expect(result.data).toHaveLength(1);
     expect(result.data[0].email).toBe('ayse@acme.com');
     expect(result.data[0].partnerId).toBe('a1');
+    expect(result.data[0].uiRole).toBe('AGENT');
+  });
+
+  it('should forbid listing for AGENCY_ADMIN (OWNER-only)', async () => {
+    await expect(
+      service.list('a1', {
+        userId: 'admin-staff',
+        role: 'AGENCY_ADMIN',
+        agencyId: 'a1',
+        agencyStaffId: 'admin-staff',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('should forbid listing another agency users', async () => {
@@ -50,6 +67,7 @@ describe('SubUserService', () => {
         userId: 'staff-other',
         role: 'AGENCY_OWNER',
         agencyId: 'a2',
+        agencyStaffId: 'staff-other',
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
@@ -61,24 +79,30 @@ describe('SubUserService', () => {
     await expect(
       service.create(
         'a1',
-        { name: 'X', email: 'ayse@acme.com', password: 'StaffPass1' },
+        { name: 'Duplicate', email: 'ayse@acme.com', password: 'StaffPass1' },
         ownerActor,
       ),
     ).rejects.toBeInstanceOf(BusinessException);
   });
 
-  it('should create AgencyStaff with password (no User row)', async () => {
+  it('should create AgencyStaff with bcrypt-hashed password', async () => {
     (prisma.agency.findFirst as jest.Mock).mockResolvedValue({ id: 'a1' });
     (prisma.agencyStaff.findFirst as jest.Mock).mockResolvedValue(null);
-    (prisma.agencyStaff.create as jest.Mock).mockResolvedValue({
-      id: 's2',
-      agencyId: 'a1',
-      name: 'Staff',
-      email: 'staff@acme.com',
-      role: 'AGENCY_STAFF',
-      status: 'ACTIVE',
-      permissions: {},
-    });
+    (prisma.agencyStaff.create as jest.Mock).mockImplementation(
+      async ({ data }) => ({
+        id: 's2',
+        agencyId: 'a1',
+        name: data.name,
+        email: data.email,
+        role: data.role,
+        status: data.status ?? 'ACTIVE',
+        permissions: data.permissions ?? {},
+        passwordHash: data.passwordHash,
+        lastLoginAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    );
 
     const result = await service.create(
       'a1',
@@ -86,12 +110,19 @@ describe('SubUserService', () => {
         name: 'Staff',
         email: 'staff@acme.com',
         password: 'StaffPass1',
+        role: 'AGENT',
       },
       ownerActor,
     );
 
     expect(result.data.id).toBe('s2');
+    expect(result.data.uiRole).toBe('AGENT');
     expect(prisma.agencyStaff.create).toHaveBeenCalled();
+    const createArg = (prisma.agencyStaff.create as jest.Mock).mock.calls[0][0];
+    expect(createArg.data.passwordHash).toMatch(/^\$2[aby]\$/);
+    expect(
+      await bcrypt.compare('StaffPass1', createArg.data.passwordHash),
+    ).toBe(true);
     expect(prisma.user.create).not.toHaveBeenCalled();
   });
 
@@ -100,6 +131,8 @@ describe('SubUserService', () => {
       id: 's1',
       agencyId: 'a1',
       email: 'ayse@acme.com',
+      role: 'AGENCY_STAFF',
+      status: 'ACTIVE',
       deletedAt: null,
     });
     (prisma.agencyStaff.update as jest.Mock).mockResolvedValue({
@@ -110,6 +143,9 @@ describe('SubUserService', () => {
       role: 'AGENCY_STAFF',
       status: 'ACTIVE',
       permissions: {},
+      lastLoginAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     const updated = await service.update(
@@ -123,6 +159,7 @@ describe('SubUserService', () => {
     (prisma.agencyStaff.findFirst as jest.Mock).mockResolvedValue({
       id: 's1',
       agencyId: 'a1',
+      role: 'AGENCY_STAFF',
       deletedAt: null,
     });
     (prisma.agencyStaff.update as jest.Mock).mockResolvedValue({});
@@ -132,5 +169,64 @@ describe('SubUserService', () => {
       agencyId: undefined,
     });
     expect(deleted.data.deleted).toBe(true);
+  });
+
+  it('should block self-demotion of OWNER', async () => {
+    (prisma.agencyStaff.findFirst as jest.Mock).mockResolvedValue({
+      id: 'staff-owner',
+      agencyId: 'a1',
+      email: 'owner@acme.com',
+      role: 'AGENCY_OWNER',
+      status: 'ACTIVE',
+      deletedAt: null,
+    });
+
+    await expect(
+      service.update('a1', 'staff-owner', { role: 'AGENT' }, ownerActor),
+    ).rejects.toBeInstanceOf(BusinessException);
+  });
+
+  it('should block self-delete', async () => {
+    (prisma.agencyStaff.findFirst as jest.Mock).mockResolvedValue({
+      id: 'staff-owner',
+      agencyId: 'a1',
+      role: 'AGENCY_OWNER',
+      deletedAt: null,
+    });
+
+    await expect(
+      service.softDelete('a1', 'staff-owner', ownerActor),
+    ).rejects.toBeInstanceOf(BusinessException);
+  });
+
+  it('should block self-deactivate', async () => {
+    (prisma.agencyStaff.findFirst as jest.Mock).mockResolvedValue({
+      id: 'staff-owner',
+      agencyId: 'a1',
+      email: 'owner@acme.com',
+      role: 'AGENCY_OWNER',
+      status: 'ACTIVE',
+      deletedAt: null,
+    });
+
+    await expect(
+      service.update('a1', 'staff-owner', { status: 'INACTIVE' }, ownerActor),
+    ).rejects.toBeInstanceOf(BusinessException);
+  });
+
+  it('should protect last active OWNER from demotion', async () => {
+    (prisma.agencyStaff.findFirst as jest.Mock).mockResolvedValue({
+      id: 'other-owner',
+      agencyId: 'a1',
+      email: 'other@acme.com',
+      role: 'AGENCY_OWNER',
+      status: 'ACTIVE',
+      deletedAt: null,
+    });
+    (prisma.agencyStaff.count as jest.Mock).mockResolvedValue(0);
+
+    await expect(
+      service.update('a1', 'other-owner', { role: 'MANAGER' }, ownerActor),
+    ).rejects.toBeInstanceOf(BusinessException);
   });
 });

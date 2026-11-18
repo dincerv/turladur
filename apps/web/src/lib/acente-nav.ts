@@ -80,7 +80,7 @@ export const ACENTE_SIDEBAR_LINKS: readonly AcenteSidebarLink[] = [
     name: 'Kullanıcılar',
     href: ACENTE_ROUTES.users,
     icon: Users,
-    permission: 'owner',
+    permission: 'agency_owner',
   },
   {
     name: 'Yorumlar',

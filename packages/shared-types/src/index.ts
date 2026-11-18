@@ -138,8 +138,13 @@ export interface SubUser {
   name: string;
   email: string;
   role: string;
+  /** UI: OWNER | MANAGER | AGENT */
+  uiRole?: string;
   status: string;
   permissions: Record<string, unknown>;
+  lastLoginAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type TourCategory =

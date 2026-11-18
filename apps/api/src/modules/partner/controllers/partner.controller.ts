@@ -29,6 +29,7 @@ import {
 import { Role } from '@turta/shared-constants';
 
 import {
+  AGENCY_OWNER_ONLY_ROLES,
   AGENCY_REPORTS_MANAGER_ROLES,
   AGENCY_SELLER_ROLES,
   PLATFORM_ADMIN_ROLES,
@@ -607,16 +608,11 @@ export class PartnerController {
   }
 
   @Get('users')
-  @Roles(
-    Role.PARTNER,
-    Role.AGENCY_OWNER,
-    Role.AGENCY_ADMIN,
-    ...PLATFORM_ADMIN_ROLES,
-  )
-  @ApiOperation({ summary: 'List sub-users for authenticated partner' })
+  @Roles(...AGENCY_OWNER_ONLY_ROLES)
+  @ApiOperation({ summary: 'List agency staff (OWNER only)' })
   async users(@CurrentUser() user: UserPayload) {
     const agencyId = await this.sellerAgencyId(user);
-    return this.partnerService.listSubUsers(agencyId);
+    return this.partnerService.listSubUsers(agencyId, user.role);
   }
 
   @Get('customers')

@@ -18,6 +18,7 @@ import { getPartnerProfile } from '@/services/partner-admin';
 import { useAuth } from '@/providers/auth-provider';
 import {
   canAccessStaffPermission,
+  hasAgencyOwnerAccess,
   hasFullPartnerAccess,
   isSellerPanelRole,
 } from '@/lib/partner-permissions';
@@ -123,6 +124,7 @@ export function AgencyShell({ children }: { children: ReactNode }) {
     if (!user) return false;
     if (permission === null) return true;
     if (permission === 'owner') return hasFullPartnerAccess(user.role);
+    if (permission === 'agency_owner') return hasAgencyOwnerAccess(user.role);
     return canAccessStaffPermission(user.role, user.permissions, permission);
   };
 
@@ -141,6 +143,7 @@ export function AgencyShell({ children }: { children: ReactNode }) {
     if (!user) return false;
     if (routeAccess === null) return true;
     if (routeAccess === 'owner') return hasFullPartnerAccess(user.role);
+    if (routeAccess === 'agency_owner') return hasAgencyOwnerAccess(user.role);
     return canAccessStaffPermission(user.role, user.permissions, routeAccess);
   })();
 

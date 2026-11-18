@@ -8,12 +8,8 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Role } from '@turta/shared-constants';
 
-import {
-  AGENCY_SELLER_ROLES,
-  PLATFORM_ADMIN_ROLES,
-} from '../../../core/auth/utils/role-access';
+import { AGENCY_OWNER_ONLY_ROLES } from '../../../core/auth/utils/role-access';
 
 import { CurrentUser } from '../../../core/auth/decorators/current-user.decorator';
 import { Roles } from '../../../core/auth/decorators/roles.decorator';
@@ -24,22 +20,23 @@ import { SubUserService } from '../services/sub-user.service';
 @ApiTags('Identity - Sub Users')
 @ApiBearerAuth()
 @Controller('identity/partners/:agencyId/users')
-@Roles(...AGENCY_SELLER_ROLES)
+@Roles(...AGENCY_OWNER_ONLY_ROLES)
 export class SubUserController {
   constructor(private readonly subUserService: SubUserService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List partner sub-users' })
+  @ApiOperation({ summary: 'List agency staff (OWNER only)' })
   list(@Param('agencyId') agencyId: string, @CurrentUser() user: UserPayload) {
     return this.subUserService.list(agencyId, {
       userId: user.userId,
       role: user.role,
       agencyId: user.agencyId,
+      agencyStaffId: user.agencyStaffId,
     });
   }
 
   @Post()
-  @ApiOperation({ summary: 'Create partner sub-user' })
+  @ApiOperation({ summary: 'Create agency staff — password bcrypt-hashed' })
   create(
     @Param('agencyId') agencyId: string,
     @Body() dto: CreateSubUserDto,
@@ -49,11 +46,12 @@ export class SubUserController {
       userId: user.userId,
       role: user.role,
       agencyId: user.agencyId,
+      agencyStaffId: user.agencyStaffId,
     });
   }
 
   @Patch(':userId')
-  @ApiOperation({ summary: 'Update partner sub-user' })
+  @ApiOperation({ summary: 'Update agency staff (self-demotion blocked)' })
   update(
     @Param('agencyId') agencyId: string,
     @Param('userId') userId: string,
@@ -64,11 +62,12 @@ export class SubUserController {
       userId: user.userId,
       role: user.role,
       agencyId: user.agencyId,
+      agencyStaffId: user.agencyStaffId,
     });
   }
 
   @Delete(':userId')
-  @ApiOperation({ summary: 'Soft-delete partner sub-user' })
+  @ApiOperation({ summary: 'Soft-delete agency staff (self-delete blocked)' })
   remove(
     @Param('agencyId') agencyId: string,
     @Param('userId') userId: string,
@@ -78,6 +77,7 @@ export class SubUserController {
       userId: user.userId,
       role: user.role,
       agencyId: user.agencyId,
+      agencyStaffId: user.agencyStaffId,
     });
   }
 }

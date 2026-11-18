@@ -557,6 +557,81 @@ export function parseAgencySalesGoalUpsert(
   return agencySalesGoalUpsertSchema.parse(input);
 }
 
+/** Agency staff / users management (UI roles → DB AgencyStaffRole) */
+export const AGENCY_STAFF_UI_ROLES = ['OWNER', 'MANAGER', 'AGENT'] as const;
+export type AgencyStaffUiRole = (typeof AGENCY_STAFF_UI_ROLES)[number];
+
+export const AGENCY_STAFF_STATUSES = ['ACTIVE', 'INACTIVE'] as const;
+export type AgencyStaffStatus = (typeof AGENCY_STAFF_STATUSES)[number];
+
+export function mapUiRoleToAgencyStaffRole(
+  role: string,
+): 'AGENCY_OWNER' | 'AGENCY_ADMIN' | 'AGENCY_STAFF' {
+  const normalized = role.trim().toUpperCase();
+  if (normalized === 'OWNER' || normalized === 'AGENCY_OWNER') {
+    return 'AGENCY_OWNER';
+  }
+  if (
+    normalized === 'MANAGER' ||
+    normalized === 'AGENCY_ADMIN' ||
+    normalized === 'ADMIN'
+  ) {
+    return 'AGENCY_ADMIN';
+  }
+  return 'AGENCY_STAFF';
+}
+
+export function mapAgencyStaffRoleToUi(role: string): AgencyStaffUiRole {
+  if (role === 'AGENCY_OWNER') return 'OWNER';
+  if (role === 'AGENCY_ADMIN') return 'MANAGER';
+  return 'AGENT';
+}
+
+const agencyStaffPasswordSchema = z
+  .string()
+  .min(8, 'Şifre en az 8 karakter olmalı')
+  .max(128)
+  .regex(/[A-Z]/, 'Şifrede en az 1 büyük harf olmalı')
+  .regex(/\d/, 'Şifrede en az 1 rakam olmalı');
+
+export const createAgencyStaffSchema = z.object({
+  name: z.string().trim().min(2).max(200),
+  email: z.string().trim().email().max(200),
+  password: agencyStaffPasswordSchema,
+  role: z.enum(AGENCY_STAFF_UI_ROLES).default('AGENT'),
+  status: z.enum(AGENCY_STAFF_STATUSES).optional().default('ACTIVE'),
+  permissions: z.record(z.unknown()).optional(),
+});
+
+export const updateAgencyStaffSchema = z
+  .object({
+    name: z.string().trim().min(2).max(200).optional(),
+    role: z.enum(AGENCY_STAFF_UI_ROLES).optional(),
+    status: z.enum(AGENCY_STAFF_STATUSES).optional(),
+    password: agencyStaffPasswordSchema.optional(),
+    permissions: z.record(z.unknown()).optional(),
+  })
+  .refine(
+    (v) =>
+      v.name !== undefined ||
+      v.role !== undefined ||
+      v.status !== undefined ||
+      v.password !== undefined ||
+      v.permissions !== undefined,
+    { message: 'Güncellenecek alan gerekli' },
+  );
+
+export type CreateAgencyStaffInput = z.infer<typeof createAgencyStaffSchema>;
+export type UpdateAgencyStaffInput = z.infer<typeof updateAgencyStaffSchema>;
+
+export function parseCreateAgencyStaff(input: unknown): CreateAgencyStaffInput {
+  return createAgencyStaffSchema.parse(input);
+}
+
+export function parseUpdateAgencyStaff(input: unknown): UpdateAgencyStaffInput {
+  return updateAgencyStaffSchema.parse(input);
+}
+
 export function decodeCustomerKey(key: string): string {
   const decoded = fromBase64Url(key).trim();
   if (!decoded || !decoded.includes('@')) {

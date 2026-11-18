@@ -33,6 +33,18 @@ export function hasFullPartnerAccess(role: string | undefined | null): boolean {
   );
 }
 
+/** Users CRUD — yalnızca OWNER (AGENCY_ADMIN hariç). */
+export function hasAgencyOwnerAccess(role: string | undefined | null): boolean {
+  return (
+    role === 'PARTNER' ||
+    role === 'AGENCY_OWNER' ||
+    role === 'ADMIN' ||
+    role === 'SUPER_ADMIN' ||
+    role === 'PLATFORM_ADMIN' ||
+    role === 'PLATFORM_SUPER_ADMIN'
+  );
+}
+
 export function isSellerPanelRole(role: string | undefined | null): boolean {
   return (
     role === 'PARTNER' ||

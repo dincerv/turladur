@@ -5,7 +5,8 @@ import type { StaffPermissionKey } from '@turta/shared-types';
  * `null` = any authenticated agency staff may access.
  * `owner` = only AGENCY_OWNER / ADMIN (not AGENCY_STAFF).
  */
-export type PartnerRouteAccess = StaffPermissionKey | 'owner' | null;
+export type PartnerRouteAccess =
+  StaffPermissionKey | 'owner' | 'agency_owner' | null;
 
 export type PartnerNavPermission = PartnerRouteAccess;
 
@@ -23,7 +24,7 @@ export function resolvePartnerRouteAccess(
   /** OWNER / MANAGER (AGENCY_ADMIN) — staff reports izni yeterli değil */
   if (path.startsWith('/acente/reports')) return 'owner';
   if (path.startsWith('/acente/reviews')) return 'customers';
-  if (path.startsWith('/acente/users')) return 'owner';
+  if (path.startsWith('/acente/users')) return 'agency_owner';
   if (path.startsWith('/acente/settings')) return 'owner';
   return null;
 }

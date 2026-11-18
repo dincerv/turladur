@@ -10,6 +10,7 @@ import {
   decodeCustomerKey,
   encodeCustomerKey,
   FINANCIAL_OVERDUE_DAYS,
+  mapAgencyStaffRoleToUi,
   maskEmail,
   maskPhone,
   parseAgencyCustomersQuery,
@@ -1731,8 +1732,9 @@ export class PartnerService {
     return 'PENDING';
   }
 
-  async listSubUsers(agencyId: string | undefined) {
+  async listSubUsers(agencyId: string | undefined, role?: string) {
     this.requireAgencyId(agencyId);
+    this.assertAgencyOwnerOnly(role);
 
     const rows = await this.prisma.agencyStaff.findMany({
       where: { agencyId, deletedAt: null },
@@ -1743,17 +1745,35 @@ export class PartnerService {
       success: true,
       data: rows.map((row) => ({
         id: row.id,
+        partnerId: row.agencyId,
         agencyId: row.agencyId,
         name: row.name,
         email: row.email,
         role: row.role,
+        uiRole: mapAgencyStaffRoleToUi(row.role),
         status: row.status,
         permissions: row.permissions,
+        lastLoginAt: row.lastLoginAt?.toISOString() ?? null,
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
       })),
       error: null,
     };
+  }
+
+  private assertAgencyOwnerOnly(role: string | undefined) {
+    if (!role) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Personel yönetimi yalnızca acente sahibine (OWNER) açıktır',
+      });
+    }
+    if (isPlatformAdminRole(role)) return;
+    if (role === 'AGENCY_OWNER' || role === 'PARTNER') return;
+    throw new ForbiddenException({
+      code: 'FORBIDDEN',
+      message: 'Personel yönetimi yalnızca acente sahibine (OWNER) açıktır',
+    });
   }
 
   async listReservations(

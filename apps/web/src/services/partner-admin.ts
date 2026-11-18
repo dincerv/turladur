@@ -1073,17 +1073,24 @@ export async function exportPartnerFinancials(
   });
 }
 
+export type PartnerSubUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  uiRole?: string;
+  status: string;
+  permissions: unknown;
+  lastLoginAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export async function listPartnerSubUsers(token: string) {
-  return apiRequest<
-    Array<{
-      id: string;
-      name: string;
-      email: string;
-      role: string;
-      status: string;
-      permissions: unknown;
-    }>
-  >('/partner/users', { token });
+  return apiRequest<PartnerSubUser[]>('/partner/users', {
+    token,
+    cache: 'no-store',
+  });
 }
 
 export async function createPartnerSubUser(
@@ -1091,7 +1098,7 @@ export async function createPartnerSubUser(
   body: {
     name: string;
     email: string;
-    password?: string;
+    password: string;
     role?: string;
     permissions?: Record<string, unknown>;
   },
@@ -1111,6 +1118,7 @@ export async function updatePartnerSubUser(
     name?: string;
     role?: string;
     status?: string;
+    password?: string;
     permissions?: Record<string, unknown>;
   },
   token: string,
