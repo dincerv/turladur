@@ -1012,10 +1012,8 @@ export function maskPhone(phone: string | null | undefined): string | null {
   return `${digits.slice(0, 2)}** *** **${digits.slice(-2)}`;
 }
 
+/** Browser + Node isomorphic (btoa/atob; no Buffer → no @types/node). */
 function toBase64Url(utf8: string): string {
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(utf8, 'utf8').toString('base64url');
-  }
   const bytes = new TextEncoder().encode(utf8);
   let binary = '';
   for (const b of bytes) binary += String.fromCharCode(b);
@@ -1026,9 +1024,6 @@ function toBase64Url(utf8: string): string {
 }
 
 function fromBase64Url(key: string): string {
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(key, 'base64url').toString('utf8');
-  }
   const padded =
     key.replace(/-/g, '+').replace(/_/g, '/') +
     '='.repeat((4 - (key.length % 4)) % 4);
