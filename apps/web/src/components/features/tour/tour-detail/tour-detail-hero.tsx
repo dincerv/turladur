@@ -66,10 +66,10 @@ export function TourDetailHero() {
               <PhotoIcon className="w-16 h-16 text-gray-400" />
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/15" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-sky-950/40" />
 
-          {/* Top row: badge + actions */}
-          <div className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-4 pt-14">
+          {/* Top row: badge + actions — clearance for transparent site header */}
+          <div className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-4 pt-20">
             {(tour.isPopular || tour.featured) && (
               <div className="inline-flex items-center bg-neutral-950/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-sm">
                 <StarIconSolid className="h-3.5 w-3.5 text-yellow-300 mr-1.5" />
@@ -242,10 +242,11 @@ export function TourDetailHero() {
               <PhotoIcon className="w-20 h-20 text-gray-400" />
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-br from-sky-950/45 via-transparent to-slate-950/50" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-sky-950/35" />
         </div>
 
-        <div className="absolute inset-0 z-10 flex items-center justify-center pb-36 pt-20">
+        <div className="absolute inset-0 z-10 flex items-center justify-center pb-36 pt-28">
           <div className="container px-4 text-center max-w-4xl mx-auto w-full">
             <div className="inline-flex items-center mb-5 bg-neutral-950/30 backdrop-blur-sm px-4 py-1.5 rounded-full border border-neutral-400/30">
               <StarIconSolid className="h-4 w-4 text-yellow-300 mr-2" />

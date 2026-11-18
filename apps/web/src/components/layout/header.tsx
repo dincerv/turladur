@@ -188,45 +188,25 @@ export function Header() {
     router.push('/acente/giris');
   };
 
-  // Açık zeminli sayfalar: şeffaf + beyaz link (hero stili) kullanılmaz.
-  // Full-bleed dark hero’lu liste sayfaları (/tours, /blog, /campaigns,
-  // /tour-operator, /activities, /routes) ANA SAYFA gibi üstte şeffaf kalır.
-  const lightBackgroundRoutes = [
-    '/about',
-    '/contact',
-    '/profile',
-    '/bookings',
-    '/login',
-    '/register',
-    '/acente/giris',
-    '/partner-register',
-    '/careers',
-    '/gastronomi',
-    '/kultur-turlari',
-    '/macera-aktiviteleri',
-  ];
-  // Sadece gerçek App Router path'leri — ghost EN slug'lar ve silinmiş
-  // `/destinations/`, `/agency/` kaldırıldı (Sprint 25.3).
-  // /blog/… yazı detayı açık zemin → solid; /blog liste hero → şeffaf.
-  // /activities/… detay açık zemin → solid; liste dark hero → şeffaf.
-  const lightBackgroundPrefixes = [
-    '/blog/',
-    '/checkout',
-    '/activities/',
-    '/gastronomi',
-    '/kultur-turlari',
-    '/macera-aktiviteleri',
-    '/faq',
-    '/privacy',
-    '/terms',
-    '/cookie-policy',
-    '/accessibility',
-  ];
-  const forceScrolledAppearance =
-    lightBackgroundRoutes.includes(pathname) ||
-    lightBackgroundPrefixes.some(
+  // Dark full-bleed hero → şeffaf header (ana sayfa / liste / tur+rota detay).
+  // Açık zeminli sayfalar → her zaman solid (beyaz) header.
+  const darkHeroExactRoutes = new Set([
+    '/',
+    '/tours',
+    '/blog',
+    '/campaigns',
+    '/activities',
+    '/routes',
+    '/tour-operator',
+  ]);
+  const darkHeroPrefixes = ['/tours/', '/routes/', '/tour-operator/'];
+  const isDarkHeroRoute =
+    darkHeroExactRoutes.has(pathname) ||
+    darkHeroPrefixes.some(
       (prefix) => pathname === prefix || pathname.startsWith(prefix),
     );
+  // Allowlist dışı her şey solid (blog yazı, aktivite detay, checkout, legal…).
+  const forceScrolledAppearance = !isDarkHeroRoute;
 
   // Eski sistem: scrollY > 20 → beyaz navbar + koyu logo; en üstte şeffaf + beyaz logo/metin
   const shouldAppearScrolled = isScrolled || forceScrolledAppearance;
