@@ -63,7 +63,10 @@ export function ToursPageHero() {
   }, []);
 
   return (
-    <div className="relative overflow-hidden border-b border-sky-900/10 bg-slate-900 pt-28 pb-12 md:pb-16">
+    <div
+      data-testid="tours-page-hero"
+      className="relative overflow-hidden border-b border-sky-900/10 bg-slate-900 pt-28 pb-12 md:pb-16"
+    >
       <Image
         src={HERO_IMAGE}
         alt=""
@@ -103,7 +106,7 @@ export function ToursPageHero() {
             Sakin kaçış mı, parti temposu mu — uygun turları birlikte süzelim.
           </p>
 
-          <div className="mx-auto flex justify-center">
+          <div data-ai-search-hero className="mx-auto flex justify-center">
             <AiSearchPanel variant="hero" />
           </div>
         </div>
