@@ -171,6 +171,30 @@ Preview için aynı API’yi kullanabilirsin (veya ayrı staging API).
 
 ---
 
+## 5.1) Safari / Türkiye’de `*.vercel.app` açılmıyor (VPN şart)
+
+Bu bir uygulama bug’ı değil. İki katman var:
+
+1. **TR İSS / BTK:** Birçok operatör `*.vercel.app` DNS veya TLS’ini keser → Safari sistem DNS kullandığı için VPN’siz açılmaz; Chrome bazen DoH ile “şanslı” açılır. VPN ile açılması bu yüzden.
+2. **Vercel Authentication:** `turladur-zjyf.vercel.app` gibi bazı production alias’lar SSO’ya 302 atar (Vercel hesabı login ister). VPN’de açık görünmesi çoğu zaman tarayıcıda Vercel oturumu olmasındandır.
+
+**Kalıcı çözüm:** `www.turta.com.tr` DNS’ini bağla (aşağı §6). Domain şu an global DNS’te **NXDOMAIN** — kayıt / nameserver henüz yayında değil.
+
+**Geçici paylaşım linki (SSO’suz production alias):**  
+`https://turladur-delta.vercel.app`  
+TR İSS engeli sürerse yine VPN gerekir; domain gelince herkese `https://www.turta.com.tr` ver.
+
+DNS (registrar / Natro / nic.tr) — Vercel’in istediği minimum:
+
+| Tip          | Host  | Değer                                                       |
+| ------------ | ----- | ----------------------------------------------------------- |
+| A            | `@`   | `76.76.21.21`                                               |
+| A veya CNAME | `www` | `76.76.21.21` veya Vercel kartındaki `cname.vercel-dns.com` |
+
+Doğrulama: `nslookup www.turta.com.tr 8.8.8.8` → IP; `curl -I https://www.turta.com.tr` → 200.
+
+---
+
 ## 6) Custom domain (`turta.com.tr`)
 
 Tam checklist: [DOMAIN_DNS_CUTOVER.md](./DOMAIN_DNS_CUTOVER.md) (`turta.com.tr`).

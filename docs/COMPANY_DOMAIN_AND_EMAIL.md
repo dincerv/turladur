@@ -80,10 +80,15 @@ OTP / sistem mailleri şimdilik Gmail SMTP’de kalabilir (`docs/EMAIL_SETUP.md`
 
 ## 2. Siteyi `www.turta.com.tr` yayına al
 
+> **Durum (2026-11):** Vercel’de domain ekli; fakat global DNS **NXDOMAIN**  
+> (`nslookup turta.com.tr 8.8.8.8`). Registrar’da nameserver / A kaydı yoksa  
+> Safari (TR) `*.vercel.app` engeline takılır — VPN’siz açılmaz. Soft-live için  
+> DNS’i **bugün** tamamla.
+
 Tarayıcı zaten same-origin `/api/v1` kullandığı için domain eklemek login’i bozmaz. Vercel rewrite → mevcut Nest API aynı kalır.
 
 1. [Vercel](https://vercel.com) → turta web projesi → **Settings → Domains**.
-2. `turta.com.tr` ekle. Vercel `www`’yi de önerir — **ikisini de ekle**.
+2. `turta.com.tr` ekle. Vercel `www`’yi de önerir — **ikisini de ekle** (zaten ekliyse atla).
 3. Tercih: **Primary = `www.turta.com.tr`**, apex (`turta.com.tr`) → www’ye 301.
 4. Domain kartındaki **tam A ve CNAME değerlerini** kopyala (projeye özel olabilir; internetten ezbere IP yazma). Tipik:
 

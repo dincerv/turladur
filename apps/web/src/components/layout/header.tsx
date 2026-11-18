@@ -188,7 +188,9 @@ export function Header() {
     router.push('/acente/giris');
   };
 
-  // Açık zeminli sayfalar: şeffaf + beyaz link (hero stili) kullanılmaz
+  // Açık zeminli sayfalar: şeffaf + beyaz link (hero stili) kullanılmaz.
+  // Full-bleed dark hero’lu liste/detay (/tours, /activities, /routes[+slug])
+  // ANA SAYFA gibi üstte şeffaf kalır — beyaz bar + banner ayrık görünmesin.
   const lightBackgroundRoutes = [
     '/about',
     '/contact',
@@ -199,9 +201,6 @@ export function Header() {
     '/acente/giris',
     '/partner-register',
     '/blog',
-    '/tours',
-    '/activities',
-    '/routes',
     '/campaigns',
     '/careers',
     '/gastronomi',
@@ -210,16 +209,15 @@ export function Header() {
   ];
   // Sadece gerçek App Router path'leri — ghost EN slug'lar ve silinmiş
   // `/destinations/`, `/agency/` kaldırıldı (Sprint 25.3).
+  // Not: /tours/* ve /routes/* dark hero → şeffaf; /activities/* açık zemin → solid.
+  // /tour-operator[+id] full-bleed dark hero → şeffaf (liste/profil tutarlı).
   const lightBackgroundPrefixes = [
     '/blog',
     '/checkout',
-    '/tours/',
     '/activities/',
-    '/routes/',
     '/gastronomi',
     '/kultur-turlari',
     '/macera-aktiviteleri',
-    '/tour-operator',
     '/faq',
     '/privacy',
     '/terms',

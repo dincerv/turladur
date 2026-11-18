@@ -15,16 +15,21 @@ import {
   type MarketplaceAgencyProfile,
 } from '@/services/marketplace-agency';
 
+const HERO_IMAGE =
+  'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=2000&q=80';
+
 function AgencyCard({ agency }: { agency: MarketplaceAgencyProfile }) {
   const logoUrl = agency.logo
     ? resolveMediaUrl(agency.logo) || agency.logo
     : `https://ui-avatars.com/api/?name=${encodeURIComponent(agency.companyName)}&background=171717&color=fff`;
   const rating = Number(agency.averageRating ?? 0);
+  const description = agency.description?.trim();
 
   return (
     <Link
       href={`/tour-operator/${agency.id}`}
-      className="group block h-full rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-neutral-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
+      className="group block h-full rounded-2xl border border-neutral-200/80 bg-white p-5 transition hover:border-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
+      data-testid={`agency-card-${agency.id}`}
     >
       <div className="flex items-start gap-4">
         <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-neutral-900">
@@ -61,6 +66,11 @@ function AgencyCard({ agency }: { agency: MarketplaceAgencyProfile }) {
               {agency.publishedTourCount} tur
             </span>
           </div>
+          {description ? (
+            <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-neutral-500">
+              {description}
+            </p>
+          ) : null}
         </div>
       </div>
     </Link>
@@ -128,35 +138,58 @@ export function TourOperatorsDirectory() {
   }, [debouncedQ]);
 
   return (
-    <div className="bg-neutral-50 pb-16 pt-10 sm:pt-12">
+    <div className="bg-neutral-50 pb-16" data-testid="tour-operators-directory">
+      <section className="relative overflow-hidden border-b border-sky-900/10 bg-slate-900 pt-28 pb-12 md:pb-16">
+        <Image
+          src={HERO_IMAGE}
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-[center_35%]"
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-gradient-to-br from-sky-950/80 via-teal-900/55 to-slate-900/75"
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-gradient-to-t from-slate-950/55 via-transparent to-sky-950/30"
+        />
+
+        <div className="container relative mx-auto px-4 sm:px-6 lg:px-8 xl:px-20">
+          <div className="mx-auto max-w-3xl text-center">
+            <div className="mb-4 inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-medium text-sky-50 shadow-sm backdrop-blur-md">
+              <span className="mr-2 h-2 w-2 rounded-full bg-teal-300" />
+              Onaylı operatörler
+            </div>
+            <h1 className="mb-3 text-3xl leading-tight font-bold tracking-tight text-white md:text-5xl">
+              Onaylı acenteleri <span className="text-teal-200">keşfet</span>
+            </h1>
+            <p className="mb-8 text-base text-sky-50/85 md:px-6 md:text-lg">
+              Türkiye&apos;nin doğrulanmış tur operatörlerini inceleyin; her
+              acentenin yayınladığı turlara profilinden ulaşın.
+            </p>
+
+            <div className="relative mx-auto max-w-xl">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+              <input
+                type="search"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Acente veya şehir ara…"
+                maxLength={80}
+                className="w-full rounded-full border-0 bg-white/95 py-3.5 pl-11 pr-4 text-sm text-neutral-900 shadow-lg placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-white/60"
+                aria-label="Acente ara"
+                data-testid="agency-search-input"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="max-w-2xl">
-          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-            Tur Operatörleri
-          </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl">
-            Acenteler
-          </h1>
-          <p className="mt-3 text-sm leading-relaxed text-neutral-600 sm:text-base">
-            Onaylı tur operatörlerini keşfedin; her acentenin yayınladığı
-            turlara profilinden ulaşın.
-          </p>
-        </div>
-
-        <div className="relative mt-8 max-w-xl">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Acente veya şehir ara…"
-            maxLength={80}
-            className="w-full rounded-xl border border-neutral-200 bg-white py-3 pl-10 pr-4 text-sm text-neutral-900 shadow-sm placeholder:text-neutral-400 focus:border-neutral-950 focus:outline-none focus:ring-1 focus:ring-neutral-950"
-            aria-label="Acente ara"
-          />
-        </div>
-
-        <div className="mt-6 flex items-center justify-between gap-3 text-sm text-neutral-600">
+        <div className="mt-8 flex items-center justify-between gap-3 text-sm text-neutral-600">
           <p>{loading ? 'Yükleniyor…' : `${total} acente`}</p>
           <Link
             href="/tours"

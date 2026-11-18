@@ -3,13 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  ArrowLeft,
-  Building2,
-  Globe,
-  MapPin,
-  MessageCircle,
-} from 'lucide-react';
+import { ArrowLeft, Building2, Globe, MapPin } from 'lucide-react';
 
 import MembershipBadge from '@/components/features/tour/membership-badge';
 import StarRating from '@/components/features/tour/star-rating';
@@ -26,6 +20,9 @@ import type { Tour } from '@turta/shared-types';
 type TourOperatorPublicClientProps = {
   agencyId: string;
 };
+
+const HERO_IMAGE =
+  'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=2000&q=80';
 
 function formatPrice(price: string, currency: string) {
   const amount = Number(price);
@@ -48,7 +45,7 @@ function TourCard({ tour }: { tour: Tour }) {
       }
       className="block h-full focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
     >
-      <div className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:border-gray-200 hover:shadow-lg">
+      <div className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-neutral-200/80 bg-white transition hover:border-neutral-300">
         <div className="relative h-48 overflow-hidden">
           <Image
             src={cover}
@@ -141,7 +138,7 @@ export function TourOperatorPublicClient({
 
   const logoUrl = useMemo(() => {
     if (!profile?.logo) {
-      return `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.companyName || 'Operator')}&background=0EA5E9&color=fff`;
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.companyName || 'Operator')}&background=171717&color=fff`;
     }
     return resolveMediaUrl(profile.logo) || profile.logo;
   }, [profile]);
@@ -171,82 +168,96 @@ export function TourOperatorPublicClient({
   }
 
   const rating = Number(profile.averageRating ?? 0);
+  const description =
+    profile.description?.trim() ||
+    'Tur operatörü hakkında bilgi bulunmamaktadır';
 
   return (
-    <div className="bg-neutral-50 pb-16">
-      <div className="border-b border-neutral-100 bg-white">
-        <div className="mx-auto max-w-6xl px-4 pb-8 pt-10 sm:px-6 sm:pb-10 sm:pt-12 lg:px-8">
+    <div className="bg-neutral-50 pb-16" data-testid="tour-operator-profile">
+      <section className="relative overflow-hidden border-b border-sky-900/10 bg-slate-900 pt-28 pb-12 md:pb-14">
+        <Image
+          src={HERO_IMAGE}
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-[center_40%]"
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-gradient-to-br from-sky-950/85 via-slate-900/65 to-teal-950/75"
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-sky-950/35"
+        />
+
+        <div className="container relative mx-auto px-4 sm:px-6 lg:px-8 xl:px-20">
           <Link
             href="/tour-operator"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-900"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-sky-100/90 transition hover:text-white"
           >
             <ArrowLeft className="h-4 w-4" />
             Acentelere dön
           </Link>
 
-          <div className="mt-6 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-sky-500">
-                <Image
-                  src={logoUrl}
-                  alt={profile.companyName}
-                  fill
-                  unoptimized={shouldUnoptimizeMedia(logoUrl)}
-                  className="object-cover"
-                  sizes="64px"
+          <div className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-start">
+            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full ring-2 ring-white/30 bg-neutral-900 sm:h-24 sm:w-24">
+              <Image
+                src={logoUrl}
+                alt={profile.companyName}
+                fill
+                unoptimized={shouldUnoptimizeMedia(logoUrl)}
+                className="object-cover"
+                sizes="96px"
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
+                  {profile.companyName}
+                </h1>
+                <MembershipBadge
+                  tier={profile.membershipTier as MembershipTier}
+                  variant="onImage"
                 />
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-2xl font-bold text-neutral-900">
-                    {profile.companyName}
-                  </h1>
-                  <MembershipBadge
-                    tier={profile.membershipTier as MembershipTier}
-                  />
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-neutral-600">
-                  <span className="inline-flex items-center gap-1">
-                    <StarRating rating={rating} size="sm" />
-                    {rating > 0 ? rating.toFixed(1) : '—'} (
-                    {profile.reviewCount} değerlendirme)
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-sky-50/90">
+                <span className="inline-flex items-center gap-1.5">
+                  <StarRating rating={rating} size="sm" />
+                  {rating > 0 ? rating.toFixed(1) : '—'} ({profile.reviewCount}{' '}
+                  değerlendirme)
+                </span>
+                {profile.city ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5" />
+                    {profile.city}
+                    {profile.country ? `, ${profile.country}` : ''}
                   </span>
-                  {profile.city ? (
-                    <span className="inline-flex items-center gap-1">
-                      <MapPin className="h-3.5 w-3.5" />
-                      {profile.city}
-                      {profile.country ? `, ${profile.country}` : ''}
-                    </span>
-                  ) : null}
-                  <span className="inline-flex items-center gap-1">
-                    <Building2 className="h-3.5 w-3.5" />
-                    {profile.publishedTourCount} yayınlı tur
-                  </span>
-                </div>
-                <p className="mt-3 text-sm text-neutral-600">
-                  {profile.description?.trim() ||
-                    'Tur operatörü hakkında bilgi bulunmamaktadır'}
-                </p>
-                {profile.website ? (
-                  <a
-                    href={profile.website}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-sky-700 hover:underline"
-                  >
-                    <Globe className="h-3.5 w-3.5" />
-                    Web sitesi
-                  </a>
                 ) : null}
+                <span className="inline-flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5" />
+                  {profile.publishedTourCount} yayınlı tur
+                </span>
               </div>
-              <div className="hidden items-center gap-2 rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2 text-sm text-neutral-600 sm:inline-flex">
-                <MessageCircle className="h-4 w-4" />
-                Tur Operatörü
-              </div>
+              <p className="mt-4 max-w-3xl text-sm leading-relaxed text-sky-50/80 md:text-base">
+                {description}
+              </p>
+              {profile.website ? (
+                <a
+                  href={profile.website}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-teal-200 hover:text-teal-100 hover:underline"
+                >
+                  <Globe className="h-3.5 w-3.5" />
+                  Web sitesi
+                </a>
+              ) : null}
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       <div
         id="tours"
