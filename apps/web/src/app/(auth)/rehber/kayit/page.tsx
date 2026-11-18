@@ -107,6 +107,7 @@ export default function RehberKayitPage() {
           <form
             className="mt-6 grid gap-4 sm:grid-cols-2"
             onSubmit={handleSubmit}
+            data-testid="rehber-kayit-form"
           >
             <label className="text-sm">
               Ad *
@@ -115,6 +116,7 @@ export default function RehberKayitPage() {
                 className={fieldClass}
                 value={form.firstName}
                 onChange={(e) => update('firstName', e.target.value)}
+                data-testid="rehber-kayit-firstName"
               />
             </label>
             <label className="text-sm">
@@ -124,6 +126,7 @@ export default function RehberKayitPage() {
                 className={fieldClass}
                 value={form.lastName}
                 onChange={(e) => update('lastName', e.target.value)}
+                data-testid="rehber-kayit-lastName"
               />
             </label>
             <label className="text-sm sm:col-span-2">
@@ -134,6 +137,7 @@ export default function RehberKayitPage() {
                 className={fieldClass}
                 value={form.email}
                 onChange={(e) => update('email', e.target.value)}
+                data-testid="rehber-kayit-email"
               />
             </label>
             <label className="text-sm sm:col-span-2">
@@ -145,6 +149,7 @@ export default function RehberKayitPage() {
                 className={fieldClass}
                 value={form.password}
                 onChange={(e) => update('password', e.target.value)}
+                data-testid="rehber-kayit-password"
               />
             </label>
             <label className="text-sm">
@@ -157,6 +162,7 @@ export default function RehberKayitPage() {
                 className={fieldClass}
                 value={form.identityNumber}
                 onChange={(e) => update('identityNumber', e.target.value)}
+                data-testid="rehber-kayit-tckn"
               />
             </label>
             <label className="text-sm">
@@ -176,6 +182,7 @@ export default function RehberKayitPage() {
                 placeholder="tr, en, de"
                 value={form.languages}
                 onChange={(e) => update('languages', e.target.value)}
+                data-testid="rehber-kayit-languages"
               />
             </label>
             <label className="text-sm">
@@ -185,6 +192,7 @@ export default function RehberKayitPage() {
                 className={fieldClass}
                 value={form.oda}
                 onChange={(e) => update('oda', e.target.value)}
+                data-testid="rehber-kayit-oda"
               />
             </label>
             <label className="text-sm">
@@ -194,6 +202,7 @@ export default function RehberKayitPage() {
                 className={fieldClass}
                 value={form.sicilNo}
                 onChange={(e) => update('sicilNo', e.target.value)}
+                data-testid="rehber-kayit-sicil"
               />
             </label>
             <label className="text-sm">
@@ -203,6 +212,7 @@ export default function RehberKayitPage() {
                 className={fieldClass}
                 value={form.ruhsatNo}
                 onChange={(e) => update('ruhsatNo', e.target.value)}
+                data-testid="rehber-kayit-ruhsat"
               />
             </label>
             <label className="text-sm">
@@ -213,6 +223,7 @@ export default function RehberKayitPage() {
                 className={fieldClass}
                 value={form.ruhsatExpiresAt}
                 onChange={(e) => update('ruhsatExpiresAt', e.target.value)}
+                data-testid="rehber-kayit-ruhsat-expires"
               />
             </label>
             <label className="text-sm">
@@ -237,6 +248,7 @@ export default function RehberKayitPage() {
                 type="submit"
                 disabled={loading}
                 className="w-full rounded-lg bg-neutral-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-60"
+                data-testid="rehber-kayit-submit"
               >
                 {loading ? 'Kaydediliyor…' : 'Başvuruyu gönder'}
               </button>

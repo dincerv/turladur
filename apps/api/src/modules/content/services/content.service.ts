@@ -122,6 +122,8 @@ export class ContentService {
         content: dto.content,
         excerpt: dto.excerpt?.trim(),
         coverImage: dto.coverImage,
+        seoTitle: dto.seoTitle?.trim() || null,
+        seoDescription: dto.seoDescription?.trim() || null,
         published,
         publishedAt: published ? new Date() : null,
         authorId,
@@ -155,6 +157,12 @@ export class ContentService {
     if (dto.content !== undefined) data.content = dto.content;
     if (dto.excerpt !== undefined) data.excerpt = dto.excerpt.trim();
     if (dto.coverImage !== undefined) data.coverImage = dto.coverImage;
+    if (dto.seoTitle !== undefined) {
+      data.seoTitle = dto.seoTitle?.trim() || null;
+    }
+    if (dto.seoDescription !== undefined) {
+      data.seoDescription = dto.seoDescription?.trim() || null;
+    }
     if (dto.published !== undefined) {
       data.published = dto.published;
       if (dto.published && !post.publishedAt) {
@@ -475,6 +483,8 @@ export class ContentService {
     content?: string;
     excerpt: string | null;
     coverImage?: string | null;
+    seoTitle?: string | null;
+    seoDescription?: string | null;
     published: boolean;
     authorId: string;
     publishedAt: Date | null;
@@ -489,6 +499,8 @@ export class ContentService {
       content: row.content,
       excerpt: row.excerpt,
       coverImage: row.coverImage ?? null,
+      seoTitle: row.seoTitle ?? null,
+      seoDescription: row.seoDescription ?? null,
       published: row.published,
       authorId: row.authorId,
       publishedAt: row.publishedAt?.toISOString() ?? null,

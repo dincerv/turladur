@@ -548,6 +548,8 @@ export interface Post {
   content?: string;
   excerpt: string | null;
   coverImage?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
   published: boolean;
   authorId: string;
   publishedAt: string | null;

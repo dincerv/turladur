@@ -1706,24 +1706,27 @@ model Category {
 }
 
 model Post {
-  id          String     @id @default(cuid())
-  title       String     @db.VarChar(300)
-  slug        String     @unique @db.VarChar(320)
-  content     String     @db.Text
-  excerpt     String?    @db.Text
-  coverImage  String?
-  published   Boolean    @default(false)
-  publishedAt DateTime?
-  authorId    String
-  comments    Comment[]
-  categories  Category[] @relation("CategoryToPost")
-  postTags    PostTag[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  createdBy  String?
-  updatedBy  String?
-  deletedBy  String?
-  deletedAt   DateTime?
+  id             String     @id @default(cuid())
+  title          String     @db.VarChar(300)
+  slug           String     @unique @db.VarChar(320)
+  content        String     @db.Text
+  excerpt        String?    @db.Text
+  coverImage     String?
+  /// Optional SEO override (falls back to title / excerpt).
+  seoTitle       String?    @db.VarChar(300)
+  seoDescription String?    @db.VarChar(500)
+  published      Boolean    @default(false)
+  publishedAt    DateTime?
+  authorId       String
+  comments       Comment[]
+  categories     Category[] @relation("CategoryToPost")
+  postTags       PostTag[]
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  createdBy      String?
+  updatedBy      String?
+  deletedBy      String?
+  deletedAt      DateTime?
 
   @@index([authorId])
   @@index([published, publishedAt])

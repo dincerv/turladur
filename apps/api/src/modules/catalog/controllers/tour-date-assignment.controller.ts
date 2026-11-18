@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Role } from '@turta/shared-constants';
 
@@ -28,8 +36,7 @@ export class TourDateAssignmentController {
   @Roles(Role.GUIDE)
   @ApiOperation({ summary: 'Guide inbox — PENDING/ACCEPTED assignments' })
   listMine(@CurrentUser() user: UserPayload) {
-    const guideId = user.guideId ?? user.userId;
-    return this.assignmentService.listForGuide(guideId);
+    return this.assignmentService.listForGuide(this.requireGuideId(user));
   }
 
   @Get('bus-companies/me/assignments')
@@ -38,8 +45,9 @@ export class TourDateAssignmentController {
     summary: 'Bus company inbox — PENDING/ACCEPTED assignments',
   })
   listBusMine(@CurrentUser() user: UserPayload) {
-    const busCompanyId = user.busCompanyId ?? user.userId;
-    return this.assignmentService.listForBusCompany(busCompanyId);
+    return this.assignmentService.listForBusCompany(
+      this.requireBusCompanyId(user),
+    );
   }
 
   @Get('agencies/me/assignments')
@@ -108,12 +116,19 @@ export class TourDateAssignmentController {
     @Body() dto: RespondAssignmentDto,
     @CurrentUser() user: UserPayload,
   ) {
+    // Never trust body actor* — JWT claim only (IDOR).
+    const actorGuideId =
+      user.role === Role.GUIDE ? this.requireGuideId(user) : undefined;
+    const actorBusCompanyId =
+      user.role === Role.BUS_COMPANY
+        ? this.requireBusCompanyId(user)
+        : undefined;
     return this.assignmentService.respond(
       assignmentId,
       {
         ...dto,
-        actorGuideId: user.guideId ?? dto.actorGuideId,
-        actorBusCompanyId: user.busCompanyId ?? dto.actorBusCompanyId,
+        actorGuideId,
+        actorBusCompanyId,
       },
       user.agencyId,
       user.role,
@@ -150,5 +165,25 @@ export class TourDateAssignmentController {
       user.role,
       resolveActorId(user),
     );
+  }
+
+  private requireGuideId(user: UserPayload): string {
+    if (!user.guideId) {
+      throw new ForbiddenException({
+        code: 'GUIDE_REQUIRED',
+        message: 'Rehber oturumu gerekli',
+      });
+    }
+    return user.guideId;
+  }
+
+  private requireBusCompanyId(user: UserPayload): string {
+    if (!user.busCompanyId) {
+      throw new ForbiddenException({
+        code: 'BUS_COMPANY_REQUIRED',
+        message: 'Otobüs firması oturumu gerekli',
+      });
+    }
+    return user.busCompanyId;
   }
 }

@@ -6,6 +6,7 @@ import {
   AvailabilityCalendar,
   monthRange,
 } from '@/components/features/availability/availability-calendar';
+import { revalidateRehberPanel } from '@/app/(guide)/rehber/actions';
 import { useAuth } from '@/providers/auth-provider';
 import { ApiError } from '@/services/api-client';
 import {
@@ -56,6 +57,7 @@ export default function RehberMusaitlikPage() {
         }
         return [...prev, updated];
       });
+      await revalidateRehberPanel();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Gün güncellenemedi');
     }
@@ -68,7 +70,10 @@ export default function RehberMusaitlikPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div
+      className="mx-auto max-w-3xl space-y-4"
+      data-testid="rehber-musaitlik-page"
+    >
       <div>
         <h2 className="text-xl font-semibold text-gray-900">Müsaitlik</h2>
         <p className="mt-1 text-sm text-gray-600">

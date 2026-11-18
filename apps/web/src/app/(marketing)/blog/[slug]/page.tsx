@@ -22,13 +22,16 @@ export async function generateMetadata({
   try {
     const raw = await getPostBySlug(slug);
     const post = toBlogPostDetail(raw);
-    const description = toPlainExcerpt(post.excerpt ?? post.content, 160);
+    const title = post.seoTitle?.trim() || `${post.title} | turta Blog`;
+    const description =
+      post.seoDescription?.trim() ||
+      toPlainExcerpt(post.excerpt ?? post.content, 160);
     const cover = toCoverImageUrl(post.coverImage);
     return {
-      title: `${post.title} | turta Blog`,
+      title,
       description,
       openGraph: {
-        title: post.title,
+        title: post.seoTitle?.trim() || post.title,
         description,
         type: 'article',
         publishedTime: post.publishedAt ?? undefined,

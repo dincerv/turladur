@@ -180,6 +180,24 @@ export async function registerGuide(input: RegisterGuideInput) {
   );
 }
 
+export type GuideDashboardSummary = {
+  status: string;
+  verifiedAt: string | null;
+  canReceiveAssignments: boolean;
+  pendingAssignments: number;
+  acceptedUpcoming: number;
+  availableDaysNext30: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+};
+
+export async function getGuideDashboard(token: string) {
+  return apiRequest<GuideDashboardSummary>('/identity/guides/me/dashboard', {
+    token,
+  });
+}
+
 export async function getGuideProfile(token: string) {
   return apiRequest<GuideProfile>('/identity/guides/me', { token });
 }

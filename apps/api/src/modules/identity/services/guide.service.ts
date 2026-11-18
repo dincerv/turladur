@@ -104,6 +104,68 @@ export class GuideService {
     return { success: true as const, data: toPublicGuide(guide), error: null };
   }
 
+  /**
+   * Soft-live dashboard KPIs — own assignments + availability window.
+   */
+  async getDashboard(guideId: string) {
+    const guide = await this.requireGuide(guideId);
+    const now = new Date();
+    const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const fromDay = now.toISOString().slice(0, 10);
+    const toDay = in30.toISOString().slice(0, 10);
+
+    const [pendingAssignments, acceptedUpcoming, availableDays] =
+      await Promise.all([
+        this.prisma.tourDateAssignment.count({
+          where: {
+            guideId,
+            deletedAt: null,
+            status: 'PENDING',
+            role: 'GUIDE',
+          },
+        }),
+        this.prisma.tourDateAssignment.count({
+          where: {
+            guideId,
+            deletedAt: null,
+            status: 'ACCEPTED',
+            role: 'GUIDE',
+            tourDate: {
+              deletedAt: null,
+              startDate: { gte: now },
+            },
+          },
+        }),
+        this.prisma.guideAvailability.count({
+          where: {
+            guideId,
+            isAvailable: true,
+            deletedAt: null,
+            date: {
+              gte: new Date(`${fromDay}T00:00:00.000Z`),
+              lte: new Date(`${toDay}T23:59:59.999Z`),
+            },
+          },
+        }),
+      ]);
+
+    return {
+      success: true as const,
+      data: {
+        status: guide.status,
+        verifiedAt: guide.verifiedAt?.toISOString() ?? null,
+        canReceiveAssignments: guide.status === 'VERIFIED',
+        pendingAssignments,
+        acceptedUpcoming,
+        availableDaysNext30: availableDays,
+        firstName: guide.firstName,
+        lastName: guide.lastName,
+        email: guide.email,
+      },
+      error: null,
+    };
+  }
+
   async updateProfile(guideId: string, dto: UpdateGuideProfileDto) {
     await this.requireGuide(guideId);
 

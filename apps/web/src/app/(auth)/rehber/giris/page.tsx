@@ -22,6 +22,7 @@ export default function RehberGirisPage() {
       userRole={user?.role}
       registerHref={REHBER_REGISTER}
       registerLabel="Hesabınız yok mu? Rehber üyeliği"
+      testIdPrefix="rehber"
     />
   );
 }

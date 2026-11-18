@@ -1564,6 +1564,8 @@ export async function listAdminContentPosts(token: string) {
       title: string;
       slug: string;
       excerpt: string | null;
+      seoTitle?: string | null;
+      seoDescription?: string | null;
       published: boolean;
       publishedAt: string | null;
     }>
@@ -1576,6 +1578,8 @@ export async function createAdminContentPost(
     content: string;
     excerpt?: string;
     coverImage?: string;
+    seoTitle?: string;
+    seoDescription?: string;
     published?: boolean;
   },
   token: string,
@@ -1594,6 +1598,8 @@ export async function updateAdminContentPost(
     content?: string;
     excerpt?: string;
     coverImage?: string;
+    seoTitle?: string | null;
+    seoDescription?: string | null;
     published?: boolean;
   },
   token: string,

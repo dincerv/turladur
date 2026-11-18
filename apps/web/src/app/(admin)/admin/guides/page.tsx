@@ -27,7 +27,7 @@ export default function AdminGuidesPage() {
   }, [accessToken]);
 
   return (
-    <div>
+    <div data-testid="admin-guides-page">
       <h1 className="text-2xl font-bold text-neutral-900">Rehberler</h1>
       <p className="mt-2 text-sm text-neutral-600">
         Rehber üyelik başvuruları. Onaylanan rehberler acente sefer
@@ -40,9 +40,16 @@ export default function AdminGuidesPage() {
         </p>
       ) : null}
 
-      <ul className="mt-6 divide-y rounded-xl border bg-white">
+      <ul
+        className="mt-6 divide-y rounded-xl border bg-white"
+        data-testid="admin-guides-list"
+        data-count={String(guides.length)}
+      >
         {guides.length === 0 ? (
-          <li className="p-4 text-sm text-neutral-600">
+          <li
+            className="p-4 text-sm text-neutral-600"
+            data-testid="admin-guides-empty"
+          >
             Listelenecek rehber yok.
           </li>
         ) : null}
@@ -56,6 +63,9 @@ export default function AdminGuidesPage() {
             <li
               key={row.id}
               className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 text-sm"
+              data-testid={`admin-guide-row-${row.id}`}
+              data-email={row.email}
+              data-status={status}
             >
               <div className="min-w-0">
                 <p className="font-medium">
@@ -86,6 +96,7 @@ export default function AdminGuidesPage() {
                     type="button"
                     disabled={busy || !accessToken}
                     className="rounded-lg bg-emerald-600 px-2 py-1 text-xs text-white disabled:opacity-50"
+                    data-testid={`admin-guide-verify-${row.id}`}
                     onClick={() => {
                       if (!accessToken) return;
                       setPendingId(row.id);
@@ -103,6 +114,7 @@ export default function AdminGuidesPage() {
                     type="button"
                     disabled={busy || !accessToken}
                     className="rounded-lg border px-2 py-1 text-xs disabled:opacity-50"
+                    data-testid={`admin-guide-reject-${row.id}`}
                     onClick={() => {
                       if (!accessToken) return;
                       setPendingId(row.id);

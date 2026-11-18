@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -167,13 +168,22 @@ export class IdentityController {
     };
   }
 
+  @Get('guides/me/dashboard')
+  @Roles(Role.GUIDE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Guide dashboard KPIs (assignments + availability + verify gate)',
+  })
+  getGuideDashboard(@CurrentUser() user: UserPayload) {
+    return this.guideService.getDashboard(this.requireGuideId(user));
+  }
+
   @Get('guides/me')
   @Roles(Role.GUIDE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Guide self profile (TUREB card fields)' })
   getGuideMe(@CurrentUser() user: UserPayload) {
-    const guideId = user.guideId ?? user.userId;
-    return this.guideService.getProfile(guideId);
+    return this.guideService.getProfile(this.requireGuideId(user));
   }
 
   @Patch('guides/me')
@@ -184,8 +194,7 @@ export class IdentityController {
     @Body() dto: UpdateGuideProfileDto,
     @CurrentUser() user: UserPayload,
   ) {
-    const guideId = user.guideId ?? user.userId;
-    return this.guideService.updateProfile(guideId, dto);
+    return this.guideService.updateProfile(this.requireGuideId(user), dto);
   }
 
   @Public()
@@ -512,5 +521,16 @@ export class IdentityController {
       data: result.data,
       error: result.error,
     };
+  }
+
+  /** JWT must carry guideId — never fall back to userId (IDOR). */
+  private requireGuideId(user: UserPayload): string {
+    if (!user.guideId) {
+      throw new ForbiddenException({
+        code: 'GUIDE_REQUIRED',
+        message: 'Rehber oturumu gerekli',
+      });
+    }
+    return user.guideId;
   }
 }

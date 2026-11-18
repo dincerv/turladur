@@ -36,6 +36,8 @@ type ActorLoginPageProps = {
   userRole?: string | null;
   registerHref?: string;
   registerLabel?: string;
+  /** Prefix for Playwright test ids (e.g. rehber → rehber-login-email). */
+  testIdPrefix?: string;
 };
 
 export function ActorLoginPage({
@@ -52,6 +54,7 @@ export function ActorLoginPage({
   userRole,
   registerHref,
   registerLabel = 'Hesabınız yok mu? Üye olun',
+  testIdPrefix,
 }: ActorLoginPageProps) {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -191,7 +194,14 @@ export function ActorLoginPage({
             </div>
           ) : null}
 
-          <form className="space-y-5" onSubmit={handleSubmit}>
+          <form
+            className="space-y-5"
+            onSubmit={handleSubmit}
+            data-testid={
+              testIdPrefix ? `${testIdPrefix}-login-form` : undefined
+            }
+            data-ready="true"
+          >
             <div>
               <label
                 htmlFor="email"
@@ -213,6 +223,9 @@ export function ActorLoginPage({
                   onChange={(e) => setEmail(e.target.value)}
                   className="block w-full rounded-lg border border-neutral-300 py-2.5 pl-9 pr-4 text-neutral-900 placeholder-neutral-400 shadow-sm focus:border-neutral-950 focus:outline-none focus:ring-1 focus:ring-neutral-300 sm:text-sm"
                   placeholder={emailPlaceholder}
+                  data-testid={
+                    testIdPrefix ? `${testIdPrefix}-login-email` : undefined
+                  }
                 />
               </div>
             </div>
@@ -238,6 +251,9 @@ export function ActorLoginPage({
                   onChange={(e) => setPassword(e.target.value)}
                   className="block w-full rounded-lg border border-neutral-300 py-2.5 pl-9 pr-10 text-neutral-900 placeholder-neutral-400 shadow-sm focus:border-neutral-950 focus:outline-none focus:ring-1 focus:ring-neutral-300 sm:text-sm"
                   placeholder="••••••••"
+                  data-testid={
+                    testIdPrefix ? `${testIdPrefix}-login-password` : undefined
+                  }
                 />
                 <button
                   type="button"
@@ -258,6 +274,9 @@ export function ActorLoginPage({
               type="submit"
               disabled={loading}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-neutral-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800 disabled:opacity-60"
+              data-testid={
+                testIdPrefix ? `${testIdPrefix}-login-submit` : undefined
+              }
             >
               {loading ? 'Giriş yapılıyor…' : 'Giriş Yap'}
               {!loading ? <ArrowRight className="h-4 w-4" /> : null}

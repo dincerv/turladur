@@ -42,11 +42,11 @@ export class AvailabilityController {
     @Query() query: AvailabilityRangeQueryDto,
     @CurrentUser() user: UserPayload,
   ) {
-    const guideId = user.guideId ?? user.userId;
-    if (!guideId) {
-      throw new BusinessException('GUIDE_REQUIRED', 'Rehber oturumu gerekli');
-    }
-    return this.availability.listGuideDays(guideId, query.from, query.to);
+    return this.availability.listGuideDays(
+      this.requireGuideId(user),
+      query.from,
+      query.to,
+    );
   }
 
   @Put('guides/me/availability')
@@ -56,11 +56,11 @@ export class AvailabilityController {
     @Body() dto: SetAvailabilityDayDto,
     @CurrentUser() user: UserPayload,
   ) {
-    const guideId = user.guideId ?? user.userId;
-    if (!guideId) {
-      throw new BusinessException('GUIDE_REQUIRED', 'Rehber oturumu gerekli');
-    }
-    return this.availability.setGuideDay(guideId, dto.date, dto.isAvailable);
+    return this.availability.setGuideDay(
+      this.requireGuideId(user),
+      dto.date,
+      dto.isAvailable,
+    );
   }
 
   @Get('guides')
@@ -198,8 +198,15 @@ export class AvailabilityController {
     );
   }
 
+  private requireGuideId(user: UserPayload): string {
+    if (!user.guideId) {
+      throw new BusinessException('GUIDE_REQUIRED', 'Rehber oturumu gerekli');
+    }
+    return user.guideId;
+  }
+
   private requireBusCompanyId(user: UserPayload): string {
-    const busCompanyId = user.busCompanyId ?? user.userId;
+    const busCompanyId = user.busCompanyId;
     if (!busCompanyId) {
       throw new BusinessException(
         'BUS_COMPANY_REQUIRED',

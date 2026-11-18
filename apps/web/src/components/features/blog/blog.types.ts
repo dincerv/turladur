@@ -17,6 +17,8 @@ export type BlogPostDetail = BlogPostListItem & {
   authorId: string;
   authorName: string;
   updatedAt: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
   tags: Array<{ name: string; slug: string }>;
 };
 
@@ -74,6 +76,8 @@ export function toBlogPostDetail(
     authorId: post.authorId,
     authorName: 'turta',
     updatedAt: post.updatedAt ?? null,
+    seoTitle: post.seoTitle ?? null,
+    seoDescription: post.seoDescription ?? null,
     tags: categories,
   };
 }

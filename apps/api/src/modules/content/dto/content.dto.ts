@@ -40,6 +40,18 @@ export class CreatePostDto {
   @IsBoolean()
   published?: boolean;
 
+  @ApiPropertyOptional({ description: 'SEO title override' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  seoTitle?: string;
+
+  @ApiPropertyOptional({ description: 'SEO meta description override' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  seoDescription?: string;
+
   @ApiPropertyOptional({ type: [String], description: 'Category ids' })
   @IsOptional()
   @IsArray()
@@ -76,6 +88,18 @@ export class UpdatePostDto {
   @IsOptional()
   @IsBoolean()
   published?: boolean;
+
+  @ApiPropertyOptional({ description: 'SEO title override' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  seoTitle?: string | null;
+
+  @ApiPropertyOptional({ description: 'SEO meta description override' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  seoDescription?: string | null;
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()

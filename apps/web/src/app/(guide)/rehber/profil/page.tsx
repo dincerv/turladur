@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 
+import { revalidateRehberPanel } from '@/app/(guide)/rehber/actions';
 import { useAuth } from '@/providers/auth-provider';
 import { ApiError } from '@/services/api-client';
 import {
@@ -64,6 +65,7 @@ export default function RehberProfilPage() {
       });
       setProfile(updated);
       setLanguagesText(updated.languages.join(', '));
+      await revalidateRehberPanel();
       setMessage('Profil güncellendi.');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Profil güncellenemedi');
@@ -73,7 +75,11 @@ export default function RehberProfilPage() {
   }
 
   if (loading) {
-    return <p className="text-sm text-gray-500">Yükleniyor…</p>;
+    return (
+      <p className="text-sm text-gray-500" data-testid="rehber-profil-loading">
+        Yükleniyor…
+      </p>
+    );
   }
 
   if (!profile) {
@@ -88,7 +94,11 @@ export default function RehberProfilPage() {
     'mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500';
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div
+      className="mx-auto max-w-3xl space-y-4"
+      data-testid="rehber-profil-page"
+      data-status={profile.status}
+    >
       <div>
         <h2 className="text-xl font-semibold text-gray-900">Rehber kartı</h2>
         <p className="mt-1 text-sm text-gray-600">
