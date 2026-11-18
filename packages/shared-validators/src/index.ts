@@ -455,6 +455,150 @@ export function parseAgencyReviewReply(input: unknown): AgencyReviewReplyInput {
   return agencyReviewReplySchema.parse(input);
 }
 
+/** Agency settings tabs — profile / security / notifications / company */
+export const AGENCY_SETTINGS_TABS = [
+  'profile',
+  'security',
+  'notifications',
+  'company',
+] as const;
+export type AgencySettingsTab = (typeof AGENCY_SETTINGS_TABS)[number];
+
+export const agencySettingsTabSchema = z.enum(AGENCY_SETTINGS_TABS);
+
+export function parseAgencySettingsTab(input: unknown): AgencySettingsTab {
+  const parsed = agencySettingsTabSchema.safeParse(input);
+  return parsed.success ? parsed.data : 'profile';
+}
+
+export const agencySettingsProfileSchema = z.object({
+  name: z.string().trim().min(2, 'Ad en az 2 karakter olmalı').max(200),
+});
+
+export type AgencySettingsProfileInput = z.infer<
+  typeof agencySettingsProfileSchema
+>;
+
+export function parseAgencySettingsProfile(
+  input: unknown,
+): AgencySettingsProfileInput {
+  return agencySettingsProfileSchema.parse(input);
+}
+
+const settingsPasswordStrength = z
+  .string()
+  .min(8, 'Şifre en az 8 karakter olmalı')
+  .max(128)
+  .regex(/[A-Z]/, 'Şifrede en az 1 büyük harf olmalı')
+  .regex(/\d/, 'Şifrede en az 1 rakam olmalı');
+
+export const agencySettingsPasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Mevcut şifre gerekli'),
+    newPassword: settingsPasswordStrength,
+    confirmPassword: z.string().min(1, 'Şifre tekrarı gerekli'),
+  })
+  .refine((v) => v.newPassword === v.confirmPassword, {
+    message: 'Yeni şifreler eşleşmiyor',
+    path: ['confirmPassword'],
+  })
+  .refine((v) => v.currentPassword !== v.newPassword, {
+    message: 'Yeni şifre mevcut şifre ile aynı olamaz',
+    path: ['newPassword'],
+  });
+
+export type AgencySettingsPasswordInput = z.infer<
+  typeof agencySettingsPasswordSchema
+>;
+
+export function parseAgencySettingsPassword(
+  input: unknown,
+): AgencySettingsPasswordInput {
+  return agencySettingsPasswordSchema.parse(input);
+}
+
+export const agencySettingsNotificationsSchema = z.object({
+  emailReservations: z.boolean(),
+  emailReviews: z.boolean(),
+  emailMarketing: z.boolean(),
+  emailFinancials: z.boolean(),
+  pushEnabled: z.boolean(),
+});
+
+export type AgencySettingsNotificationsInput = z.infer<
+  typeof agencySettingsNotificationsSchema
+>;
+
+export function parseAgencySettingsNotifications(
+  input: unknown,
+): AgencySettingsNotificationsInput {
+  return agencySettingsNotificationsSchema.parse(input);
+}
+
+export const DEFAULT_AGENCY_NOTIFICATIONS: AgencySettingsNotificationsInput = {
+  emailReservations: true,
+  emailReviews: true,
+  emailMarketing: false,
+  emailFinancials: true,
+  pushEnabled: true,
+};
+
+const optionalUrl = z
+  .union([z.string().trim().url().max(200), z.literal('')])
+  .optional()
+  .nullable()
+  .transform((v) => (v && v.length > 0 ? v : null));
+
+export const agencySettingsCompanySchema = z.object({
+  companyName: z.string().trim().min(2).max(200),
+  legalTitle: z.string().trim().min(2).max(200),
+  taxNumber: z
+    .string()
+    .trim()
+    .regex(/^\d{10,11}$/, 'Vergi numarası 10 veya 11 haneli olmalıdır'),
+  contactEmail: z.string().trim().email().max(200),
+  contactPhone: z
+    .string()
+    .trim()
+    .max(40)
+    .optional()
+    .nullable()
+    .transform((v) => (v && v.length > 0 ? v : null)),
+  address: z.string().trim().min(5).max(500),
+  city: z
+    .string()
+    .trim()
+    .max(80)
+    .optional()
+    .nullable()
+    .transform((v) => (v && v.length > 0 ? v : null)),
+  country: z
+    .string()
+    .trim()
+    .max(80)
+    .optional()
+    .nullable()
+    .transform((v) => (v && v.length > 0 ? v : null)),
+  website: optionalUrl,
+  logo: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .nullable()
+    .transform((v) => (v && v.length > 0 ? v : null)),
+});
+
+export type AgencySettingsCompanyInput = z.infer<
+  typeof agencySettingsCompanySchema
+>;
+
+export function parseAgencySettingsCompany(
+  input: unknown,
+): AgencySettingsCompanyInput {
+  return agencySettingsCompanySchema.parse(input);
+}
+
 export function maskEmail(email: string): string {
   const trimmed = email.trim();
   const at = trimmed.indexOf('@');

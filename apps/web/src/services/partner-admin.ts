@@ -928,32 +928,102 @@ export async function deleteExperienceDate(
   });
 }
 
-export async function getPartnerProfile(token: string) {
-  return apiRequest<{
+export type PartnerCompanyProfile = {
+  id: string;
+  companyName: string;
+  legalTitle?: string;
+  taxNumber: string | null;
+  contactEmail: string;
+  contactPhone: string | null;
+  status: string;
+  capabilities?: string[];
+  membershipTier?: 'BRONZE' | 'SILVER' | 'GOLD' | null;
+  averageRating?: string;
+  reviewCount?: number;
+  address: string | null;
+  city: string | null;
+  country: string | null;
+  website: string | null;
+  logo: string | null;
+};
+
+export type PartnerNotificationPrefs = {
+  emailReservations: boolean;
+  emailReviews: boolean;
+  emailMarketing: boolean;
+  emailFinancials: boolean;
+  pushEnabled: boolean;
+};
+
+export type PartnerSettingsBootstrap = {
+  staff: {
     id: string;
-    companyName: string;
-    taxNumber: string | null;
-    contactEmail: string;
-    contactPhone: string | null;
-    status: string;
-    capabilities?: string[];
-    membershipTier?: 'BRONZE' | 'SILVER' | 'GOLD' | null;
-    averageRating?: string;
-    reviewCount?: number;
-    address: string | null;
-    city: string | null;
-    country: string | null;
-    website: string | null;
-    logo: string | null;
-  }>('/partner/me', { token });
+    name: string;
+    email: string;
+    role: string;
+    uiRole: string;
+  } | null;
+  company: PartnerCompanyProfile;
+  notifications: PartnerNotificationPrefs;
+};
+
+export async function getPartnerProfile(token: string) {
+  return apiRequest<PartnerCompanyProfile>('/partner/me', {
+    token,
+    cache: 'no-store',
+  });
+}
+
+export async function getPartnerSettings(token: string) {
+  return apiRequest<PartnerSettingsBootstrap>('/partner/settings', {
+    token,
+    cache: 'no-store',
+  });
+}
+
+export async function updatePartnerStaffProfile(
+  body: { name: string },
+  token: string,
+) {
+  return apiRequest<{ id: string; name: string; email: string }>(
+    '/partner/settings/profile',
+    { method: 'PATCH', body, token },
+  );
+}
+
+export async function changePartnerStaffPassword(
+  body: {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+  },
+  token: string,
+) {
+  return apiRequest<{ updated: boolean }>('/partner/settings/password', {
+    method: 'POST',
+    body,
+    token,
+  });
+}
+
+export async function updatePartnerNotifications(
+  body: PartnerNotificationPrefs,
+  token: string,
+) {
+  return apiRequest<{ notifications: PartnerNotificationPrefs }>(
+    '/partner/settings/notifications',
+    { method: 'PATCH', body, token },
+  );
 }
 
 export async function updatePartnerProfile(
   body: {
-    companyName?: string;
+    companyName: string;
+    legalTitle: string;
+    taxNumber: string;
+    contactEmail: string;
     contactPhone?: string | null;
-    taxNumber?: string | null;
-    address?: string | null;
+    address: string;
     city?: string | null;
     country?: string | null;
     website?: string | null;
@@ -962,6 +1032,16 @@ export async function updatePartnerProfile(
   token: string,
 ) {
   return apiRequest('/partner/me', { method: 'PATCH', body, token });
+}
+
+export async function updatePartnerCompanyLogo(
+  logo: string | null,
+  token: string,
+) {
+  return apiRequest<{ id: string; logo: string | null }>(
+    '/partner/settings/company/logo',
+    { method: 'PATCH', body: { logo }, token },
+  );
 }
 
 export type PartnerFinancialKpis = {

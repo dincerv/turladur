@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Patch,
+  Post,
   Put,
   Query,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsIn,
   IsInt,
   IsNumber,
@@ -409,12 +411,28 @@ class ListPartnerExperiencesQueryDto {
 }
 
 class UpdatePartnerProfileDto {
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty()
   @IsString()
   @MinLength(2)
   @MaxLength(200)
-  companyName?: string;
+  companyName!: string;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(200)
+  legalTitle!: string;
+
+  @ApiProperty({ description: '10-11 digit tax number' })
+  @IsString()
+  @MinLength(10)
+  @MaxLength(11)
+  taxNumber!: string;
+
+  @ApiProperty()
+  @IsString()
+  @MaxLength(200)
+  contactEmail!: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -422,17 +440,11 @@ class UpdatePartnerProfileDto {
   @MaxLength(40)
   contactPhone?: string | null;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty()
   @IsString()
-  @MaxLength(40)
-  taxNumber?: string | null;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  @MaxLength(300)
-  address?: string | null;
+  @MinLength(5)
+  @MaxLength(500)
+  address!: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -453,6 +465,62 @@ class UpdatePartnerProfileDto {
   website?: string | null;
 
   @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  logo?: string | null;
+}
+
+class UpdateStaffProfileDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(200)
+  name!: string;
+}
+
+class ChangeStaffPasswordDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(1)
+  currentPassword!: string;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(8)
+  @MaxLength(128)
+  newPassword!: string;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(1)
+  confirmPassword!: string;
+}
+
+class UpdateNotificationsDto {
+  @ApiProperty()
+  @IsBoolean()
+  emailReservations!: boolean;
+
+  @ApiProperty()
+  @IsBoolean()
+  emailReviews!: boolean;
+
+  @ApiProperty()
+  @IsBoolean()
+  emailMarketing!: boolean;
+
+  @ApiProperty()
+  @IsBoolean()
+  emailFinancials!: boolean;
+
+  @ApiProperty()
+  @IsBoolean()
+  pushEnabled!: boolean;
+}
+
+class UpdateCompanyLogoDto {
+  @ApiPropertyOptional({ nullable: true })
   @IsOptional()
   @IsString()
   @MaxLength(500)
@@ -495,19 +563,87 @@ export class PartnerController {
   }
 
   @Patch('me')
-  @Roles(
-    Role.PARTNER,
-    Role.AGENCY_OWNER,
-    Role.AGENCY_ADMIN,
-    ...PLATFORM_ADMIN_ROLES,
-  )
-  @ApiOperation({ summary: 'Update partner company profile' })
+  @Roles(...AGENCY_OWNER_ONLY_ROLES)
+  @ApiOperation({
+    summary: 'Update company profile (OWNER only — legal/tax fields)',
+  })
   async updateMe(
     @CurrentUser() user: UserPayload,
     @Body() dto: UpdatePartnerProfileDto,
   ) {
     const agencyId = await this.sellerAgencyId(user);
-    return this.partnerService.updateProfile(agencyId, dto);
+    return this.partnerService.updateProfile(agencyId, dto, user.role);
+  }
+
+  @Get('settings')
+  @ApiOperation({
+    summary: 'Settings bootstrap — staff profile, company, notifications',
+  })
+  async settings(@CurrentUser() user: UserPayload) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.partnerService.getSettings(agencyId, {
+      agencyStaffId: user.agencyStaffId,
+      role: user.role,
+    });
+  }
+
+  @Patch('settings/profile')
+  @ApiOperation({ summary: 'Update own AgencyStaff display name' })
+  async updateSettingsProfile(
+    @CurrentUser() user: UserPayload,
+    @Body() dto: UpdateStaffProfileDto,
+  ) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.partnerService.updateStaffProfile(
+      agencyId,
+      { agencyStaffId: user.agencyStaffId },
+      dto,
+    );
+  }
+
+  @Post('settings/password')
+  @ApiOperation({
+    summary: 'Change own AgencyStaff password (bcrypt, current check)',
+  })
+  async changeSettingsPassword(
+    @CurrentUser() user: UserPayload,
+    @Body() dto: ChangeStaffPasswordDto,
+  ) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.partnerService.changeStaffPassword(
+      agencyId,
+      { agencyStaffId: user.agencyStaffId },
+      dto,
+    );
+  }
+
+  @Patch('settings/notifications')
+  @ApiOperation({ summary: 'Update own notification preferences' })
+  async updateSettingsNotifications(
+    @CurrentUser() user: UserPayload,
+    @Body() dto: UpdateNotificationsDto,
+  ) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.partnerService.updateNotificationPrefs(
+      agencyId,
+      { agencyStaffId: user.agencyStaffId },
+      dto,
+    );
+  }
+
+  @Patch('settings/company/logo')
+  @Roles(...AGENCY_OWNER_ONLY_ROLES)
+  @ApiOperation({ summary: 'Update company logo (OWNER only)' })
+  async updateCompanyLogo(
+    @CurrentUser() user: UserPayload,
+    @Body() dto: UpdateCompanyLogoDto,
+  ) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.partnerService.updateCompanyLogo(
+      agencyId,
+      dto.logo ?? null,
+      user.role,
+    );
   }
 
   @Get('financials/transactions')

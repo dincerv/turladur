@@ -8,6 +8,7 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   decodeCustomerKey,
+  DEFAULT_AGENCY_NOTIFICATIONS,
   encodeCustomerKey,
   FINANCIAL_OVERDUE_DAYS,
   mapAgencyStaffRoleToUi,
@@ -19,16 +20,24 @@ import {
   parseAgencyReviewReply,
   parseAgencyReviewsQuery,
   parseAgencySalesGoalUpsert,
+  parseAgencySettingsCompany,
+  parseAgencySettingsNotifications,
+  parseAgencySettingsPassword,
+  parseAgencySettingsProfile,
   type AgencyFinancialsQuery,
   type AgencyReviewsQuery,
+  type AgencySettingsNotificationsInput,
   type FinancialPaymentStatus,
 } from '@turta/shared-validators';
+import * as bcrypt from 'bcrypt';
 import { ZodError } from 'zod';
 import { Prisma } from '../../../generated/prisma';
 import {
   AGENCY_REPORTS_MANAGER_ROLES,
   isPlatformAdminRole,
 } from '../../../core/auth/utils/role-access';
+
+const SETTINGS_BCRYPT_ROUNDS = 12;
 
 import { CacheService } from '../../../core/cache/cache.service';
 import { PrismaService } from '../../../core/database/prisma.service';
@@ -1221,6 +1230,7 @@ export class PartnerService {
       data: {
         id: agency.id,
         companyName: agency.companyName,
+        legalTitle: agency.legalTitle,
         taxNumber: agency.taxNumber,
         contactEmail: agency.contactEmail,
         contactPhone: agency.contactPhone,
@@ -1239,45 +1249,293 @@ export class PartnerService {
     };
   }
 
-  async updateProfile(
+  /** Settings bootstrap — staff (user-scoped) + company (tenant) + prefs. */
+  async getSettings(
     agencyId: string | undefined,
-    dto: {
-      companyName?: string;
-      contactPhone?: string | null;
-      address?: string | null;
-      city?: string | null;
-      country?: string | null;
-      website?: string | null;
-      logo?: string | null;
-      taxNumber?: string | null;
-    },
+    actor: { agencyStaffId?: string; role?: string },
   ) {
     this.requireAgencyId(agencyId);
+    const profile = await this.getProfile(agencyId);
+
+    let staff: {
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      uiRole: string;
+    } | null = null;
+    let notifications: AgencySettingsNotificationsInput = {
+      ...DEFAULT_AGENCY_NOTIFICATIONS,
+    };
+
+    if (actor.agencyStaffId) {
+      const row = await this.prisma.agencyStaff.findFirst({
+        where: {
+          id: actor.agencyStaffId,
+          agencyId,
+          deletedAt: null,
+        },
+      });
+      if (!row) {
+        throw new ForbiddenException({
+          code: 'STAFF_FORBIDDEN',
+          message: 'Personel kaydı bulunamadı',
+        });
+      }
+      staff = {
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        role: row.role,
+        uiRole: mapAgencyStaffRoleToUi(row.role),
+      };
+      notifications = this.readNotificationPrefs(row.permissions);
+    }
+
+    return {
+      success: true,
+      data: {
+        staff,
+        company: profile.data,
+        notifications,
+      },
+      error: null,
+    };
+  }
+
+  async updateStaffProfile(
+    agencyId: string | undefined,
+    actor: { agencyStaffId?: string },
+    body: unknown,
+  ) {
+    this.requireAgencyId(agencyId);
+    if (!actor.agencyStaffId) {
+      throw new ForbiddenException({
+        code: 'STAFF_REQUIRED',
+        message: 'Personel oturumu gerekli',
+      });
+    }
+
+    let parsed;
+    try {
+      parsed = parseAgencySettingsProfile(body);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'SETTINGS_PROFILE_INVALID',
+          message: error.issues[0]?.message ?? 'Geçersiz profil',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
+
+    const existing = await this.prisma.agencyStaff.findFirst({
+      where: {
+        id: actor.agencyStaffId,
+        agencyId,
+        deletedAt: null,
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'STAFF_NOT_FOUND',
+        message: 'Personel bulunamadı',
+      });
+    }
+
+    const updated = await this.prisma.agencyStaff.update({
+      where: { id: existing.id },
+      data: {
+        name: parsed.name,
+        updatedBy: actor.agencyStaffId,
+      },
+    });
+
+    return {
+      success: true,
+      data: {
+        id: updated.id,
+        name: updated.name,
+        email: updated.email,
+      },
+      error: null,
+    };
+  }
+
+  async changeStaffPassword(
+    agencyId: string | undefined,
+    actor: { agencyStaffId?: string },
+    body: unknown,
+  ) {
+    this.requireAgencyId(agencyId);
+    if (!actor.agencyStaffId) {
+      throw new ForbiddenException({
+        code: 'STAFF_REQUIRED',
+        message: 'Personel oturumu gerekli',
+      });
+    }
+
+    let parsed;
+    try {
+      parsed = parseAgencySettingsPassword(body);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'SETTINGS_PASSWORD_INVALID',
+          message: error.issues[0]?.message ?? 'Geçersiz şifre',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
+
+    const staff = await this.prisma.agencyStaff.findFirst({
+      where: {
+        id: actor.agencyStaffId,
+        agencyId,
+        deletedAt: null,
+      },
+    });
+    if (!staff) {
+      throw new NotFoundException({
+        code: 'STAFF_NOT_FOUND',
+        message: 'Personel bulunamadı',
+      });
+    }
+
+    const ok = await bcrypt.compare(parsed.currentPassword, staff.passwordHash);
+    if (!ok) {
+      throw new ForbiddenException({
+        code: 'INVALID_CURRENT_PASSWORD',
+        message: 'Mevcut şifre hatalı',
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(
+      parsed.newPassword,
+      SETTINGS_BCRYPT_ROUNDS,
+    );
+    await this.prisma.agencyStaff.update({
+      where: { id: staff.id },
+      data: {
+        passwordHash,
+        updatedBy: actor.agencyStaffId,
+      },
+    });
+
+    return {
+      success: true,
+      data: { updated: true },
+      error: null,
+    };
+  }
+
+  async updateNotificationPrefs(
+    agencyId: string | undefined,
+    actor: { agencyStaffId?: string },
+    body: unknown,
+  ) {
+    this.requireAgencyId(agencyId);
+    if (!actor.agencyStaffId) {
+      throw new ForbiddenException({
+        code: 'STAFF_REQUIRED',
+        message: 'Personel oturumu gerekli',
+      });
+    }
+
+    let parsed: AgencySettingsNotificationsInput;
+    try {
+      parsed = parseAgencySettingsNotifications(body);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'SETTINGS_NOTIFICATIONS_INVALID',
+          message: error.issues[0]?.message ?? 'Geçersiz bildirim tercihleri',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
+
+    const staff = await this.prisma.agencyStaff.findFirst({
+      where: {
+        id: actor.agencyStaffId,
+        agencyId,
+        deletedAt: null,
+      },
+    });
+    if (!staff) {
+      throw new NotFoundException({
+        code: 'STAFF_NOT_FOUND',
+        message: 'Personel bulunamadı',
+      });
+    }
+
+    const current =
+      staff.permissions &&
+      typeof staff.permissions === 'object' &&
+      !Array.isArray(staff.permissions)
+        ? (staff.permissions as Record<string, unknown>)
+        : {};
+
+    const permissions = {
+      ...current,
+      notifications: parsed,
+    } as Prisma.InputJsonValue;
+
+    await this.prisma.agencyStaff.update({
+      where: { id: staff.id },
+      data: {
+        permissions,
+        updatedBy: actor.agencyStaffId,
+      },
+    });
+
+    return {
+      success: true,
+      data: { notifications: parsed },
+      error: null,
+    };
+  }
+
+  /** Company update — OWNER only (critical legal / tax fields). */
+  async updateProfile(
+    agencyId: string | undefined,
+    dto: unknown,
+    role?: string,
+  ) {
+    this.requireAgencyId(agencyId);
+    this.assertAgencyOwnerOnly(role);
     await this.getProfile(agencyId);
+
+    let parsed;
+    try {
+      parsed = parseAgencySettingsCompany(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'SETTINGS_COMPANY_INVALID',
+          message: error.issues[0]?.message ?? 'Geçersiz şirket bilgisi',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
 
     const updated = await this.prisma.agency.update({
       where: { id: agencyId },
       data: {
-        ...(dto.companyName !== undefined
-          ? { companyName: dto.companyName.trim() }
-          : {}),
-        ...(dto.contactPhone !== undefined
-          ? { contactPhone: dto.contactPhone?.trim() || null }
-          : {}),
-        ...(dto.address !== undefined
-          ? { address: dto.address?.trim() || undefined }
-          : {}),
-        ...(dto.city !== undefined ? { city: dto.city?.trim() || null } : {}),
-        ...(dto.country !== undefined
-          ? { country: dto.country?.trim() || null }
-          : {}),
-        ...(dto.website !== undefined
-          ? { website: dto.website?.trim() || null }
-          : {}),
-        ...(dto.logo !== undefined ? { logo: dto.logo?.trim() || null } : {}),
-        ...(dto.taxNumber !== undefined && dto.taxNumber?.trim()
-          ? { taxNumber: dto.taxNumber.trim() }
-          : {}),
+        companyName: parsed.companyName,
+        legalTitle: parsed.legalTitle,
+        taxNumber: parsed.taxNumber,
+        contactEmail: parsed.contactEmail.toLowerCase(),
+        contactPhone: parsed.contactPhone,
+        address: parsed.address,
+        city: parsed.city,
+        country: parsed.country,
+        website: parsed.website,
+        ...(parsed.logo !== undefined ? { logo: parsed.logo } : {}),
       },
     });
 
@@ -1286,6 +1544,8 @@ export class PartnerService {
       data: {
         id: updated.id,
         companyName: updated.companyName,
+        legalTitle: updated.legalTitle,
+        contactEmail: updated.contactEmail,
         contactPhone: updated.contactPhone,
         address: updated.address,
         city: updated.city,
@@ -1296,6 +1556,30 @@ export class PartnerService {
       },
       error: null,
     };
+  }
+
+  private readNotificationPrefs(
+    permissions: Prisma.JsonValue,
+  ): AgencySettingsNotificationsInput {
+    if (
+      !permissions ||
+      typeof permissions !== 'object' ||
+      Array.isArray(permissions)
+    ) {
+      return { ...DEFAULT_AGENCY_NOTIFICATIONS };
+    }
+    const raw = (permissions as Record<string, unknown>).notifications;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      return { ...DEFAULT_AGENCY_NOTIFICATIONS };
+    }
+    try {
+      return parseAgencySettingsNotifications({
+        ...DEFAULT_AGENCY_NOTIFICATIONS,
+        ...raw,
+      });
+    } catch {
+      return { ...DEFAULT_AGENCY_NOTIFICATIONS };
+    }
   }
 
   /**
@@ -1768,15 +2052,36 @@ export class PartnerService {
     if (!role) {
       throw new ForbiddenException({
         code: 'FORBIDDEN',
-        message: 'Personel yönetimi yalnızca acente sahibine (OWNER) açıktır',
+        message: 'Bu işlem yalnızca acente sahibine (OWNER) açıktır',
       });
     }
     if (isPlatformAdminRole(role)) return;
     if (role === 'AGENCY_OWNER' || role === 'PARTNER') return;
     throw new ForbiddenException({
       code: 'FORBIDDEN',
-      message: 'Personel yönetimi yalnızca acente sahibine (OWNER) açıktır',
+      message: 'Bu işlem yalnızca acente sahibine (OWNER) açıktır',
     });
+  }
+
+  async updateCompanyLogo(
+    agencyId: string | undefined,
+    logo: string | null,
+    role?: string,
+  ) {
+    this.requireAgencyId(agencyId);
+    this.assertAgencyOwnerOnly(role);
+    const updated = await this.prisma.agency.update({
+      where: { id: agencyId },
+      data: { logo: logo?.trim() || null },
+    });
+    return {
+      success: true,
+      data: {
+        id: updated.id,
+        logo: this.storage.resolvePublicUrl(updated.logo),
+      },
+      error: null,
+    };
   }
 
   async listReservations(
