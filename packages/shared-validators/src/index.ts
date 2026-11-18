@@ -658,6 +658,98 @@ export function parseAgencySupportTicketsQuery(
   return agencySupportTicketsQuerySchema.parse(input);
 }
 
+/** Agency reservations — list filters (?q=&status=&page=) */
+export const AGENCY_RESERVATIONS_Q_MAX = 80;
+export const AGENCY_RESERVATIONS_PAGE_SIZE_MAX = 50;
+
+export const AGENCY_RESERVATION_STATUS_FILTERS = [
+  'PENDING',
+  'CONFIRMED',
+  'COMPLETED',
+  'CANCELLED',
+  'SUSPENDED',
+  'PENDING_PAYMENT',
+  'PAYMENT_FAILED',
+] as const;
+export type AgencyReservationStatusFilter =
+  (typeof AGENCY_RESERVATION_STATUS_FILTERS)[number];
+
+export const AGENCY_RESERVATION_STATUS_ACTIONS = [
+  'CONFIRMED',
+  'CANCELLED',
+  'COMPLETED',
+  'SUSPENDED',
+] as const;
+export type AgencyReservationStatusAction =
+  (typeof AGENCY_RESERVATION_STATUS_ACTIONS)[number];
+
+const isoDateOptional = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih YYYY-MM-DD olmalı')
+  .optional()
+  .or(z.literal(''))
+  .transform((v) => (v && v.length > 0 ? v : undefined));
+
+export const agencyReservationsQuerySchema = z
+  .object({
+    q: z
+      .string()
+      .trim()
+      .max(AGENCY_RESERVATIONS_Q_MAX)
+      .optional()
+      .default('')
+      .transform((v) => v.replace(/[\u0000-\u001F\u007F]/g, '')),
+    status: z.enum(AGENCY_RESERVATION_STATUS_FILTERS).optional(),
+    dateFrom: isoDateOptional,
+    dateTo: isoDateOptional,
+    page: z.coerce.number().int().min(1).max(10_000).optional().default(1),
+    pageSize: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(AGENCY_RESERVATIONS_PAGE_SIZE_MAX)
+      .optional()
+      .default(20),
+  })
+  .superRefine((val, ctx) => {
+    if (val.dateFrom && val.dateTo && val.dateFrom > val.dateTo) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'dateFrom dateTo sonrası olamaz',
+        path: ['dateFrom'],
+      });
+    }
+  });
+
+export type AgencyReservationsQuery = z.infer<
+  typeof agencyReservationsQuerySchema
+>;
+
+export function parseAgencyReservationsQuery(
+  input: unknown,
+): AgencyReservationsQuery {
+  return agencyReservationsQuerySchema.parse(input);
+}
+
+export const agencyReservationStatusUpdateSchema = z
+  .object({
+    status: z.enum(AGENCY_RESERVATION_STATUS_ACTIONS).optional(),
+    seatNumbers: z.string().trim().max(100).optional(),
+  })
+  .refine((v) => v.status !== undefined || v.seatNumbers !== undefined, {
+    message: 'status veya seatNumbers gerekli',
+  });
+
+export type AgencyReservationStatusUpdate = z.infer<
+  typeof agencyReservationStatusUpdateSchema
+>;
+
+export function parseAgencyReservationStatusUpdate(
+  input: unknown,
+): AgencyReservationStatusUpdate {
+  return agencyReservationStatusUpdateSchema.parse(input);
+}
+
 export function maskEmail(email: string): string {
   const trimmed = email.trim();
   const at = trimmed.indexOf('@');

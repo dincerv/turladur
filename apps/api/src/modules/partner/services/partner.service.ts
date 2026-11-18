@@ -24,9 +24,12 @@ import {
   parseAgencySettingsNotifications,
   parseAgencySettingsPassword,
   parseAgencySettingsProfile,
+  parseAgencyReservationStatusUpdate,
+  parseAgencyReservationsQuery,
   parseAgencySupportTicketCreate,
   parseAgencySupportTicketsQuery,
   type AgencyFinancialsQuery,
+  type AgencyReservationsQuery,
   type AgencyReviewsQuery,
   type AgencySettingsNotificationsInput,
   type FinancialPaymentStatus,
@@ -2088,48 +2091,45 @@ export class PartnerService {
 
   async listReservations(
     agencyId: string | undefined,
-    options?: {
-      q?: string;
-      status?:
-        | 'PENDING'
-        | 'CONFIRMED'
-        | 'COMPLETED'
-        | 'CANCELLED'
-        | 'SUSPENDED'
-        | 'PENDING_PAYMENT'
-        | 'PAYMENT_FAILED';
-      dateFrom?: string;
-      dateTo?: string;
-      page?: number;
-      pageSize?: number;
-    },
+    options?: Partial<AgencyReservationsQuery>,
   ) {
     this.requireAgencyId(agencyId);
 
-    const page = Math.max(1, options?.page ?? 1);
-    const pageSize = Math.min(50, Math.max(1, options?.pageSize ?? 20));
-    const rawQ = (options?.q ?? '').trim().slice(0, 80);
-    const q = rawQ.replace(/[\u0000-\u001F\u007F]/g, '');
+    let parsed: AgencyReservationsQuery;
+    try {
+      parsed = parseAgencyReservationsQuery(options ?? {});
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'RESERVATIONS_QUERY_INVALID',
+          message: error.issues[0]?.message ?? 'Geçersiz rezervasyon filtresi',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
+
+    const { q, page, pageSize, status, dateFrom, dateTo } = parsed;
 
     const where: Prisma.ReservationWhereInput = {
       agencyId,
       deletedAt: null,
     };
 
-    if (options?.status === 'PENDING') {
+    if (status === 'PENDING') {
       where.status = {
         in: ['PENDING', 'PENDING_PAYMENT', 'PAYMENT_FAILED'],
       };
-    } else if (options?.status) {
-      where.status = options.status;
+    } else if (status) {
+      where.status = status;
     }
 
     const createdAt: Prisma.DateTimeFilter = {};
-    if (options?.dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(options.dateFrom)) {
-      createdAt.gte = new Date(`${options.dateFrom}T00:00:00.000Z`);
+    if (dateFrom) {
+      createdAt.gte = new Date(`${dateFrom}T00:00:00.000Z`);
     }
-    if (options?.dateTo && /^\d{4}-\d{2}-\d{2}$/.test(options.dateTo)) {
-      createdAt.lte = new Date(`${options.dateTo}T23:59:59.999Z`);
+    if (dateTo) {
+      createdAt.lte = new Date(`${dateTo}T23:59:59.999Z`);
     }
     if (Object.keys(createdAt).length > 0) {
       where.createdAt = createdAt;
@@ -2189,13 +2189,13 @@ export class PartnerService {
     const [tours, experiences] = await Promise.all([
       tourIds.length
         ? this.prisma.tour.findMany({
-            where: { id: { in: tourIds } },
+            where: { id: { in: tourIds }, agencyId, deletedAt: null },
             select: { id: true, title: true },
           })
         : [],
       experienceIds.length
         ? this.prisma.experience.findMany({
-            where: { id: { in: experienceIds } },
+            where: { id: { in: experienceIds }, agencyId, deletedAt: null },
             select: { id: true, title: true },
           })
         : [],
@@ -2234,12 +2234,24 @@ export class PartnerService {
   async updateReservation(
     reservationId: string,
     agencyId: string | undefined,
-    input: {
-      status?: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'SUSPENDED';
-      seatNumbers?: string;
-    },
+    input: unknown,
   ) {
     this.requireAgencyId(agencyId);
+
+    let parsed;
+    try {
+      parsed = parseAgencyReservationStatusUpdate(input);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'RESERVATION_UPDATE_INVALID',
+          message:
+            error.issues[0]?.message ?? 'Geçersiz rezervasyon güncellemesi',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
 
     // IDOR: ownership check before any write event.
     const owned = await this.prisma.reservation.findFirst({
@@ -2253,15 +2265,13 @@ export class PartnerService {
       });
     }
 
-    if (input.seatNumbers != null || input.status) {
-      // Booking owns writes (Faz 5 — no ReservationService import)
-      await this.eventEmitter.emitAsync('agency.reservation.update', {
-        reservationId,
-        agencyId,
-        status: input.status,
-        seatNumbers: input.seatNumbers,
-      });
-    }
+    // Booking owns writes — CANCELLED restores TourDate.remainingCapacity in $transaction
+    await this.eventEmitter.emitAsync('agency.reservation.update', {
+      reservationId,
+      agencyId,
+      status: parsed.status,
+      seatNumbers: parsed.seatNumbers,
+    });
 
     const refreshed = await this.prisma.reservation.findFirstOrThrow({
       where: { id: reservationId, agencyId, deletedAt: null },

@@ -21,7 +21,6 @@ import {
   X,
 } from 'lucide-react';
 
-import { revalidatePartnerReservationPaths } from '@/app/(agency)/acente/reservations/actions';
 import { useDebouncedInput } from '@/components/features/activity/activities-page/use-debounced-input';
 import {
   Dialog,
@@ -147,6 +146,7 @@ export function AcenteReservationsPage() {
         dateFrom: 'dateFrom' in next ? (next.dateFrom ?? '') : filters.dateFrom,
         dateTo: 'dateTo' in next ? (next.dateTo ?? '') : filters.dateTo,
         page: next.page ?? filters.page,
+        pageSize: next.pageSize ?? filters.pageSize ?? PAGE_SIZE,
       };
       if (
         next.q !== undefined ||
@@ -164,7 +164,7 @@ export function AcenteReservationsPage() {
     [filters, pathname, router],
   );
 
-  const { draft, setDraft } = useDebouncedInput(
+  const { draft, setDraft, flush } = useDebouncedInput(
     filters.q,
     (value) => replaceFilters({ q: value.trim().slice(0, 80), page: 1 }),
     { delay: 400 },
@@ -180,7 +180,7 @@ export function AcenteReservationsPage() {
         dateFrom: filters.dateFrom || undefined,
         dateTo: filters.dateTo || undefined,
         page: filters.page,
-        pageSize: PAGE_SIZE,
+        pageSize: filters.pageSize || PAGE_SIZE,
       });
       setItems(result.items);
       setMeta(result.meta);
@@ -210,7 +210,6 @@ export function AcenteReservationsPage() {
         { status },
         accessToken,
       );
-      await revalidatePartnerReservationPaths(updated.tourId ?? undefined);
       setConfirmAction(null);
       setSelected((prev) =>
         prev?.id === id ? { ...prev, status: updated.status } : prev,
@@ -295,6 +294,7 @@ export function AcenteReservationsPage() {
             data-testid="filter-customer-search"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
+            onBlur={() => flush()}
             placeholder="Müşteri, e-posta veya rezervasyon no…"
             className="h-11 w-full rounded-lg border border-neutral-300 pr-3 pl-9 text-sm"
           />
