@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Upload } from 'lucide-react';
 import {
@@ -66,7 +66,10 @@ export function CompanyForm({
   const [logoPending, setLogoPending] = useState(false);
 
   const form = useForm<AgencySettingsCompanyInput>({
-    resolver: zodResolver(agencySettingsCompanySchema),
+    // Zod optional+nullable+transform → input/output mismatch with RHF.
+    resolver: zodResolver(
+      agencySettingsCompanySchema,
+    ) as Resolver<AgencySettingsCompanyInput>,
     defaultValues: toFormValues(initial),
   });
 

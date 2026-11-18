@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -214,7 +214,8 @@ export function StaffFormDialog({
   const isCreate = mode === 'create';
 
   const createForm = useForm<StaffCreateFormValues>({
-    resolver: zodResolver(createFormSchema),
+    // Zod .default() → input optional vs output required (RHF resolver mismatch).
+    resolver: zodResolver(createFormSchema) as Resolver<StaffCreateFormValues>,
     defaultValues: {
       name: '',
       email: '',
@@ -226,7 +227,7 @@ export function StaffFormDialog({
   });
 
   const editForm = useForm<StaffEditFormValues>({
-    resolver: zodResolver(editFormSchema),
+    resolver: zodResolver(editFormSchema) as Resolver<StaffEditFormValues>,
     defaultValues: {
       name: '',
       email: '',
