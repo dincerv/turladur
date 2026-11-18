@@ -34,7 +34,7 @@ export default function AdminAgenciesPage() {
   }, [accessToken]);
 
   return (
-    <div>
+    <div data-testid="admin-agencies-page">
       <h1 className="text-2xl font-bold text-neutral-900">Partner onayları</h1>
       <p className="mt-2 text-sm text-neutral-600">
         Tur operatörü / partner başvuruları. Onaylanan hesaplar partner paneline
@@ -47,9 +47,16 @@ export default function AdminAgenciesPage() {
         </p>
       ) : null}
 
-      <ul className="mt-6 divide-y rounded-xl border bg-white">
+      <ul
+        className="mt-6 divide-y rounded-xl border bg-white"
+        data-testid="admin-partners-list"
+        data-count={String(partners.length)}
+      >
         {partners.length === 0 ? (
-          <li className="p-4 text-sm text-neutral-600">
+          <li
+            className="p-4 text-sm text-neutral-600"
+            data-testid="admin-partners-empty"
+          >
             Bekleyen veya listelenecek partner yok.
           </li>
         ) : null}
@@ -62,6 +69,7 @@ export default function AdminAgenciesPage() {
           return (
             <li
               key={row.id}
+              data-testid={`admin-partner-row-${row.id}`}
               className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"
             >
               <div>
@@ -74,6 +82,7 @@ export default function AdminAgenciesPage() {
                 {canApprove ? (
                   <button
                     type="button"
+                    data-testid={`admin-partner-approve-${row.id}`}
                     disabled={busy || !accessToken}
                     className="rounded-lg bg-emerald-600 px-2 py-1 text-xs text-white disabled:opacity-50"
                     onClick={() => {

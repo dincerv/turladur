@@ -98,6 +98,10 @@ async function main() {
     }
   }
 
+  if (published.length < 5) {
+    failures.push(`publishedTours: ${published.length} < min 5`);
+  }
+
   console.log(
     JSON.stringify({ report, publishedTours: published.length }, null, 2),
   );

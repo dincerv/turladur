@@ -65,7 +65,7 @@ export default function AdminToursPage() {
   }
 
   return (
-    <div>
+    <div data-testid="admin-tours-page">
       <h1 className="text-2xl font-bold text-neutral-900">İçerik onayı</h1>
       <p className="mt-1 text-sm text-neutral-600">
         PENDING_REVIEW tur ve deneyimler
@@ -73,6 +73,7 @@ export default function AdminToursPage() {
       <div className="mt-4 flex gap-2">
         <button
           type="button"
+          data-testid="admin-tours-tab"
           onClick={() => setTab('tours')}
           className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
             tab === 'tours'
@@ -84,6 +85,7 @@ export default function AdminToursPage() {
         </button>
         <button
           type="button"
+          data-testid="admin-experiences-tab"
           onClick={() => setTab('experiences')}
           className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
             tab === 'experiences'
@@ -95,15 +97,30 @@ export default function AdminToursPage() {
         </button>
       </div>
       {error ? (
-        <p className="mt-4 rounded-lg bg-red-50 p-3 text-red-700">{error}</p>
+        <p
+          className="mt-4 rounded-lg bg-red-50 p-3 text-red-700"
+          data-testid="admin-tours-error"
+        >
+          {error}
+        </p>
       ) : null}
-      <ul className="mt-6 divide-y divide-neutral-200 rounded-xl border border-neutral-200 bg-white">
+      <ul
+        className="mt-6 divide-y divide-neutral-200 rounded-xl border border-neutral-200 bg-white"
+        data-testid="admin-pending-list"
+        data-count={String(rows.length)}
+      >
         {rows.length === 0 && !error ? (
-          <li className="p-4 text-sm text-neutral-600">Bekleyen kayıt yok.</li>
+          <li
+            className="p-4 text-sm text-neutral-600"
+            data-testid="admin-pending-empty"
+          >
+            Bekleyen kayıt yok.
+          </li>
         ) : null}
         {rows.map((row) => (
           <li
             key={row.id}
+            data-testid={`admin-pending-row-${row.id}`}
             className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
           >
             <div>
@@ -117,6 +134,7 @@ export default function AdminToursPage() {
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
+                data-testid={`admin-publish-${row.id}`}
                 className="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white"
                 onClick={() => void setStatus(row.id, 'PUBLISHED')}
               >

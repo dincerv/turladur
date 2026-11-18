@@ -18,7 +18,7 @@ export default function AdminDashboardPage() {
   }, [accessToken]);
 
   return (
-    <div>
+    <div data-testid="admin-dashboard-page">
       <h1 className="text-2xl font-bold text-neutral-900">Admin özeti</h1>
       <p className="mt-1 text-sm text-neutral-600">
         Nest <code>/admin/dashboard/stats</code>

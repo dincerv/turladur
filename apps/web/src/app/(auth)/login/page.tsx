@@ -186,6 +186,7 @@ function LoginForm() {
                 </div>
                 <input
                   id="email"
+                  data-testid="login-email"
                   type="email"
                   autoComplete="email"
                   aria-invalid={Boolean(errors.email)}
@@ -213,6 +214,7 @@ function LoginForm() {
                 </div>
                 <input
                   id="password"
+                  data-testid="login-password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   aria-invalid={Boolean(errors.password)}
@@ -270,6 +272,7 @@ function LoginForm() {
 
             <button
               type="submit"
+              data-testid="login-submit"
               disabled={isSubmitting}
               className="flex min-h-11 w-full items-center justify-center rounded-lg border border-transparent bg-neutral-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-neutral-950 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
             >

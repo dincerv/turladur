@@ -27,7 +27,7 @@ export function ToursPageResults() {
   } = useToursPageUi();
 
   return (
-    <div className="min-w-0 flex-1">
+    <div className="min-w-0 flex-1" data-testid="public-tours-results">
       <div className="mb-6 flex items-center gap-4">
         <div className="flex min-w-0 flex-col gap-2">
           <h1 className="text-2xl font-bold break-words text-neutral-900">
@@ -85,7 +85,11 @@ export function ToursPageResults() {
           <option value="rating">Puana Göre</option>
         </select>
 
-        <p className="text-sm text-neutral-600">
+        <p
+          className="text-sm text-neutral-600"
+          data-testid="public-tours-count"
+          data-total={String(totalTours)}
+        >
           {totalTours > 0 ? (
             <>
               Toplam{' '}
@@ -106,6 +110,7 @@ export function ToursPageResults() {
         <div
           className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm break-words text-amber-900"
           role="alert"
+          data-testid="public-tours-error"
         >
           {fetchError}
         </div>
