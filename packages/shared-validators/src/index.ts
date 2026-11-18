@@ -814,6 +814,149 @@ export function parseAgencyTourStatusToggle(
   return agencyTourStatusToggleSchema.parse(input);
 }
 
+/** Agency tour create — API body (JWT binds agencyId; never accept client agencyId). */
+const agencyTourCreateDateSchema = z
+  .object({
+    startDate: z
+      .string()
+      .trim()
+      .regex(/^\d{4}-\d{2}-\d{2}/, 'Geçersiz başlangıç tarihi'),
+    endDate: z
+      .string()
+      .trim()
+      .regex(/^\d{4}-\d{2}-\d{2}/, 'Geçersiz bitiş tarihi'),
+    capacity: z.coerce.number().int().min(1).max(500),
+    priceOverride: z.coerce.number().finite().min(0).max(1_000_000).optional(),
+    ageRanges: z
+      .array(
+        z.object({
+          minAge: z.coerce.number().int().min(0).max(120),
+          maxAge: z.coerce.number().int().min(0).max(120).nullable().optional(),
+          pricingType: z.enum(['FREE', 'HALF', 'PERCENTAGE', 'FIXED']),
+          value: z.coerce.number().finite().min(0).max(1_000_000),
+        }),
+      )
+      .max(20)
+      .optional()
+      .default([]),
+  })
+  .superRefine((date, ctx) => {
+    const start = date.startDate.slice(0, 10);
+    const end = date.endDate.slice(0, 10);
+    if (end < start) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endDate'],
+        message: 'Bitiş tarihi başlangıçtan önce olamaz',
+      });
+    }
+  });
+
+export const agencyTourCreateSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(3, 'Tur başlığı en az 3 karakter')
+    .max(200)
+    .transform((v) => v.replace(/[\u0000-\u001F\u007F]/g, '')),
+  description: z
+    .string()
+    .trim()
+    .min(10, 'Açıklama en az 10 karakter')
+    .max(20_000)
+    .transform((v) => v.replace(/[\u0000-\u001F\u007F]/g, '')),
+  price: z.coerce.number().finite().min(0).max(1_000_000),
+  currency: z.string().trim().length(3).optional().default('TRY'),
+  category: z.enum(AGENCY_TOUR_CATEGORIES),
+  durationDays: z.coerce.number().int().min(1).max(60).optional().default(1),
+  stayKind: z.enum(['DAY_TRIP', 'OVERNIGHT']).optional().default('OVERNIGHT'),
+  destinationScope: z
+    .enum(['DOMESTIC', 'INTERNATIONAL'])
+    .optional()
+    .default('DOMESTIC'),
+  departureCities: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1)
+        .max(80)
+        .transform((v) => v.replace(/[\u0000-\u001F\u007F]/g, '')),
+    )
+    .max(20)
+    .optional()
+    .default([]),
+  coverUrl: z
+    .union([
+      z
+        .string()
+        .trim()
+        .min(1)
+        .max(2000)
+        .refine(
+          (v) =>
+            v.startsWith('/') ||
+            v.startsWith('http://') ||
+            v.startsWith('https://'),
+          'Geçersiz kapak URL',
+        ),
+      z.literal(''),
+      z.null(),
+    ])
+    .optional()
+    .transform((v) => (v ? v : undefined)),
+  galleryUrls: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1)
+        .max(2000)
+        .refine(
+          (v) =>
+            v.startsWith('/') ||
+            v.startsWith('http://') ||
+            v.startsWith('https://'),
+          'Geçersiz galeri URL',
+        ),
+    )
+    .max(20)
+    .optional()
+    .default([]),
+  extras: z.record(z.unknown()).optional(),
+  asDraft: z.boolean().optional().default(false),
+  dates: z.array(agencyTourCreateDateSchema).max(50).optional().default([]),
+  pickupPoints: z
+    .array(
+      z.object({
+        city: z.string().trim().min(2).max(100),
+        location: z.string().trim().min(2).max(200),
+        time: z.string().trim().min(4).max(20),
+        description: z.string().trim().max(500).optional(),
+        latitude: z.number().finite().nullable().optional(),
+        longitude: z.number().finite().nullable().optional(),
+        order: z.coerce.number().int().min(0).optional(),
+      }),
+    )
+    .max(50)
+    .optional()
+    .default([]),
+  accommodation: z
+    .object({
+      name: z.string().trim().min(2).max(200),
+      image: z.string().trim().min(1).max(2000),
+      location: z.string().trim().min(2).max(120),
+      type: z.string().trim().min(2).max(80),
+    })
+    .optional(),
+});
+
+export type AgencyTourCreateInput = z.infer<typeof agencyTourCreateSchema>;
+
+export function parseAgencyTourCreate(input: unknown): AgencyTourCreateInput {
+  return agencyTourCreateSchema.parse(input);
+}
+
 export function maskEmail(email: string): string {
   const trimmed = email.trim();
   const at = trimmed.indexOf('@');

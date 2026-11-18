@@ -24,9 +24,11 @@ import type {
   TourDate as SharedTourDate,
 } from '@turta/shared-types';
 import {
+  parseAgencyTourCreate,
   parseAiSearchPrompt,
   parseCompareToursRequest,
   sanitizeAiSearchPrompt,
+  type AgencyTourCreateInput,
 } from '@turta/shared-validators';
 import { ZodError } from 'zod';
 import { Prisma } from '../../../generated/prisma';
@@ -101,9 +103,23 @@ export class TourService {
     // Ownership always from JWT session — never trust body.agencyId.
     await this.ensurePartnerCanPublish(agencyId);
 
-    const safeTitle = sanitizeTourPlainText(dto.title, 200);
-    const safeDescription = sanitizeTourPlainText(dto.description, 20_000);
-    const safeExtras = sanitizeTourExtras(dto.extras);
+    let parsed: AgencyTourCreateInput;
+    try {
+      parsed = parseAgencyTourCreate(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'TOUR_CREATE_INVALID',
+          message: error.issues[0]?.message ?? 'Geçersiz tur verisi',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
+
+    const safeTitle = sanitizeTourPlainText(parsed.title, 200);
+    const safeDescription = sanitizeTourPlainText(parsed.description, 20_000);
+    const safeExtras = sanitizeTourExtras(parsed.extras);
 
     if (safeTitle.length < 3) {
       throw new BusinessException('INVALID_TITLE', 'Tur başlığı geçersiz');
@@ -118,16 +134,16 @@ export class TourService {
     const baseSlug = slugify(safeTitle);
     const slug = await this.uniqueSlug(baseSlug);
     const taxonomy = resolveTourTaxonomy({
-      stayKind: dto.stayKind,
-      destinationScope: dto.destinationScope,
-      departureCities: dto.departureCities,
-      durationDays: dto.durationDays,
+      stayKind: parsed.stayKind,
+      destinationScope: parsed.destinationScope,
+      departureCities: parsed.departureCities,
+      durationDays: parsed.durationDays,
       extras: safeExtras,
     });
 
-    const status = dto.asDraft ? 'DRAFT' : 'PENDING_REVIEW';
-    const nestedDates = dto.dates ?? [];
-    const nestedPickups = dto.pickupPoints ?? [];
+    const status = parsed.asDraft ? 'DRAFT' : 'PENDING_REVIEW';
+    const nestedDates = parsed.dates ?? [];
+    const nestedPickups = parsed.pickupPoints ?? [];
 
     for (const date of nestedDates) {
       const startDate = new Date(date.startDate);
@@ -155,15 +171,15 @@ export class TourService {
           title: safeTitle,
           slug,
           description: safeDescription,
-          price: new Prisma.Decimal(dto.price),
-          currency: dto.currency ?? DEFAULT_CURRENCY,
-          category: dto.category,
+          price: new Prisma.Decimal(parsed.price),
+          currency: parsed.currency ?? DEFAULT_CURRENCY,
+          category: parsed.category,
           durationDays: taxonomy.durationDays,
           stayKind: taxonomy.stayKind,
           destinationScope: taxonomy.destinationScope,
           departureCities: taxonomy.departureCities,
-          coverUrl: dto.coverUrl,
-          galleryUrls: dto.galleryUrls ?? [],
+          coverUrl: parsed.coverUrl,
+          galleryUrls: parsed.galleryUrls ?? [],
           extras: safeExtras as Prisma.InputJsonValue,
           agencyId,
           status,
@@ -217,14 +233,14 @@ export class TourService {
         });
       }
 
-      if (dto.accommodation) {
+      if (parsed.accommodation) {
         await tx.tourAccommodation.create({
           data: {
             tourId: created.id,
-            name: sanitizeTourPlainText(dto.accommodation.name, 200),
-            image: dto.accommodation.image,
-            location: sanitizeTourPlainText(dto.accommodation.location, 120),
-            type: sanitizeTourPlainText(dto.accommodation.type, 80),
+            name: sanitizeTourPlainText(parsed.accommodation.name, 200),
+            image: parsed.accommodation.image,
+            location: sanitizeTourPlainText(parsed.accommodation.location, 120),
+            type: sanitizeTourPlainText(parsed.accommodation.type, 80),
             rating: 0,
             features: [],
           },
