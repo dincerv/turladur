@@ -31,6 +31,7 @@ import {
   type PartnerFinancialsOverview,
 } from '@/services/partner-admin';
 
+import { FinancialsPayoutPanel } from './financials-payout-panel';
 import {
   financialsSearchToQueryString,
   parseFinancialsSearchParams,
@@ -317,6 +318,14 @@ export function AcenteFinancialsPage() {
             </div>
           ))}
         </div>
+      ) : null}
+
+      {!loading && !isPending ? (
+        <FinancialsPayoutPanel
+          withdrawableBalance={kpis?.withdrawableBalance ?? '0'}
+          currency={currency}
+          onBalanceMaybeChanged={() => void load()}
+        />
       ) : null}
 
       <div

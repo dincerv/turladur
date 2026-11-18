@@ -43,6 +43,8 @@ import { RequireStaffPermissions } from '../../../core/auth/decorators/require-s
 import { Roles } from '../../../core/auth/decorators/roles.decorator';
 import { UserPayload } from '../../../core/auth/types/auth.types';
 import { AgencyLinkService } from '../../../core/agency/agency-link.service';
+import { AgencyBankInfoService } from '../../payment/services/agency-commission.service';
+import { AgencyEarningService } from '../../payment/services/agency-earning.service';
 import { PartnerService } from '../services/partner.service';
 
 class UpdatePartnerReservationDto {
@@ -278,6 +280,52 @@ class ListPartnerFinancialsQueryDto {
   @IsOptional()
   @IsIn(['csv', 'pdf'])
   format?: 'csv' | 'pdf';
+}
+
+class CreatePartnerBankAccountDto {
+  @ApiProperty({ example: 'TR330006100519786457841326' })
+  @IsString()
+  @MinLength(15)
+  @MaxLength(34)
+  iban!: string;
+
+  @ApiProperty({ example: 'Ankara Demo Acente 01' })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(200)
+  accountName!: string;
+
+  @ApiPropertyOptional({ example: 'Ziraat Bankası' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  bankName?: string;
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  isDefault?: boolean;
+}
+
+class CreatePartnerPayoutDto {
+  @ApiProperty({ example: 1500 })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(10_000_000)
+  amount!: number;
+
+  @ApiProperty({ description: 'AgencyBankInfo id owned by current agency' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  bankInfoId!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
 }
 
 class ListPartnerReservationsQueryDto {
@@ -592,6 +640,8 @@ export class PartnerController {
   constructor(
     private readonly partnerService: PartnerService,
     private readonly agencyLink: AgencyLinkService,
+    private readonly bankInfoService: AgencyBankInfoService,
+    private readonly earningService: AgencyEarningService,
   ) {}
 
   private async sellerAgencyId(user: UserPayload): Promise<string | undefined> {
@@ -733,6 +783,88 @@ export class PartnerController {
       agencyId,
       { userId: user.userId, agencyStaffId: user.agencyStaffId },
       dto,
+    );
+  }
+
+  @Get('financials/bank-accounts')
+  @RequireStaffPermissions('reports')
+  @ApiOperation({ summary: 'List agency bank accounts (tenant-scoped)' })
+  async listBankAccounts(@CurrentUser() user: UserPayload) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.bankInfoService.list(agencyId!, user.agencyId, user.role);
+  }
+
+  @Post('financials/bank-accounts')
+  @RequireStaffPermissions('reports')
+  @ApiOperation({ summary: 'Create agency bank account (tenant-scoped)' })
+  async createBankAccount(
+    @CurrentUser() user: UserPayload,
+    @Body() body: CreatePartnerBankAccountDto,
+  ) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.bankInfoService.create(
+      agencyId!,
+      body,
+      user.agencyId,
+      user.role,
+    );
+  }
+
+  @Patch('financials/bank-accounts/:bankInfoId/default')
+  @RequireStaffPermissions('reports')
+  @ApiOperation({ summary: 'Set default bank account (tenant-scoped)' })
+  async setDefaultBankAccount(
+    @CurrentUser() user: UserPayload,
+    @Param('bankInfoId') bankInfoId: string,
+  ) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.bankInfoService.setDefault(
+      agencyId!,
+      bankInfoId,
+      user.agencyId,
+      user.role,
+    );
+  }
+
+  @Post('financials/bank-accounts/:bankInfoId/delete')
+  @RequireStaffPermissions('reports')
+  @ApiOperation({ summary: 'Soft-delete bank account (tenant-scoped)' })
+  async deleteBankAccount(
+    @CurrentUser() user: UserPayload,
+    @Param('bankInfoId') bankInfoId: string,
+  ) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.bankInfoService.softDelete(
+      agencyId!,
+      bankInfoId,
+      user.agencyId,
+      user.role,
+    );
+  }
+
+  @Get('financials/payouts')
+  @RequireStaffPermissions('reports')
+  @ApiOperation({ summary: 'List agency payout requests (tenant-scoped)' })
+  async listPayouts(@CurrentUser() user: UserPayload) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.earningService.listPayouts(agencyId!, user.agencyId, user.role);
+  }
+
+  @Post('financials/payouts')
+  @RequireStaffPermissions('reports')
+  @ApiOperation({
+    summary: 'Create payout request — blocks ACCRUED earnings in a transaction',
+  })
+  async createPayoutRequest(
+    @CurrentUser() user: UserPayload,
+    @Body() body: CreatePartnerPayoutDto,
+  ) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.earningService.requestPayout(
+      agencyId!,
+      body,
+      user.agencyId,
+      user.role,
     );
   }
 

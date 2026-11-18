@@ -165,6 +165,7 @@ export async function seedIdentity(
         iban: `TR33000610051978645784132${i}`,
         accountName: agency.legalTitle,
         bankName: 'Demo Bank',
+        isDefault: true,
       },
     });
 

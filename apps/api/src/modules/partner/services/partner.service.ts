@@ -1607,53 +1607,68 @@ export class PartnerService {
     const baseWhere = this.buildEarningDateWhere(agencyId, query);
     const overdueCutoff = this.overdueCutoff();
 
-    const [totals, pendingAgg, paidAgg, overdueAgg, refundedAgg, monthBuckets] =
-      await Promise.all([
-        this.prisma.agencyEarning.aggregate({
-          where: baseWhere,
-          _sum: {
-            grossAmount: true,
-            commissionAmount: true,
-            amount: true,
-          },
-          _count: { _all: true },
-        }),
-        this.prisma.agencyEarning.aggregate({
-          where: {
-            ...baseWhere,
-            status: { in: ['ACCRUED', 'PAYABLE'] },
-          },
-          _sum: { amount: true },
-          _count: { _all: true },
-        }),
-        this.prisma.agencyEarning.aggregate({
-          where: { ...baseWhere, status: 'PAID' },
-          _sum: { amount: true },
-          _count: { _all: true },
-        }),
-        this.prisma.agencyEarning.aggregate({
-          where: {
-            ...baseWhere,
-            status: 'ACCRUED',
-            createdAt: { lt: overdueCutoff },
-          },
-          _sum: { amount: true },
-          _count: { _all: true },
-        }),
-        this.prisma.agencyEarning.aggregate({
-          where: {
-            ...baseWhere,
-            reservation: { paymentStatus: 'REFUNDED', deletedAt: null },
-          },
-          _sum: { grossAmount: true },
-          _count: { _all: true },
-        }),
-        this.prisma.agencyEarning.findMany({
-          where: baseWhere,
-          select: { createdAt: true, grossAmount: true },
-          orderBy: { createdAt: 'asc' },
-        }),
-      ]);
+    const [
+      totals,
+      pendingAgg,
+      accruedAgg,
+      paidAgg,
+      overdueAgg,
+      refundedAgg,
+      monthBuckets,
+    ] = await Promise.all([
+      this.prisma.agencyEarning.aggregate({
+        where: baseWhere,
+        _sum: {
+          grossAmount: true,
+          commissionAmount: true,
+          amount: true,
+        },
+        _count: { _all: true },
+      }),
+      this.prisma.agencyEarning.aggregate({
+        where: {
+          ...baseWhere,
+          status: { in: ['ACCRUED', 'PAYABLE'] },
+        },
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      this.prisma.agencyEarning.aggregate({
+        where: {
+          agencyId,
+          deletedAt: null,
+          status: 'ACCRUED',
+        },
+        _sum: { amount: true },
+      }),
+      this.prisma.agencyEarning.aggregate({
+        where: { ...baseWhere, status: 'PAID' },
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      this.prisma.agencyEarning.aggregate({
+        where: {
+          ...baseWhere,
+          status: 'ACCRUED',
+          createdAt: { lt: overdueCutoff },
+        },
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      this.prisma.agencyEarning.aggregate({
+        where: {
+          ...baseWhere,
+          reservation: { paymentStatus: 'REFUNDED', deletedAt: null },
+        },
+        _sum: { grossAmount: true },
+        _count: { _all: true },
+      }),
+      this.prisma.agencyEarning.findMany({
+        where: baseWhere,
+        select: { createdAt: true, grossAmount: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
 
     const since = query.startDate
       ? new Date(`${query.startDate}T00:00:00.000Z`)
@@ -1710,6 +1725,9 @@ export class PartnerService {
           ).toString(),
           pendingReceivables: (
             pendingAgg._sum.amount ?? new Prisma.Decimal(0)
+          ).toString(),
+          withdrawableBalance: (
+            accruedAgg._sum.amount ?? new Prisma.Decimal(0)
           ).toString(),
           completedPayouts: (
             paidAgg._sum.amount ?? new Prisma.Decimal(0)

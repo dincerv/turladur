@@ -1,6 +1,16 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OnEvent } from '@nestjs/event-emitter';
+import {
+  parseAgencyPayoutRequest,
+  type AgencyPayoutRequest,
+} from '@turta/shared-validators';
+import { ZodError } from 'zod';
 import { Prisma } from '../../../generated/prisma';
 
 import { AgencyLinkService } from '../../../core/agency/agency-link.service';
@@ -136,12 +146,14 @@ export class AgencyEarningService {
 
     const bank = await this.prisma.agencyBankInfo.findFirst({
       where: { agencyId, deletedAt: null },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
     });
 
     const payout = await this.prisma.$transaction(async (tx) => {
       const created = await tx.agencyPayout.create({
         data: {
           agencyId,
+          bankInfoId: bank?.id ?? null,
           amount: total,
           currency,
           status: 'PENDING',
@@ -161,7 +173,107 @@ export class AgencyEarningService {
       return created;
     });
 
-    return { success: true, data: payout, error: null };
+    return { success: true, data: this.mapPayout(payout), error: null };
+  }
+
+  /**
+   * Agency-initiated payout request: validate withdrawable ACCRUED balance,
+   * attach FIFO earnings as PAYABLE, create PENDING payout in one transaction.
+   */
+  async requestPayout(
+    agencyId: string,
+    raw: unknown,
+    actorAgencyId: string | undefined,
+    role: string,
+  ) {
+    await this.agencyLink.assertAgencyAccessForPartner(
+      agencyId,
+      role,
+      actorAgencyId,
+    );
+
+    let dto: AgencyPayoutRequest;
+    try {
+      dto = parseAgencyPayoutRequest(raw);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'PAYOUT_REQUEST_INVALID',
+          message: error.issues[0]?.message ?? 'Geçersiz payout talebi',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
+
+    const bank = await this.prisma.agencyBankInfo.findFirst({
+      where: { id: dto.bankInfoId, agencyId, deletedAt: null },
+    });
+    if (!bank) {
+      throw new NotFoundException({
+        code: 'BANK_ACCOUNT_NOT_FOUND',
+        message: 'Banka hesabı bulunamadı veya bu acenteye ait değil',
+      });
+    }
+
+    const accrued = await this.prisma.agencyEarning.findMany({
+      where: { agencyId, status: 'ACCRUED', deletedAt: null },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const withdrawable = accrued.reduce(
+      (sum, row) => sum.add(row.amount),
+      new Prisma.Decimal(0),
+    );
+    const requested = new Prisma.Decimal(dto.amount);
+    if (withdrawable.lt(requested)) {
+      throw new BusinessException(
+        'INSUFFICIENT_BALANCE',
+        `Çekilebilir bakiye yetersiz (max ${withdrawable.toFixed(2)} TRY)`,
+      );
+    }
+
+    const currency = accrued[0]?.currency ?? 'TRY';
+    if (accrued.some((row) => row.currency !== currency)) {
+      throw new BusinessException(
+        'MIXED_CURRENCY',
+        'Aynı payout’ta tek para birimi olmalı',
+      );
+    }
+
+    let remaining = requested;
+    const selectedIds: string[] = [];
+    for (const row of accrued) {
+      if (remaining.lte(0)) break;
+      selectedIds.push(row.id);
+      remaining = remaining.sub(row.amount);
+    }
+
+    const payout = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.agencyPayout.create({
+        data: {
+          agencyId,
+          bankInfoId: bank.id,
+          amount: requested,
+          currency,
+          status: 'PENDING',
+          note: dto.note ?? `IBAN ${bank.iban}`,
+        },
+      });
+
+      await tx.agencyEarning.updateMany({
+        where: { id: { in: selectedIds } },
+        data: { status: 'PAYABLE', payoutId: created.id },
+      });
+
+      return created;
+    });
+
+    return {
+      success: true,
+      data: this.mapPayout(payout, bank),
+      error: null,
+    };
   }
 
   async markPayoutPaid(payoutId: string) {
@@ -171,12 +283,17 @@ export class AgencyEarningService {
     if (!payout) {
       throw new BusinessException('PAYOUT_NOT_FOUND', 'Payout bulunamadı');
     }
-    if (payout.status === 'PAID') {
-      return { success: true, data: payout, error: null };
+    if (payout.status === 'PAID' || payout.status === 'COMPLETED') {
+      return { success: true, data: this.mapPayout(payout), error: null };
     }
 
     const bank = await this.prisma.agencyBankInfo.findFirst({
-      where: { agencyId: payout.agencyId, deletedAt: null },
+      where: {
+        agencyId: payout.agencyId,
+        deletedAt: null,
+        ...(payout.bankInfoId ? { id: payout.bankInfoId } : {}),
+      },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
     });
     if (!bank) {
       throw new BusinessException(
@@ -188,7 +305,11 @@ export class AgencyEarningService {
     const updated = await this.prisma.$transaction(async (tx) => {
       const row = await tx.agencyPayout.update({
         where: { id: payoutId },
-        data: { status: 'PAID', paidAt: new Date() },
+        data: {
+          status: 'COMPLETED',
+          paidAt: new Date(),
+          bankInfoId: payout.bankInfoId ?? bank.id,
+        },
       });
       await tx.agencyEarning.updateMany({
         where: { payoutId, deletedAt: null },
@@ -209,7 +330,7 @@ export class AgencyEarningService {
       },
     });
 
-    return { success: true, data: updated, error: null };
+    return { success: true, data: this.mapPayout(updated, bank), error: null };
   }
 
   async listPayouts(
@@ -226,8 +347,78 @@ export class AgencyEarningService {
       where: { agencyId, deletedAt: null },
       orderBy: { createdAt: 'desc' },
       take: 100,
+      include: {
+        bankInfo: {
+          select: {
+            id: true,
+            iban: true,
+            accountName: true,
+            bankName: true,
+            isDefault: true,
+          },
+        },
+      },
     });
-    return { success: true, data: rows, error: null };
+    return {
+      success: true,
+      data: {
+        items: rows.map((row) => this.mapPayout(row, row.bankInfo)),
+      },
+      error: null,
+    };
+  }
+
+  async getWithdrawableBalance(agencyId: string) {
+    const agg = await this.prisma.agencyEarning.aggregate({
+      where: { agencyId, status: 'ACCRUED', deletedAt: null },
+      _sum: { amount: true },
+    });
+    return {
+      currency: 'TRY',
+      withdrawable: (agg._sum.amount ?? new Prisma.Decimal(0)).toString(),
+    };
+  }
+
+  private mapPayout(
+    row: {
+      id: string;
+      agencyId: string;
+      bankInfoId?: string | null;
+      amount: Prisma.Decimal;
+      currency: string;
+      status: string;
+      paidAt: Date | null;
+      note: string | null;
+      createdAt: Date;
+    },
+    bank?: {
+      id: string;
+      iban: string;
+      accountName: string;
+      bankName: string | null;
+      isDefault?: boolean;
+    } | null,
+  ) {
+    return {
+      id: row.id,
+      agencyId: row.agencyId,
+      bankInfoId: row.bankInfoId ?? bank?.id ?? null,
+      amount: row.amount.toString(),
+      currency: row.currency,
+      status: row.status,
+      paidAt: row.paidAt?.toISOString() ?? null,
+      note: row.note,
+      createdAt: row.createdAt.toISOString(),
+      bankInfo: bank
+        ? {
+            id: bank.id,
+            iban: bank.iban,
+            accountName: bank.accountName,
+            bankName: bank.bankName,
+            isDefault: bank.isDefault ?? false,
+          }
+        : null,
+    };
   }
 
   async resolveRatePercent(

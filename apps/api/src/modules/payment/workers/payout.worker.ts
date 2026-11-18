@@ -43,6 +43,7 @@ export class PayoutWorker implements OnModuleInit, OnModuleDestroy {
       for (const payout of pending) {
         const bank = await this.prisma.agencyBankInfo.findFirst({
           where: { agencyId: payout.agencyId, deletedAt: null },
+          orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
         });
         if (!bank) continue;
 

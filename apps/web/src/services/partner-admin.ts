@@ -1109,6 +1109,7 @@ export type PartnerFinancialKpis = {
   netEarnings: string;
   platformCommission: string;
   pendingReceivables: string;
+  withdrawableBalance?: string;
   completedPayouts: string;
   overdueAmount: string;
   refundedGross: string;
@@ -1117,6 +1118,36 @@ export type PartnerFinancialKpis = {
   paidCount: number;
   overdueCount: number;
   refundedCount: number;
+};
+
+export type PartnerBankAccount = {
+  id: string;
+  agencyId: string;
+  iban: string;
+  accountName: string;
+  bankName: string | null;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PartnerPayoutRequest = {
+  id: string;
+  agencyId: string;
+  bankInfoId: string | null;
+  amount: string;
+  currency: string;
+  status: string;
+  paidAt: string | null;
+  note: string | null;
+  createdAt: string;
+  bankInfo: {
+    id: string;
+    iban: string;
+    accountName: string;
+    bankName: string | null;
+    isDefault: boolean;
+  } | null;
 };
 
 export type PartnerFinancialsOverview = {
@@ -1210,6 +1241,67 @@ export async function exportPartnerFinancials(
   }>(`/partner/financials/export${buildFinancialsQuery(params)}`, {
     token,
     cache: 'no-store',
+  });
+}
+
+export async function listPartnerBankAccounts(token: string) {
+  return apiRequest<{ items: PartnerBankAccount[] }>(
+    '/partner/financials/bank-accounts',
+    { token, cache: 'no-store' },
+  );
+}
+
+export async function createPartnerBankAccount(
+  body: {
+    iban: string;
+    accountName: string;
+    bankName?: string;
+    isDefault?: boolean;
+  },
+  token: string,
+) {
+  return apiRequest<PartnerBankAccount>('/partner/financials/bank-accounts', {
+    method: 'POST',
+    body,
+    token,
+  });
+}
+
+export async function setDefaultPartnerBankAccount(
+  bankInfoId: string,
+  token: string,
+) {
+  return apiRequest<PartnerBankAccount>(
+    `/partner/financials/bank-accounts/${bankInfoId}/default`,
+    { method: 'PATCH', token },
+  );
+}
+
+export async function deletePartnerBankAccount(
+  bankInfoId: string,
+  token: string,
+) {
+  return apiRequest<{ id: string; deleted: boolean }>(
+    `/partner/financials/bank-accounts/${bankInfoId}/delete`,
+    { method: 'POST', token },
+  );
+}
+
+export async function listPartnerPayouts(token: string) {
+  return apiRequest<{ items: PartnerPayoutRequest[] }>(
+    '/partner/financials/payouts',
+    { token, cache: 'no-store' },
+  );
+}
+
+export async function createPartnerPayoutRequest(
+  body: { amount: number; bankInfoId: string; note?: string },
+  token: string,
+) {
+  return apiRequest<PartnerPayoutRequest>('/partner/financials/payouts', {
+    method: 'POST',
+    body,
+    token,
   });
 }
 

@@ -1061,6 +1061,85 @@ export function parseAgencyFinancialsQuery(
   return agencyFinancialsQuerySchema.parse(input);
 }
 
+/** Agency bank account + payout request */
+export const TR_IBAN_REGEX = /^TR[0-9]{24}$/;
+
+export function normalizeIban(raw: string): string {
+  return raw.replace(/\s+/g, '').toUpperCase();
+}
+
+export const agencyBankAccountCreateSchema = z.object({
+  iban: z
+    .string()
+    .trim()
+    .min(15)
+    .max(34)
+    .transform(normalizeIban)
+    .refine((v) => TR_IBAN_REGEX.test(v), {
+      message: 'IBAN TR ile başlamalı ve 26 karakter olmalı',
+    }),
+  accountName: z
+    .string()
+    .trim()
+    .min(2, 'Hesap sahibi gerekli')
+    .max(200)
+    .transform((v) => v.replace(/[\u0000-\u001F\u007F]/g, '')),
+  bankName: z
+    .string()
+    .trim()
+    .max(120)
+    .optional()
+    .or(z.literal(''))
+    .transform((v) =>
+      v ? v.replace(/[\u0000-\u001F\u007F]/g, '') : undefined,
+    ),
+  isDefault: z.boolean().optional().default(false),
+});
+
+export type AgencyBankAccountCreate = z.infer<
+  typeof agencyBankAccountCreateSchema
+>;
+
+export function parseAgencyBankAccountCreate(
+  input: unknown,
+): AgencyBankAccountCreate {
+  return agencyBankAccountCreateSchema.parse(input);
+}
+
+export const AGENCY_PAYOUT_STATUSES = [
+  'PENDING',
+  'APPROVED',
+  'REJECTED',
+  'COMPLETED',
+  'PAID',
+  'FAILED',
+] as const;
+export type AgencyPayoutStatus = (typeof AGENCY_PAYOUT_STATUSES)[number];
+
+export const agencyPayoutRequestSchema = z.object({
+  amount: z.coerce
+    .number()
+    .finite()
+    .min(1, 'Tutar en az 1 TL olmalı')
+    .max(10_000_000, 'Tutar üst sınırı aşıldı'),
+  bankInfoId: z.string().trim().min(1, 'Banka hesabı gerekli').max(64),
+  note: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .or(z.literal(''))
+    .transform((v) =>
+      v ? v.replace(/[\u0000-\u001F\u007F]/g, '') : undefined,
+    ),
+});
+
+export type AgencyPayoutRequest = z.infer<typeof agencyPayoutRequestSchema>;
+
+export function parseAgencyPayoutRequest(input: unknown): AgencyPayoutRequest {
+  return agencyPayoutRequestSchema.parse(input);
+}
+
 /** Agency reports — period + date range query */
 export const REPORT_DATE_RANGE_IDS = [
   'today',
