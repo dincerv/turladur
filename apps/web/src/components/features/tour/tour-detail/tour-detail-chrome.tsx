@@ -3,7 +3,10 @@
 import BottomBookingBar from '@/components/booking/bottom-booking-bar';
 import { useTourDetailUi } from './tour-detail-context';
 
-/** Mobile booking chrome; desktop uses sticky sidebar. */
+/**
+ * Booking chrome for kişi seçimi + rezervasyon.
+ * Sidebar lists dates; this sheet opens after a date is chosen (all breakpoints).
+ */
 export function TourDetailChrome() {
   const {
     tour,
@@ -23,7 +26,7 @@ export function TourDetailChrome() {
       isExpanded={expanded}
       onExpandedChange={setExpanded}
       selectedDate={selectedTourDate}
-      mobileOnly
+      forceVisible={Boolean(selectedTourDate)}
     />
   );
 }

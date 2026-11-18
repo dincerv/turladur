@@ -164,6 +164,7 @@ export default function BottomBookingBar({
 
   useEffect(() => {
     if (isExpanded) {
+      setVisible(true);
       const timer = setTimeout(() => {
         setExpanded(true);
       }, 50);
