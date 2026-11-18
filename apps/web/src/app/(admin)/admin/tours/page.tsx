@@ -161,9 +161,10 @@ export default function AdminToursPage() {
                   </p>
                   {tab === 'tours' ? (
                     <Link
-                      href={`/tours/${row.id}`}
+                      href={`/admin/tours/${row.id}/preview`}
                       className="mt-1 inline-block text-xs font-medium text-sky-700 hover:underline"
                       target="_blank"
+                      rel="noreferrer"
                     >
                       Önizleme
                     </Link>

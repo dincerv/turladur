@@ -475,6 +475,35 @@ export async function listPendingTours(token: string) {
   >('/admin/tours/pending', { token });
 }
 
+export type AdminTourPreview = {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  status: string;
+  category: string;
+  price: string;
+  currency: string;
+  durationDays: number;
+  coverUrl?: string | null;
+  galleryUrls: string[];
+  departureCities: string[];
+  stayKind: string;
+  destinationScope: string;
+  moderationNote?: string | null;
+  agency: {
+    id: string;
+    companyName: string;
+    logo?: string | null;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function getAdminTourPreview(id: string, token: string) {
+  return apiRequest<AdminTourPreview>(`/admin/tours/${id}`, { token });
+}
+
 export async function setTourStatusAdmin(
   id: string,
   status: 'PUBLISHED' | 'ARCHIVED' | 'DRAFT',

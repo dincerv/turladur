@@ -118,6 +118,14 @@ export class AdminController {
     return this.adminService.listPendingTours();
   }
 
+  @Get('tours/:id')
+  @ApiOperation({
+    summary: 'Tour moderation preview (any status; not public catalog)',
+  })
+  tourPreview(@Param('id') id: string) {
+    return this.adminService.getTourPreview(id);
+  }
+
   @Patch('tours/:id/status')
   @ApiOperation({ summary: 'Publish / archive / draft a tour' })
   tourStatus(@Param('id') id: string, @Body() dto: UpdateTourStatusDto) {

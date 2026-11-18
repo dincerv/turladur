@@ -302,6 +302,65 @@ export class AdminService {
     };
   }
 
+  /** Moderation preview — any non-deleted status (public catalog is PUBLISHED-only). */
+  async getTourPreview(tourId: string) {
+    const tour = await this.prisma.tour.findFirst({
+      where: { id: tourId, deletedAt: null },
+      include: {
+        agency: {
+          select: { id: true, companyName: true, logo: true },
+        },
+      },
+    });
+    if (!tour) {
+      throw new NotFoundException({
+        code: 'TOUR_NOT_FOUND',
+        message: 'Tur bulunamadı',
+      });
+    }
+
+    const extras =
+      tour.extras &&
+      typeof tour.extras === 'object' &&
+      !Array.isArray(tour.extras)
+        ? (tour.extras as Record<string, unknown>)
+        : {};
+
+    return {
+      success: true,
+      data: {
+        id: tour.id,
+        slug: tour.slug,
+        title: tour.title,
+        description: tour.description,
+        status: tour.status,
+        category: tour.category,
+        price: tour.price.toString(),
+        currency: tour.currency,
+        durationDays: tour.durationDays,
+        coverUrl: tour.coverUrl,
+        galleryUrls: tour.galleryUrls ?? [],
+        departureCities: tour.departureCities ?? [],
+        stayKind: tour.stayKind,
+        destinationScope: tour.destinationScope,
+        moderationNote:
+          typeof extras.moderationNote === 'string'
+            ? extras.moderationNote
+            : null,
+        agency: tour.agency
+          ? {
+              id: tour.agency.id,
+              companyName: tour.agency.companyName,
+              logo: tour.agency.logo,
+            }
+          : null,
+        createdAt: tour.createdAt.toISOString(),
+        updatedAt: tour.updatedAt.toISOString(),
+      },
+      error: null,
+    };
+  }
+
   async listPendingExperiences() {
     const rows = await this.prisma.experience.findMany({
       where: { deletedAt: null, status: 'PENDING_REVIEW' },
