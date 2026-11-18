@@ -31,6 +31,7 @@
     "react": "^19.1.2",
     "react-dom": "^19.1.2",
     "react-dropzone": "^14.3.8",
+    "react-easy-crop": "^6.2.5",
     "react-fast-marquee": "^1.6.5",
     "react-hook-form": "^7.92.0",
     "react-leaflet": "^5.0.0",

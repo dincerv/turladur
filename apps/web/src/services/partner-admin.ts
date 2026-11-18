@@ -469,6 +469,8 @@ export async function listPendingTours(token: string) {
       currency: string;
       category: string;
       status: string;
+      coverUrl?: string | null;
+      moderationNote?: string | null;
     }>
   >('/admin/tours/pending', { token });
 }
@@ -477,10 +479,11 @@ export async function setTourStatusAdmin(
   id: string,
   status: 'PUBLISHED' | 'ARCHIVED' | 'DRAFT',
   token: string,
+  note?: string,
 ) {
   return apiRequest(`/admin/tours/${id}/status`, {
     method: 'PATCH',
-    body: { status },
+    body: note?.trim() ? { status, note: note.trim() } : { status },
     token,
   });
 }
@@ -1593,6 +1596,7 @@ export async function listPendingExperiences(token: string) {
       category: string;
       location: string;
       status: string;
+      coverUrl?: string | null;
     }>
   >('/admin/experiences/pending', { token });
 }
@@ -1601,10 +1605,11 @@ export async function setExperienceStatusAdmin(
   id: string,
   status: 'PUBLISHED' | 'ARCHIVED' | 'DRAFT',
   token: string,
+  note?: string,
 ) {
   return apiRequest(`/admin/experiences/${id}/status`, {
     method: 'PATCH',
-    body: { status },
+    body: note?.trim() ? { status, note: note.trim() } : { status },
     token,
   });
 }

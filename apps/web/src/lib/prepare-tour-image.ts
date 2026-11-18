@@ -1,31 +1,44 @@
 /**
- * Client-side center-crop + resize before tour image upload.
- * Shrinks payload so tour cards load faster with many images on a page.
+ * Client-side crop + resize before tour image upload.
+ * Interactive crop pixels come from ImageCropDialog; otherwise center-crop.
  */
 
+export type PixelCrop = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 export type PrepareTourImageOptions = {
-  /** width / height — cover cards use 16/10 */
+  /** width / height — cover uses 16/9 */
   aspectRatio?: number;
   maxWidth?: number;
   maxHeight?: number;
   quality?: number;
   outputType?: 'image/jpeg' | 'image/webp';
+  /** When set, use this crop instead of center-crop */
+  pixelCrop?: PixelCrop;
 };
 
-const COVER_DEFAULTS: Required<PrepareTourImageOptions> = {
+const COVER_DEFAULTS: Required<Omit<PrepareTourImageOptions, 'pixelCrop'>> & {
+  pixelCrop?: PixelCrop;
+} = {
+  aspectRatio: 16 / 9,
+  maxWidth: 1920,
+  maxHeight: 1080,
+  quality: 0.82,
+  outputType: 'image/webp',
+};
+
+const GALLERY_DEFAULTS: Required<Omit<PrepareTourImageOptions, 'pixelCrop'>> & {
+  pixelCrop?: PixelCrop;
+} = {
   aspectRatio: 16 / 10,
   maxWidth: 1600,
   maxHeight: 1000,
-  quality: 0.82,
-  outputType: 'image/jpeg',
-};
-
-const GALLERY_DEFAULTS: Required<PrepareTourImageOptions> = {
-  aspectRatio: 16 / 10,
-  maxWidth: 1200,
-  maxHeight: 750,
   quality: 0.8,
-  outputType: 'image/jpeg',
+  outputType: 'image/webp',
 };
 
 export const TOUR_COVER_IMAGE_OPTIONS = COVER_DEFAULTS;
@@ -53,9 +66,28 @@ function extensionForMime(mime: string): string {
   return 'jpg';
 }
 
+function centerCropRect(
+  srcW: number,
+  srcH: number,
+  targetAspect: number,
+): PixelCrop {
+  let cropW = srcW;
+  let cropH = srcH;
+  let cropX = 0;
+  let cropY = 0;
+  const srcAspect = srcW / srcH;
+  if (srcAspect > targetAspect) {
+    cropW = Math.round(srcH * targetAspect);
+    cropX = Math.round((srcW - cropW) / 2);
+  } else if (srcAspect < targetAspect) {
+    cropH = Math.round(srcW / targetAspect);
+    cropY = Math.round((srcH - cropH) / 2);
+  }
+  return { x: cropX, y: cropY, width: cropW, height: cropH };
+}
+
 /**
- * Center-crop to aspect ratio, downscale, encode as JPEG/WebP.
- * Non-image files are returned unchanged.
+ * Crop to aspect ratio (or explicit pixels), downscale, encode as WebP/JPEG.
  */
 export async function prepareTourImageFile(
   file: File,
@@ -69,31 +101,23 @@ export async function prepareTourImageFile(
   const srcH = image.naturalHeight || image.height;
   if (!srcW || !srcH) return file;
 
-  const targetAspect = opts.aspectRatio;
-  let cropW = srcW;
-  let cropH = srcH;
-  let cropX = 0;
-  let cropY = 0;
+  const crop =
+    opts.pixelCrop && opts.pixelCrop.width > 0 && opts.pixelCrop.height > 0
+      ? opts.pixelCrop
+      : centerCropRect(srcW, srcH, opts.aspectRatio);
 
-  const srcAspect = srcW / srcH;
-  if (srcAspect > targetAspect) {
-    cropW = Math.round(srcH * targetAspect);
-    cropX = Math.round((srcW - cropW) / 2);
-  } else if (srcAspect < targetAspect) {
-    cropH = Math.round(srcW / targetAspect);
-    cropY = Math.round((srcH - cropH) / 2);
-  }
-
-  let outW = cropW;
-  let outH = cropH;
+  let outW = Math.round(crop.width);
+  let outH = Math.round(crop.height);
   if (outW > opts.maxWidth) {
     outW = opts.maxWidth;
-    outH = Math.round(outW / targetAspect);
+    outH = Math.round(outW / (crop.width / crop.height));
   }
   if (outH > opts.maxHeight) {
     outH = opts.maxHeight;
-    outW = Math.round(outH * targetAspect);
+    outW = Math.round(outH * (crop.width / crop.height));
   }
+  outW = Math.max(1, outW);
+  outH = Math.max(1, outH);
 
   const canvas = document.createElement('canvas');
   canvas.width = outW;
@@ -101,17 +125,34 @@ export async function prepareTourImageFile(
   const ctx = canvas.getContext('2d');
   if (!ctx) return file;
 
-  ctx.drawImage(image, cropX, cropY, cropW, cropH, 0, 0, outW, outH);
+  ctx.drawImage(
+    image,
+    crop.x,
+    crop.y,
+    crop.width,
+    crop.height,
+    0,
+    0,
+    outW,
+    outH,
+  );
 
-  const blob = await new Promise<Blob | null>((resolve) => {
+  let blob = await new Promise<Blob | null>((resolve) => {
     canvas.toBlob((result) => resolve(result), opts.outputType, opts.quality);
   });
+  // Safari may fail WebP encode — fall back to JPEG.
+  if (!blob && opts.outputType === 'image/webp') {
+    blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((result) => resolve(result), 'image/jpeg', opts.quality);
+    });
+  }
   if (!blob) return file;
 
+  const mime = blob.type || opts.outputType;
   const baseName = file.name.replace(/\.[^.]+$/, '') || 'tour-image';
-  const nextName = `${baseName}.${extensionForMime(opts.outputType)}`;
+  const nextName = `${baseName}.${extensionForMime(mime)}`;
   return new File([blob], nextName, {
-    type: opts.outputType,
+    type: mime,
     lastModified: Date.now(),
   });
 }

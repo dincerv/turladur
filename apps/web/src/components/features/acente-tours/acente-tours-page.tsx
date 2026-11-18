@@ -624,12 +624,13 @@ function TourTableRow({
             type="button"
             role="switch"
             aria-checked={live}
-            aria-label={live ? 'Pasife al' : 'Yayına al'}
+            aria-label={live ? 'Arşivle' : 'Onaya gönder'}
+            title={live ? 'Arşivle' : 'Admin onayına gönder'}
             data-testid={`toggle-status-btn-${tour.id}`}
             disabled={toggling}
             onClick={onToggle}
             className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition disabled:opacity-50 ${
-              live ? 'bg-emerald-600' : 'bg-neutral-300'
+              live ? 'bg-emerald-600' : 'bg-amber-500'
             }`}
           >
             <span
@@ -735,12 +736,13 @@ function TourGridCard({
             type="button"
             role="switch"
             aria-checked={live}
-            aria-label={live ? 'Pasife al' : 'Yayına al'}
+            aria-label={live ? 'Arşivle' : 'Onaya gönder'}
+            title={live ? 'Arşivle' : 'Admin onayına gönder'}
             data-testid={`toggle-status-btn-${tour.id}`}
             disabled={toggling}
             onClick={onToggle}
             className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition disabled:opacity-50 ${
-              live ? 'bg-emerald-600' : 'bg-neutral-300'
+              live ? 'bg-emerald-600' : 'bg-amber-500'
             }`}
           >
             <span

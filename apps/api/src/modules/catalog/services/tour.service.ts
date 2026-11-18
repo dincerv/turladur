@@ -35,6 +35,10 @@ import { Prisma } from '../../../generated/prisma';
 
 import { CacheService } from '../../../core/cache/cache.service';
 import { AgencyLinkService } from '../../../core/agency/agency-link.service';
+import {
+  isAgencyTenantRole,
+  isPlatformAdminRole,
+} from '../../../core/auth/utils/role-access';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { StorageService } from '../../../core/storage/storage.service';
 import { BusinessException } from '../../../shared/exceptions/business.exception';
@@ -285,7 +289,22 @@ export class TourService {
     if (dto.price !== undefined) data.price = new Prisma.Decimal(dto.price);
     if (dto.currency !== undefined) data.currency = dto.currency;
     if (dto.category !== undefined) data.category = dto.category;
-    if (dto.status !== undefined) data.status = dto.status;
+
+    // Partner cannot self-publish — admin queue only.
+    if (dto.status !== undefined) {
+      if (
+        dto.status === 'PUBLISHED' &&
+        isAgencyTenantRole(role) &&
+        !isPlatformAdminRole(role)
+      ) {
+        throw new ForbiddenException({
+          code: 'PUBLISH_REQUIRES_ADMIN',
+          message:
+            'Yayınlama yalnızca admin onayıyla yapılır. Turu incelemeye gönderin.',
+        });
+      }
+      data.status = dto.status;
+    }
 
     const safeExtrasUpdate =
       dto.extras !== undefined
@@ -316,6 +335,29 @@ export class TourService {
     }
     if (dto.coverUrl !== undefined) data.coverUrl = dto.coverUrl;
     if (dto.galleryUrls !== undefined) data.galleryUrls = dto.galleryUrls;
+
+    // Content edits on a live tour re-enter moderation.
+    const contentTouched =
+      dto.title !== undefined ||
+      dto.description !== undefined ||
+      dto.price !== undefined ||
+      dto.category !== undefined ||
+      dto.coverUrl !== undefined ||
+      dto.galleryUrls !== undefined ||
+      dto.stayKind !== undefined ||
+      dto.destinationScope !== undefined ||
+      dto.departureCities !== undefined ||
+      dto.durationDays !== undefined ||
+      dto.extras !== undefined;
+    if (
+      contentTouched &&
+      dto.status === undefined &&
+      tour.status === 'PUBLISHED' &&
+      isAgencyTenantRole(role) &&
+      !isPlatformAdminRole(role)
+    ) {
+      data.status = 'PENDING_REVIEW';
+    }
 
     if (dto.status === 'PUBLISHED') {
       await this.ensureTourCanBePublished(tour);

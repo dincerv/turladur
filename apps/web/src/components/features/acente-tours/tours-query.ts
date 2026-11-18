@@ -67,6 +67,9 @@ export function isTourLive(status: string): boolean {
   return status === 'PUBLISHED' || status === 'ACTIVE';
 }
 
-export function nextTourToggleStatus(status: string): 'PUBLISHED' | 'ARCHIVED' {
-  return isTourLive(status) ? 'ARCHIVED' : 'PUBLISHED';
+/** Live → archive; otherwise submit for admin review (no self-publish). */
+export function nextTourToggleStatus(
+  status: string,
+): 'PENDING_REVIEW' | 'ARCHIVED' {
+  return isTourLive(status) ? 'ARCHIVED' : 'PENDING_REVIEW';
 }

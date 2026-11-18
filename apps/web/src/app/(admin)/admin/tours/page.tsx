@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
 
 import {
   listPendingExperiences,
@@ -8,6 +10,7 @@ import {
   setExperienceStatusAdmin,
   setTourStatusAdmin,
 } from '@/services/partner-admin';
+import { resolveMediaUrl, shouldUnoptimizeMedia } from '@/lib/media';
 import { useAuth } from '@/providers/auth-provider';
 
 type Row = {
@@ -19,6 +22,8 @@ type Row = {
   category: string;
   status: string;
   location?: string;
+  coverUrl?: string | null;
+  moderationNote?: string | null;
 };
 
 export default function AdminToursPage() {
@@ -27,6 +32,8 @@ export default function AdminToursPage() {
   const [tours, setTours] = useState<Row[]>([]);
   const [experiences, setExperiences] = useState<Row[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [rejectId, setRejectId] = useState<string | null>(null);
+  const [rejectNote, setRejectNote] = useState('');
 
   async function reload() {
     if (!accessToken) return;
@@ -34,8 +41,8 @@ export default function AdminToursPage() {
       listPendingTours(accessToken),
       listPendingExperiences(accessToken),
     ]);
-    setTours(t);
-    setExperiences(e);
+    setTours(t as Row[]);
+    setExperiences(e as Row[]);
   }
 
   useEffect(() => {
@@ -49,15 +56,18 @@ export default function AdminToursPage() {
   async function setStatus(
     id: string,
     status: 'PUBLISHED' | 'ARCHIVED' | 'DRAFT',
+    note?: string,
   ) {
     if (!accessToken) return;
     setError(null);
     try {
       if (tab === 'tours') {
-        await setTourStatusAdmin(id, status, accessToken);
+        await setTourStatusAdmin(id, status, accessToken, note);
       } else {
-        await setExperienceStatusAdmin(id, status, accessToken);
+        await setExperienceStatusAdmin(id, status, accessToken, note);
       }
+      setRejectId(null);
+      setRejectNote('');
       await reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Güncelleme başarısız');
@@ -68,7 +78,7 @@ export default function AdminToursPage() {
     <div data-testid="admin-tours-page">
       <h1 className="text-2xl font-bold text-neutral-900">İçerik onayı</h1>
       <p className="mt-1 text-sm text-neutral-600">
-        PENDING_REVIEW tur ve deneyimler
+        PENDING_REVIEW tur ve deneyimler — yayınlanınca katalogda görünür.
       </p>
       <div className="mt-4 flex gap-2">
         <button
@@ -117,46 +127,115 @@ export default function AdminToursPage() {
             Bekleyen kayıt yok.
           </li>
         ) : null}
-        {rows.map((row) => (
-          <li
-            key={row.id}
-            data-testid={`admin-pending-row-${row.id}`}
-            className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-          >
-            <div>
-              <p className="font-medium text-neutral-900">{row.title}</p>
-              <p className="text-xs text-neutral-500">
-                {row.category}
-                {row.location ? ` · ${row.location}` : ''} · {row.price}{' '}
-                {row.currency}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                data-testid={`admin-publish-${row.id}`}
-                className="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white"
-                onClick={() => void setStatus(row.id, 'PUBLISHED')}
-              >
-                Yayınla
-              </button>
-              <button
-                type="button"
-                className="rounded-lg border border-neutral-300 px-2.5 py-1 text-xs"
-                onClick={() => void setStatus(row.id, 'DRAFT')}
-              >
-                Taslak
-              </button>
-              <button
-                type="button"
-                className="rounded-lg bg-neutral-800 px-2.5 py-1 text-xs font-medium text-white"
-                onClick={() => void setStatus(row.id, 'ARCHIVED')}
-              >
-                Arşivle
-              </button>
-            </div>
-          </li>
-        ))}
+        {rows.map((row) => {
+          const cover = resolveMediaUrl(row.coverUrl ?? null);
+          return (
+            <li
+              key={row.id}
+              data-testid={`admin-pending-row-${row.id}`}
+              className="flex flex-wrap items-start justify-between gap-3 px-4 py-3"
+            >
+              <div className="flex min-w-0 flex-1 gap-3">
+                <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-neutral-100">
+                  {cover ? (
+                    <Image
+                      src={cover}
+                      alt=""
+                      fill
+                      sizes="96px"
+                      unoptimized={shouldUnoptimizeMedia(cover)}
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-[10px] text-neutral-400">
+                      Görsel yok
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium text-neutral-900">{row.title}</p>
+                  <p className="text-xs text-neutral-500">
+                    {row.category}
+                    {row.location ? ` · ${row.location}` : ''} · {row.price}{' '}
+                    {row.currency}
+                  </p>
+                  {tab === 'tours' ? (
+                    <Link
+                      href={`/tours/${row.id}`}
+                      className="mt-1 inline-block text-xs font-medium text-sky-700 hover:underline"
+                      target="_blank"
+                    >
+                      Önizleme
+                    </Link>
+                  ) : null}
+                  {rejectId === row.id ? (
+                    <div className="mt-2 space-y-2">
+                      <textarea
+                        value={rejectNote}
+                        onChange={(e) => setRejectNote(e.target.value)}
+                        placeholder="Red gerekçesi (acenteye görünür)"
+                        rows={2}
+                        maxLength={500}
+                        className="w-full max-w-md rounded-lg border border-neutral-300 px-2 py-1.5 text-sm"
+                        data-testid={`admin-reject-note-${row.id}`}
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          className="rounded-lg bg-amber-600 px-2.5 py-1 text-xs font-medium text-white"
+                          onClick={() =>
+                            void setStatus(row.id, 'DRAFT', rejectNote)
+                          }
+                          data-testid={`admin-reject-confirm-${row.id}`}
+                        >
+                          Taslağa gönder
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-lg border border-neutral-300 px-2.5 py-1 text-xs"
+                          onClick={() => {
+                            setRejectId(null);
+                            setRejectNote('');
+                          }}
+                        >
+                          Vazgeç
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  data-testid={`admin-publish-${row.id}`}
+                  className="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white"
+                  onClick={() => void setStatus(row.id, 'PUBLISHED')}
+                >
+                  Yayınla
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-neutral-300 px-2.5 py-1 text-xs"
+                  onClick={() => {
+                    setRejectId(row.id);
+                    setRejectNote('');
+                  }}
+                  data-testid={`admin-reject-${row.id}`}
+                >
+                  Reddet
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg bg-neutral-800 px-2.5 py-1 text-xs font-medium text-white"
+                  onClick={() => void setStatus(row.id, 'ARCHIVED')}
+                >
+                  Arşivle
+                </button>
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

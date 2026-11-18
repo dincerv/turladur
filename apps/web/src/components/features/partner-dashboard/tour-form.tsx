@@ -2,7 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
+import { ImageCropDialog } from '@/components/features/media/image-crop-dialog';
 import { normalizeError, IMAGE_PLACEHOLDER } from '@/lib/partner-tour-helpers';
+import {
+  TOUR_COVER_IMAGE_OPTIONS,
+  TOUR_GALLERY_IMAGE_OPTIONS,
+} from '@/lib/prepare-tour-image';
 import {
   defaultFormData,
   getRegionByCity,
@@ -30,6 +35,12 @@ import {
   tourDetailsStepSchema,
   zodErrorsToRecord,
 } from './tour-form/tour-form.schemas';
+
+type CropQueueItem = {
+  file: File;
+  target: 'images' | 'gallery' | 'main' | 'itinerary';
+  dayIdx?: number;
+};
 
 export type { TourFormData } from './tour-form/tour-form.types';
 
@@ -162,6 +173,8 @@ export function TourForm({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [cropQueue, setCropQueue] = useState<CropQueueItem[]>([]);
+  const activeCrop = cropQueue[0] ?? null;
 
   // Form verileri değiştiğinde callback'i çağır
   useEffect(() => {
@@ -191,32 +204,18 @@ export function TourForm({
     throw new Error('Görsel yükleme yapılandırılmadı');
   };
 
-  const uploadImagesToForm = async (
-    files: File[],
+  const commitPreparedImages = async (
+    preparedFiles: File[],
     target: 'images' | 'gallery' | 'main' | 'itinerary',
     dayIdx?: number,
   ) => {
-    const imageFiles = files.filter((file) => file.type.startsWith('image/'));
-    if (imageFiles.length === 0) return;
-
+    if (preparedFiles.length === 0) return;
     setUploadError(null);
     setIsUploadingImages(true);
     try {
-      const {
-        prepareTourImageFile,
-        TOUR_COVER_IMAGE_OPTIONS,
-        TOUR_GALLERY_IMAGE_OPTIONS,
-      } = await import('@/lib/prepare-tour-image');
       const uploadedImages: ImageFile[] = [];
-      for (const file of imageFiles) {
-        const prepared = await prepareTourImageFile(
-          file,
-          target === 'main'
-            ? TOUR_COVER_IMAGE_OPTIONS
-            : TOUR_GALLERY_IMAGE_OPTIONS,
-        );
+      for (const prepared of preparedFiles) {
         const url = await uploadImageFile(prepared);
-        // Blob preview avoids Next /_next/image → r2.dev TLS 500 while uploading
         uploadedImages.push({
           url,
           file: prepared,
@@ -265,13 +264,27 @@ export function TourForm({
     }
   };
 
+  const uploadImagesToForm = (
+    files: File[],
+    target: 'images' | 'gallery' | 'main' | 'itinerary',
+    dayIdx?: number,
+  ) => {
+    const imageFiles = files.filter((file) => file.type.startsWith('image/'));
+    if (imageFiles.length === 0) return;
+    setUploadError(null);
+    setCropQueue((prev) => [
+      ...prev,
+      ...imageFiles.map((file) => ({ file, target, dayIdx })),
+    ]);
+  };
+
   const { getRootProps, getInputProps } = useDropzone({
     accept: {
-      'image/*': ['.jpeg', '.jpg', '.png', '.gif'],
+      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp'],
     },
-    disabled: isUploadingImages,
+    disabled: isUploadingImages || cropQueue.length > 0,
     onDrop: (acceptedFiles) => {
-      void uploadImagesToForm(acceptedFiles, 'images');
+      uploadImagesToForm(acceptedFiles, 'images');
     },
   });
 
@@ -1464,6 +1477,37 @@ export function TourForm({
           {/* Form Gönderme */}
           <TourFormFooter />
         </form>
+
+        <ImageCropDialog
+          open={Boolean(activeCrop)}
+          file={activeCrop?.file ?? null}
+          aspect={
+            activeCrop?.target === 'main' || activeCrop?.target === 'images'
+              ? 16 / 9
+              : 16 / 10
+          }
+          prepareOptions={
+            activeCrop?.target === 'main' || activeCrop?.target === 'images'
+              ? TOUR_COVER_IMAGE_OPTIONS
+              : TOUR_GALLERY_IMAGE_OPTIONS
+          }
+          title={
+            activeCrop?.target === 'main'
+              ? 'Kapak görselini kırp'
+              : 'Görseli kırp'
+          }
+          onCancel={() => setCropQueue((prev) => prev.slice(1))}
+          onConfirm={(prepared) => {
+            const current = cropQueue[0];
+            setCropQueue((prev) => prev.slice(1));
+            if (!current) return;
+            void commitPreparedImages(
+              [prepared],
+              current.target,
+              current.dayIdx,
+            );
+          }}
+        />
       </div>
     </TourFormUiProvider>
   );

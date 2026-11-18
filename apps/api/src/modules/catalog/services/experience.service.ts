@@ -4,7 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { isPlatformAdminRole } from '../../../core/auth/utils/role-access';
+import {
+  isAgencyTenantRole,
+  isPlatformAdminRole,
+} from '../../../core/auth/utils/role-access';
 import {
   DEFAULT_CURRENCY,
   DEFAULT_PAGE,
@@ -291,7 +294,20 @@ export class ExperienceService {
       if (dto.price !== undefined) {
         data.price = new Prisma.Decimal(dto.price);
       }
-      if (dto.status !== undefined) data.status = dto.status;
+      if (dto.status !== undefined) {
+        if (
+          dto.status === 'PUBLISHED' &&
+          isAgencyTenantRole(role) &&
+          !isPlatformAdminRole(role)
+        ) {
+          throw new ForbiddenException({
+            code: 'PUBLISH_REQUIRES_ADMIN',
+            message:
+              'Yayınlama yalnızca admin onayıyla yapılır. Deneyimi incelemeye gönderin.',
+          });
+        }
+        data.status = dto.status;
+      }
       if (dto.imageUrl !== undefined) {
         data.imageUrl = dto.imageUrl
           ? this.sanitizePlain(dto.imageUrl, 2000)
@@ -319,6 +335,25 @@ export class ExperienceService {
       }
       if (dto.highlights !== undefined) {
         data.highlights = this.sanitizeStringList(dto.highlights, 30, 200);
+      }
+
+      const contentTouched =
+        dto.title !== undefined ||
+        dto.description !== undefined ||
+        dto.longDescription !== undefined ||
+        dto.price !== undefined ||
+        dto.category !== undefined ||
+        dto.imageUrl !== undefined ||
+        dto.gallery !== undefined ||
+        dto.location !== undefined;
+      if (
+        contentTouched &&
+        dto.status === undefined &&
+        experience.status === 'PUBLISHED' &&
+        isAgencyTenantRole(role) &&
+        !isPlatformAdminRole(role)
+      ) {
+        data.status = 'PENDING_REVIEW';
       }
 
       return tx.experience.update({

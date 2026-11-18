@@ -6,7 +6,13 @@ import {
   ApiPropertyOptional,
   ApiTags,
 } from '@nestjs/swagger';
-import { IsBoolean, IsIn, IsOptional } from 'class-validator';
+import {
+  IsBoolean,
+  IsIn,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { Role } from '@turta/shared-constants';
 
 import { PLATFORM_ADMIN_ROLES } from '../../../core/auth/utils/role-access';
@@ -37,12 +43,24 @@ class UpdateTourStatusDto {
   @ApiProperty({ enum: ['PUBLISHED', 'ARCHIVED', 'DRAFT'] })
   @IsIn(['PUBLISHED', 'ARCHIVED', 'DRAFT'])
   status!: 'PUBLISHED' | 'ARCHIVED' | 'DRAFT';
+
+  @ApiPropertyOptional({ description: 'Red / taslak gerekçesi' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
 }
 
 class UpdateExperienceStatusDto {
   @ApiProperty({ enum: ['PUBLISHED', 'ARCHIVED', 'DRAFT'] })
   @IsIn(['PUBLISHED', 'ARCHIVED', 'DRAFT'])
   status!: 'PUBLISHED' | 'ARCHIVED' | 'DRAFT';
+
+  @ApiPropertyOptional({ description: 'Red / taslak gerekçesi' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
 }
 
 @ApiTags('Admin')
@@ -103,7 +121,7 @@ export class AdminController {
   @Patch('tours/:id/status')
   @ApiOperation({ summary: 'Publish / archive / draft a tour' })
   tourStatus(@Param('id') id: string, @Body() dto: UpdateTourStatusDto) {
-    return this.adminService.setTourStatus(id, dto.status);
+    return this.adminService.setTourStatus(id, dto.status, dto.note);
   }
 
   @Get('experiences/pending')
@@ -118,7 +136,7 @@ export class AdminController {
     @Param('id') id: string,
     @Body() dto: UpdateExperienceStatusDto,
   ) {
-    return this.adminService.setExperienceStatus(id, dto.status);
+    return this.adminService.setExperienceStatus(id, dto.status, dto.note);
   }
 
   @Get('agencies')

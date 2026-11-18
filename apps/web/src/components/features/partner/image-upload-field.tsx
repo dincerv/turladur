@@ -3,6 +3,11 @@
 import { useCallback, useState } from 'react';
 import { ImagePlus, Trash2, Upload } from 'lucide-react';
 
+import { ImageCropDialog } from '@/components/features/media/image-crop-dialog';
+import {
+  TOUR_COVER_IMAGE_OPTIONS,
+  type PrepareTourImageOptions,
+} from '@/lib/prepare-tour-image';
 import { getPresignedUpload } from '@/services/partner-admin';
 
 type Props = {
@@ -15,6 +20,9 @@ type Props = {
   onCleared?: () => void;
   label?: string;
   testId?: string;
+  /** Crop aspect; default 16:9 cover */
+  aspect?: number;
+  prepareOptions?: PrepareTourImageOptions;
 };
 
 export function ImageUploadField({
@@ -26,20 +34,23 @@ export function ImageUploadField({
   onCleared,
   label = 'Görsel',
   testId = 'experience-media-dropzone',
+  aspect = 16 / 9,
+  prepareOptions = TOUR_COVER_IMAGE_OPTIONS,
 }: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
 
-  const handleFile = useCallback(
-    async (file: File | null) => {
-      if (!file || !entityId) return;
+  const uploadPrepared = useCallback(
+    async (file: File) => {
+      if (!entityId) return;
       setPending(true);
       setError(null);
       try {
-        const contentType = file.type as
+        const contentType = (file.type || 'image/webp') as
           'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
-        if (!contentType?.startsWith('image/')) {
+        if (!contentType.startsWith('image/')) {
           throw new Error('Sadece görsel yükleyin');
         }
         if (file.size > 8 * 1024 * 1024) {
@@ -73,6 +84,20 @@ export function ImageUploadField({
     [entityId, folder, onUploaded, token],
   );
 
+  const queueForCrop = useCallback((file: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('Sadece görsel yükleyin');
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setError('Görsel en fazla 8MB olabilir');
+      return;
+    }
+    setError(null);
+    setCropFile(file);
+  }, []);
+
   return (
     <div className="space-y-2" data-testid={testId}>
       <p className="text-sm font-medium text-neutral-800">{label}</p>
@@ -89,7 +114,7 @@ export function ImageUploadField({
         onDrop={(e) => {
           e.preventDefault();
           setDragOver(false);
-          void handleFile(e.dataTransfer.files?.[0] ?? null);
+          queueForCrop(e.dataTransfer.files?.[0] ?? null);
         }}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -114,7 +139,9 @@ export function ImageUploadField({
           <div className="flex flex-col items-center gap-2 px-4 py-6 text-center text-sm text-neutral-500">
             <Upload className="h-8 w-8 text-neutral-400" />
             <span>Sürükle-bırak veya dosya seç</span>
-            <span className="text-xs">JPEG, PNG, WebP · max 8MB</span>
+            <span className="text-xs">
+              JPEG, PNG, WebP · max 8MB · 16:9 kırpma
+            </span>
           </div>
         )}
         {currentUrl ? (
@@ -149,7 +176,10 @@ export function ImageUploadField({
           accept="image/jpeg,image/png,image/webp,image/gif"
           disabled={pending || !entityId}
           data-testid={`${testId}-input`}
-          onChange={(e) => void handleFile(e.target.files?.[0] ?? null)}
+          onChange={(e) => {
+            queueForCrop(e.target.files?.[0] ?? null);
+            e.target.value = '';
+          }}
           className="sr-only"
         />
         {!currentUrl ? (
@@ -179,6 +209,19 @@ export function ImageUploadField({
           {error}
         </p>
       ) : null}
+
+      <ImageCropDialog
+        open={Boolean(cropFile)}
+        file={cropFile}
+        aspect={aspect}
+        prepareOptions={prepareOptions}
+        title={`${label} kırp`}
+        onCancel={() => setCropFile(null)}
+        onConfirm={(prepared) => {
+          setCropFile(null);
+          void uploadPrepared(prepared);
+        }}
+      />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Prisma } from '../../../generated/prisma';
 
 import { CacheService } from '../../../core/cache/cache.service';
 import { PrismaService } from '../../../core/database/prisma.service';
@@ -275,16 +276,28 @@ export class AdminService {
 
     return {
       success: true,
-      data: tours.map((t) => ({
-        id: t.id,
-        title: t.title,
-        agencyId: t.agencyId,
-        price: t.price.toString(),
-        currency: t.currency,
-        category: t.category,
-        status: t.status,
-        createdAt: t.createdAt.toISOString(),
-      })),
+      data: tours.map((t) => {
+        const extras =
+          t.extras && typeof t.extras === 'object' && !Array.isArray(t.extras)
+            ? (t.extras as Record<string, unknown>)
+            : {};
+        return {
+          id: t.id,
+          title: t.title,
+          agencyId: t.agencyId,
+          partnerId: t.agencyId,
+          price: t.price.toString(),
+          currency: t.currency,
+          category: t.category,
+          status: t.status,
+          coverUrl: t.coverUrl,
+          moderationNote:
+            typeof extras.moderationNote === 'string'
+              ? extras.moderationNote
+              : null,
+          createdAt: t.createdAt.toISOString(),
+        };
+      }),
       error: null,
     };
   }
@@ -302,11 +315,13 @@ export class AdminService {
         id: e.id,
         title: e.title,
         agencyId: e.agencyId,
+        partnerId: e.agencyId,
         price: e.price.toString(),
         currency: e.currency,
         category: e.category,
         location: e.location,
         status: e.status,
+        coverUrl: e.imageUrl,
         createdAt: e.createdAt.toISOString(),
       })),
       error: null,
@@ -316,6 +331,7 @@ export class AdminService {
   async setExperienceStatus(
     experienceId: string,
     status: 'PUBLISHED' | 'ARCHIVED' | 'DRAFT',
+    note?: string,
   ) {
     const experience = await this.prisma.experience.findFirst({
       where: { id: experienceId, deletedAt: null },
@@ -327,6 +343,7 @@ export class AdminService {
       });
     }
 
+    void note;
     const updated = await this.prisma.experience.update({
       where: { id: experienceId },
       data: { status },
@@ -346,6 +363,7 @@ export class AdminService {
   async setTourStatus(
     tourId: string,
     status: 'PUBLISHED' | 'ARCHIVED' | 'DRAFT',
+    note?: string,
   ) {
     const tour = await this.prisma.tour.findFirst({
       where: { id: tourId, deletedAt: null },
@@ -397,9 +415,27 @@ export class AdminService {
       }
     }
 
+    const prevExtras =
+      tour.extras &&
+      typeof tour.extras === 'object' &&
+      !Array.isArray(tour.extras)
+        ? { ...(tour.extras as Record<string, unknown>) }
+        : {};
+    if (status === 'DRAFT' && note?.trim()) {
+      prevExtras.moderationNote = note.trim().slice(0, 500);
+      prevExtras.moderatedAt = new Date().toISOString();
+    }
+    if (status === 'PUBLISHED') {
+      delete prevExtras.moderationNote;
+      delete prevExtras.moderatedAt;
+    }
+
     const updated = await this.prisma.tour.update({
       where: { id: tourId },
-      data: { status },
+      data: {
+        status,
+        extras: prevExtras as Prisma.InputJsonValue,
+      },
     });
 
     await this.cache.invalidatePattern('catalog:tours:search:*');

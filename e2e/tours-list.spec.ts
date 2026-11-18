@@ -83,13 +83,16 @@ test.describe('Acente — Tur listesi', () => {
 
     await expect(page.getByTestId('tours-error')).toHaveCount(0);
 
-    // Restore original status so seed stays stable for other tests
-    await toggle.click();
-    await expect
-      .poll(async () => toggle.getAttribute('aria-checked'), {
-        timeout: 15_000,
-      })
-      .toBe(before);
+    // Self-publish kapalı: yayından arşive iner; ikinci tık onaya gönderir (live olmaz).
+    // Seed'i bozmamak için yalnızca arşivden çıkarıp PENDING bırakıyoruz.
+    if (before === 'true') {
+      await toggle.click();
+      await expect
+        .poll(async () => toggle.getAttribute('aria-checked'), {
+          timeout: 15_000,
+        })
+        .toBe('false');
+    }
 
     const editBtn = page.getByTestId(`edit-tour-btn-${tourId}`);
     await expect(editBtn).toBeVisible();
