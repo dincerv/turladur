@@ -33,6 +33,7 @@ import {
 } from '@/lib/partner-tour-helpers';
 import { TourDateGuideAssignmentPanel } from '@/components/features/partner-dashboard/tour-date-guide-assignment-panel';
 import { TourDateBusAssignmentPanel } from '@/components/features/partner-dashboard/tour-date-bus-assignment-panel';
+import { TourPaidExtrasPanel } from '@/components/features/partner-dashboard/tour-paid-extras-panel';
 import { ACENTE_ROUTES } from '@/lib/panel-routes';
 import { revalidatePartnerTourPaths } from '../../actions';
 
@@ -544,10 +545,18 @@ export default function PartnerTourEditPage() {
         </div>
       </div>
 
-      {formStep === 'details' && seferDates.length > 0 ? (
+      {formStep === 'details' ? (
         <div className="mt-8 space-y-6">
-          <TourDateGuideAssignmentPanel tourDates={seferDates} />
-          <TourDateBusAssignmentPanel tourId={tourId} tourDates={seferDates} />
+          <TourPaidExtrasPanel tourId={tourId} />
+          {seferDates.length > 0 ? (
+            <>
+              <TourDateGuideAssignmentPanel tourDates={seferDates} />
+              <TourDateBusAssignmentPanel
+                tourId={tourId}
+                tourDates={seferDates}
+              />
+            </>
+          ) : null}
         </div>
       ) : null}
 

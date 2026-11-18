@@ -112,6 +112,25 @@ export async function getTourPickupPoints(tourId: string) {
   );
 }
 
+export type TourPaidExtra = {
+  id: string;
+  tourId: string;
+  title: string;
+  description: string | null;
+  dayNumber: number | null;
+  price: string;
+  currency: string;
+  isRequired: boolean;
+  isActive: boolean;
+  sortOrder: number;
+};
+
+export async function getTourPaidExtras(tourId: string) {
+  return apiRequest<TourPaidExtra[]>(`/catalog/tours/${tourId}/extras`, {
+    cache: 'no-store',
+  });
+}
+
 export type TourAccommodation = {
   name: string;
   image: string;

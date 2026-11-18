@@ -19,6 +19,7 @@ export type CreateReservationInput = {
     email?: string;
     address?: string;
   }>;
+  extras?: Array<{ tourExtraId: string; quantity: number }>;
   billing: {
     fullName?: string;
     line1: string;

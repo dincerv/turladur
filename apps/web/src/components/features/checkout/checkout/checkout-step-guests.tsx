@@ -7,7 +7,7 @@ import { PhoneInput } from '@/components/ui/phone-input';
 import { PickupLocationMap } from '@/components/ui/pickup-location-map-loader';
 
 import { useCheckoutUi } from './checkout-context';
-import { clampBirthDateInput } from './checkout.helpers';
+import { clampBirthDateInput, formatPrice } from './checkout.helpers';
 
 /** Split from checkout-client.tsx (Faz 7) — CheckoutStepGuests; UI unchanged. */
 export function CheckoutStepGuests() {
@@ -19,6 +19,10 @@ export function CheckoutStepGuests() {
     pickupPoints,
     pickupPointId,
     setPickupPointId,
+    paidExtras,
+    selectedExtraIds,
+    togglePaidExtra,
+    extrasTotal,
     billingFullName,
     setBillingFullName,
     billingLine1,
@@ -197,6 +201,69 @@ export function CheckoutStepGuests() {
           </div>
         );
       })}
+
+      {isTour && paidExtras.length > 0 ? (
+        <div
+          className="rounded-xl border border-neutral-200/70 bg-white p-6 shadow-sm sm:p-8"
+          data-testid="checkout-extras-panel"
+        >
+          <h2 className="mb-4 text-lg font-bold text-neutral-900">
+            Ekstra hizmetler
+          </h2>
+          <ul className="space-y-3">
+            {paidExtras.map((extra) => {
+              const checked = selectedExtraIds.includes(extra.id);
+              const lineTotal =
+                Number(extra.price) * (party.adults + party.children);
+              return (
+                <li
+                  key={extra.id}
+                  className="flex items-start justify-between gap-3 rounded-lg border border-neutral-100 px-3 py-3"
+                  data-testid={`checkout-extra-${extra.id}`}
+                >
+                  <label className="flex flex-1 cursor-pointer items-start gap-3 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={extra.isRequired}
+                      onChange={() => togglePaidExtra(extra.id)}
+                      className="mt-1"
+                      data-testid={`checkout-extra-check-${extra.id}`}
+                    />
+                    <span>
+                      <span className="font-medium text-neutral-900">
+                        {extra.title}
+                      </span>
+                      {extra.isRequired ? (
+                        <span className="ml-2 text-xs text-amber-700">
+                          Zorunlu
+                        </span>
+                      ) : null}
+                      {extra.description ? (
+                        <span className="mt-0.5 block text-xs text-neutral-500">
+                          {extra.description}
+                        </span>
+                      ) : null}
+                    </span>
+                  </label>
+                  <span
+                    className="shrink-0 text-sm font-semibold text-neutral-900"
+                    data-testid={`checkout-extra-price-${extra.id}`}
+                  >
+                    {formatPrice(lineTotal)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <p
+            className="mt-3 text-sm font-medium text-neutral-700"
+            data-testid="checkout-extras-subtotal"
+          >
+            Ekstralar: {formatPrice(extrasTotal)}
+          </p>
+        </div>
+      ) : null}
 
       {isTour && pickupPoints.length > 0 ? (
         <div className="rounded-xl border border-neutral-200/70 bg-white p-6 shadow-sm sm:p-8">

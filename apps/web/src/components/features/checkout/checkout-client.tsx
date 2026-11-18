@@ -15,8 +15,10 @@ import { getExperienceById, getExperienceDates } from '@/services/activity';
 import {
   getTourById,
   getTourDates,
+  getTourPaidExtras,
   getTourPickupPoints,
   type TourDateRow,
+  type TourPaidExtra,
   type TourPickupPoint,
 } from '@/services/catalog';
 import { checkoutPayment, createReservation } from '@/services/booking';
@@ -77,6 +79,8 @@ export function CheckoutClient() {
   const [specialRequests, setSpecialRequests] = useState('');
   const [pickupPoints, setPickupPoints] = useState<TourPickupPoint[]>([]);
   const [pickupPointId, setPickupPointId] = useState('');
+  const [paidExtras, setPaidExtras] = useState<TourPaidExtra[]>([]);
+  const [selectedExtraIds, setSelectedExtraIds] = useState<string[]>([]);
 
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod>('bank_transfer');
@@ -116,10 +120,11 @@ export function CheckoutClient() {
       setError(null);
       try {
         if (isTour) {
-          const [t, dates, pickups] = await Promise.all([
+          const [t, dates, pickups, extras] = await Promise.all([
             getTourById(itemId),
             getTourDates(itemId),
             getTourPickupPoints(itemId).catch(() => [] as TourPickupPoint[]),
+            getTourPaidExtras(itemId).catch(() => [] as TourPaidExtra[]),
           ]);
           setTour(t);
           setTourDate(dates.find((d) => d.id === dateId) ?? dates[0] ?? null);
@@ -141,6 +146,11 @@ export function CheckoutClient() {
             });
           setPickupPoints(uniquePickups);
           setPickupPointId(uniquePickups[0]?.id ?? '');
+          const activeExtras = extras.filter((row) => row.isActive !== false);
+          setPaidExtras(activeExtras);
+          setSelectedExtraIds(
+            activeExtras.filter((row) => row.isRequired).map((row) => row.id),
+          );
         } else {
           const [e, dates] = await Promise.all([
             getExperienceById(itemId),
@@ -152,6 +162,8 @@ export function CheckoutClient() {
           );
           setPickupPoints([]);
           setPickupPointId('');
+          setPaidExtras([]);
+          setSelectedExtraIds([]);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Önizleme yüklenemedi');
@@ -221,7 +233,22 @@ export function CheckoutClient() {
   }, [isTour, isActivity, tourDate, activityDate, tour, experience]);
 
   const partySize = party.adults + party.children;
-  const totalPrice = unitPrice * partySize;
+  const extrasTotal = useMemo(() => {
+    return paidExtras
+      .filter((extra) => selectedExtraIds.includes(extra.id))
+      .reduce((sum, extra) => sum + Number(extra.price || 0) * partySize, 0);
+  }, [paidExtras, selectedExtraIds, partySize]);
+  const totalPrice = unitPrice * partySize + extrasTotal;
+
+  const togglePaidExtra = (extraId: string) => {
+    const extra = paidExtras.find((row) => row.id === extraId);
+    if (!extra || extra.isRequired) return;
+    setSelectedExtraIds((prev) =>
+      prev.includes(extraId)
+        ? prev.filter((id) => id !== extraId)
+        : [...prev, extraId],
+    );
+  };
 
   const title = tour?.title ?? experience?.title ?? 'Rezervasyon';
   const image = tour?.coverUrl ?? null;
@@ -371,6 +398,14 @@ export function CheckoutClient() {
         {
           ...(isTour ? { tourDateId: dateId } : { activityDateId: dateId }),
           ...(isTour && pickupPointId ? { pickupPointId } : {}),
+          ...(isTour && selectedExtraIds.length > 0
+            ? {
+                extras: selectedExtraIds.map((tourExtraId) => ({
+                  tourExtraId,
+                  quantity: partySize,
+                })),
+              }
+            : {}),
           adults: party.adults,
           children: party.children,
           contactEmail: primary.email,
@@ -546,9 +581,13 @@ export function CheckoutClient() {
     endDate,
     party,
     unitPrice,
+    extrasTotal,
     totalPrice,
     guests,
     updateGuest,
+    paidExtras,
+    selectedExtraIds,
+    togglePaidExtra,
     pickupPoints,
     pickupPointId,
     setPickupPointId,

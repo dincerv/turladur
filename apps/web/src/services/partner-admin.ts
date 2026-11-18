@@ -1505,6 +1505,79 @@ export async function deleteTourPickupPoint(
   });
 }
 
+export type PartnerTourPaidExtra = {
+  id: string;
+  tourId: string;
+  title: string;
+  description: string | null;
+  dayNumber: number | null;
+  price: string;
+  currency: string;
+  isRequired: boolean;
+  isActive: boolean;
+  sortOrder: number;
+};
+
+export async function listPartnerTourPaidExtras(tourId: string, token: string) {
+  return apiRequest<PartnerTourPaidExtra[]>(
+    `/catalog/tours/${tourId}/extras/manage`,
+    { token },
+  );
+}
+
+export async function createPartnerTourPaidExtra(
+  tourId: string,
+  body: {
+    title: string;
+    description?: string;
+    price: number;
+    currency?: string;
+    isRequired?: boolean;
+    isActive?: boolean;
+    dayNumber?: number;
+    sortOrder?: number;
+  },
+  token: string,
+) {
+  return apiRequest<PartnerTourPaidExtra>(`/catalog/tours/${tourId}/extras`, {
+    method: 'POST',
+    body,
+    token,
+  });
+}
+
+export async function updatePartnerTourPaidExtra(
+  tourId: string,
+  extraId: string,
+  body: {
+    title?: string;
+    description?: string | null;
+    price?: number;
+    currency?: string;
+    isRequired?: boolean;
+    isActive?: boolean;
+    dayNumber?: number | null;
+    sortOrder?: number;
+  },
+  token: string,
+) {
+  return apiRequest<PartnerTourPaidExtra>(
+    `/catalog/tours/${tourId}/extras/${extraId}`,
+    { method: 'PATCH', body, token },
+  );
+}
+
+export async function deletePartnerTourPaidExtra(
+  tourId: string,
+  extraId: string,
+  token: string,
+) {
+  return apiRequest(`/catalog/tours/${tourId}/extras/${extraId}`, {
+    method: 'DELETE',
+    token,
+  });
+}
+
 export async function listPendingExperiences(token: string) {
   return apiRequest<
     Array<{

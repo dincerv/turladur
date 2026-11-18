@@ -871,7 +871,7 @@ model TourDateAssignment {
   @@schema("catalog")
 }
 
-/// Tur içi opsiyonel ekstra (MVP “Ekstralar”). Bağımsız Experience mağazası değil.
+/// Tur içi ücretli ekstra (sigorta, VIP transfer vb.). Bağımsız Experience mağazası değil.
 model TourExtra {
   id          String    @id @default(cuid())
   tourId      String
@@ -881,13 +881,15 @@ model TourExtra {
   dayNumber   Int?
   price       Decimal   @db.Decimal(10, 2)
   currency    String    @default("TRY") @db.VarChar(3)
+  /// Checkout’ta otomatik seçilir; müşteri kaldıramaz.
+  isRequired  Boolean   @default(false)
   isActive    Boolean   @default(true)
   sortOrder   Int       @default(0)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  createdBy  String?
-  updatedBy  String?
-  deletedBy  String?
+  createdBy   String?
+  updatedBy   String?
+  deletedBy   String?
   deletedAt   DateTime?
 
   reservationExtras ReservationExtra[]

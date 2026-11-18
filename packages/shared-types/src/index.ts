@@ -474,6 +474,14 @@ export interface BookingGuest {
   address?: string;
 }
 
+export interface ReservationExtraLine {
+  tourExtraId: string;
+  title: string;
+  quantity: number;
+  unitPrice: string;
+  currency: string;
+}
+
 export interface Reservation {
   id: string;
   bookingNumber: string;
@@ -495,6 +503,7 @@ export interface Reservation {
   contactEmail: string;
   contactPhone: string | null;
   guests: BookingGuest[];
+  extras?: ReservationExtraLine[];
   metadata?: Record<string, unknown> | null;
   startDate?: string | null;
   endDate?: string | null;

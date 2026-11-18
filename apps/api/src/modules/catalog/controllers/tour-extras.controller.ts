@@ -21,7 +21,9 @@ import { RequireStaffPermissions } from '../../../core/auth/decorators/require-s
 import { Roles } from '../../../core/auth/decorators/roles.decorator';
 import { UserPayload } from '../../../core/auth/types/auth.types';
 import {
+  CreatePaidTourExtraDto,
   CreateTourPickupPointDto,
+  UpdatePaidTourExtraDto,
   UpdateTourPickupPointDto,
   UpsertTourAccommodationDto,
 } from '../dto/tour-extras.dto';
@@ -132,6 +134,86 @@ export class TourExtrasController {
     return this.tourExtrasService.deletePickupPoint(
       tourId,
       pointId,
+      user.agencyId,
+      user.role,
+      resolveActorId(user),
+    );
+  }
+
+  @Public()
+  @Get('extras')
+  @ApiOperation({ summary: 'List active paid tour extras (checkout)' })
+  listPaidExtrasPublic(@Param('tourId') tourId: string) {
+    return this.tourExtrasService.listPaidExtras(tourId, false);
+  }
+
+  @Get('extras/manage')
+  @ApiBearerAuth()
+  @Roles(...AGENCY_SELLER_ROLES)
+  @RequireStaffPermissions('tours')
+  @ApiOperation({ summary: 'Agency list paid extras (incl. inactive)' })
+  listPaidExtrasManage(
+    @Param('tourId') tourId: string,
+    @CurrentUser() user: UserPayload,
+  ) {
+    return this.tourExtrasService.listPaidExtrasForAgency(
+      tourId,
+      user.agencyId,
+      user.role,
+    );
+  }
+
+  @Post('extras')
+  @ApiBearerAuth()
+  @Roles(...AGENCY_SELLER_ROLES)
+  @RequireStaffPermissions('tours')
+  @ApiOperation({ summary: 'Create paid tour extra' })
+  createPaidExtra(
+    @Param('tourId') tourId: string,
+    @Body() dto: CreatePaidTourExtraDto,
+    @CurrentUser() user: UserPayload,
+  ) {
+    return this.tourExtrasService.createPaidExtra(
+      tourId,
+      dto,
+      user.agencyId,
+      user.role,
+    );
+  }
+
+  @Patch('extras/:extraId')
+  @ApiBearerAuth()
+  @Roles(...AGENCY_SELLER_ROLES)
+  @RequireStaffPermissions('tours')
+  @ApiOperation({ summary: 'Update paid tour extra' })
+  updatePaidExtra(
+    @Param('tourId') tourId: string,
+    @Param('extraId') extraId: string,
+    @Body() dto: UpdatePaidTourExtraDto,
+    @CurrentUser() user: UserPayload,
+  ) {
+    return this.tourExtrasService.updatePaidExtra(
+      tourId,
+      extraId,
+      dto,
+      user.agencyId,
+      user.role,
+    );
+  }
+
+  @Delete('extras/:extraId')
+  @ApiBearerAuth()
+  @Roles(...AGENCY_SELLER_ROLES)
+  @RequireStaffPermissions('tours')
+  @ApiOperation({ summary: 'Soft-delete paid tour extra' })
+  deletePaidExtra(
+    @Param('tourId') tourId: string,
+    @Param('extraId') extraId: string,
+    @CurrentUser() user: UserPayload,
+  ) {
+    return this.tourExtrasService.softDeletePaidExtra(
+      tourId,
+      extraId,
       user.agencyId,
       user.role,
       resolveActorId(user),

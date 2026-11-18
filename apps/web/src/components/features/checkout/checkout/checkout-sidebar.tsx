@@ -7,7 +7,8 @@ import { formatPrice } from './checkout.helpers';
 
 /** Split from checkout-client.tsx (Faz 7) — CheckoutSidebar; UI unchanged. */
 export function CheckoutSidebar() {
-  const { title, image, party, unitPrice, totalPrice } = useCheckoutUi();
+  const { title, image, party, unitPrice, extrasTotal, totalPrice } =
+    useCheckoutUi();
 
   return (
     <aside className="lg:col-span-1">
@@ -34,7 +35,19 @@ export function CheckoutSidebar() {
               <span className="text-neutral-600">Birim</span>
               <span>{formatPrice(unitPrice)}</span>
             </div>
-            <div className="mt-2 flex justify-between text-base font-bold">
+            {extrasTotal > 0 ? (
+              <div
+                className="mt-2 flex justify-between text-sm"
+                data-testid="checkout-sidebar-extras"
+              >
+                <span className="text-neutral-600">Ekstralar</span>
+                <span>{formatPrice(extrasTotal)}</span>
+              </div>
+            ) : null}
+            <div
+              className="mt-2 flex justify-between text-base font-bold"
+              data-testid="checkout-sidebar-total"
+            >
               <span>Toplam</span>
               <span>{formatPrice(totalPrice)}</span>
             </div>

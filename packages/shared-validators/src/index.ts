@@ -23,12 +23,38 @@ export const bookingGuestSchema = z.object({
   identityNumber: z.string().min(5).max(20).optional(),
 });
 
+export const reservationExtraItemSchema = z.object({
+  tourExtraId: z.string().min(1),
+  quantity: z.number().int().min(1).max(50),
+});
+
+export const createPaidTourExtraSchema = z.object({
+  title: z.string().trim().min(2).max(200),
+  description: z.string().trim().max(2000).optional(),
+  price: z.number().positive(),
+  currency: z.string().trim().length(3).optional(),
+  isRequired: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+  dayNumber: z.number().int().min(0).optional(),
+  sortOrder: z.number().int().min(0).optional(),
+});
+
+export const updatePaidTourExtraSchema = createPaidTourExtraSchema.partial();
+
+export type CreatePaidTourExtraInput = z.infer<
+  typeof createPaidTourExtraSchema
+>;
+export type UpdatePaidTourExtraInput = z.infer<
+  typeof updatePaidTourExtraSchema
+>;
+
 export const createReservationSchema = z
   .object({
     tourDateId: z.string().min(1).optional(),
     roomId: z.string().min(1).optional(),
     hotelId: z.string().min(1).optional(),
     activityDateId: z.string().min(1).optional(),
+    pickupPointId: z.string().min(1).optional(),
     startDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -42,6 +68,7 @@ export const createReservationSchema = z
     contactEmail: z.string().email(),
     contactPhone: z.string().min(7).max(20).optional(),
     guests: z.array(bookingGuestSchema).min(1),
+    extras: z.array(reservationExtraItemSchema).max(50).optional(),
   })
   .superRefine((value, ctx) => {
     const productCount = [

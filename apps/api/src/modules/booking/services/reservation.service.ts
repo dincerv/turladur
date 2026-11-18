@@ -118,7 +118,7 @@ export class ReservationService {
 
     return {
       success: true,
-      data: this.toShared(reservation),
+      data: await this.toSharedWithExtras(reservation),
       error: null,
     };
   }
@@ -710,11 +710,34 @@ export class ReservationService {
       currency: string;
     }> = [];
 
-    if (dto.extras?.length) {
-      for (const item of dto.extras) {
+    const selectedMap = new Map<string, number>();
+    for (const item of dto.extras ?? []) {
+      selectedMap.set(
+        item.tourExtraId,
+        Math.max(selectedMap.get(item.tourExtraId) ?? 0, item.quantity),
+      );
+    }
+
+    const requiredExtras = await this.prisma.tourExtra.findMany({
+      where: {
+        tourId: tourDate.tourId,
+        isActive: true,
+        isRequired: true,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+    for (const required of requiredExtras) {
+      if (!selectedMap.has(required.id)) {
+        selectedMap.set(required.id, partySize);
+      }
+    }
+
+    if (selectedMap.size > 0) {
+      for (const [tourExtraId, quantity] of selectedMap) {
         const tourExtra = await this.prisma.tourExtra.findFirst({
           where: {
-            id: item.tourExtraId,
+            id: tourExtraId,
             tourId: tourDate.tourId,
             isActive: true,
             deletedAt: null,
@@ -726,11 +749,12 @@ export class ReservationService {
             'Seçilen tur ekstrası bulunamadı',
           );
         }
-        const line = new Prisma.Decimal(tourExtra.price).mul(item.quantity);
+        const qty = Math.min(Math.max(1, quantity), 50);
+        const line = new Prisma.Decimal(tourExtra.price).mul(qty);
         extrasTotal = extrasTotal.add(line);
         extraRows.push({
           tourExtraId: tourExtra.id,
-          quantity: item.quantity,
+          quantity: qty,
           unitPrice: tourExtra.price,
           currency: tourExtra.currency,
         });
@@ -833,7 +857,7 @@ export class ReservationService {
     this.emitCreated(reservation);
     return {
       success: true,
-      data: this.toShared(reservation),
+      data: await this.toSharedWithExtras(reservation),
       error: null,
     };
   }
@@ -1132,6 +1156,50 @@ export class ReservationService {
       if (!exists) return candidate;
     }
     return `TRL-${ymd}-${Date.now().toString(36).toUpperCase().slice(-4)}`;
+  }
+
+  private async toSharedWithExtras(row: {
+    id: string;
+    bookingNumber: string;
+    userId: string;
+    tourId: string | null;
+    tourDateId: string | null;
+    experienceId?: string | null;
+    activityDateId?: string | null;
+    agencyId: string;
+    status: string;
+    paymentStatus?: string;
+    adults: number;
+    children: number;
+    totalAmount: Prisma.Decimal;
+    currency: string;
+    contactEmail: string;
+    contactPhone: string | null;
+    guests: Prisma.JsonValue | null;
+    metadata?: Prisma.JsonValue | null;
+    startDate?: Date | null;
+    endDate?: Date | null;
+    holdExpiresAt?: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }): Promise<SharedReservation> {
+    const extras = await this.prisma.reservationExtra.findMany({
+      where: { reservationId: row.id, deletedAt: null },
+      include: {
+        tourExtra: { select: { id: true, title: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    return {
+      ...this.toShared(row),
+      extras: extras.map((line) => ({
+        tourExtraId: line.tourExtraId,
+        title: line.tourExtra?.title ?? 'Ekstra',
+        quantity: line.quantity,
+        unitPrice: line.unitPrice.toString(),
+        currency: line.currency,
+      })),
+    };
   }
 
   private toShared(row: {

@@ -7,7 +7,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from 'react';
-import type { TourPickupPoint } from '@/services/catalog';
+import type { TourPaidExtra, TourPickupPoint } from '@/services/catalog';
 import type { CardBrand, GuestForm, PaymentMethod } from './checkout.helpers';
 
 export type CheckoutParty = {
@@ -26,9 +26,13 @@ export type CheckoutUiContextValue = {
   endDate: string | Date | null | undefined;
   party: CheckoutParty;
   unitPrice: number;
+  extrasTotal: number;
   totalPrice: number;
   guests: GuestForm[];
   updateGuest: (index: number, patch: Partial<GuestForm>) => void;
+  paidExtras: TourPaidExtra[];
+  selectedExtraIds: string[];
+  togglePaidExtra: (extraId: string) => void;
   pickupPoints: TourPickupPoint[];
   pickupPointId: string;
   setPickupPointId: Dispatch<SetStateAction<string>>;

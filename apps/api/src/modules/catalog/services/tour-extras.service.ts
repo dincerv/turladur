@@ -11,7 +11,9 @@ import { Prisma } from '../../../generated/prisma';
 
 import { PrismaService } from '../../../core/database/prisma.service';
 import {
+  CreatePaidTourExtraDto,
   CreateTourPickupPointDto,
+  UpdatePaidTourExtraDto,
   UpdateTourPickupPointDto,
   UpsertTourAccommodationDto,
 } from '../dto/tour-extras.dto';
@@ -198,6 +200,172 @@ export class TourExtrasService {
       success: true,
       data: { id: pointId, deleted: true },
       error: null,
+    };
+  }
+
+  /** Public: active paid extras for a tour (checkout). */
+  async listPaidExtras(tourId: string, includeInactive = false) {
+    const tour = await this.requireTour(tourId);
+    const rows = await this.prisma.tourExtra.findMany({
+      where: {
+        tourId: tour.id,
+        deletedAt: null,
+        ...(includeInactive ? {} : { isActive: true }),
+      },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+    return {
+      success: true as const,
+      data: rows.map((row) => this.toPaidExtra(row)),
+      error: null,
+    };
+  }
+
+  /** Agency: list all non-deleted extras (incl. inactive) for owned tour. */
+  async listPaidExtrasForAgency(
+    tourId: string,
+    agencyId: string | undefined,
+    role: string,
+  ) {
+    const tour = await this.findOwnedTour(tourId, agencyId, role);
+    const rows = await this.prisma.tourExtra.findMany({
+      where: { tourId: tour.id, deletedAt: null },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+    return {
+      success: true as const,
+      data: rows.map((row) => this.toPaidExtra(row)),
+      error: null,
+    };
+  }
+
+  async createPaidExtra(
+    tourId: string,
+    dto: CreatePaidTourExtraDto,
+    agencyId: string | undefined,
+    role: string,
+  ) {
+    const tour = await this.findOwnedTour(tourId, agencyId, role);
+    const row = await this.prisma.tourExtra.create({
+      data: {
+        tourId: tour.id,
+        title: dto.title.trim(),
+        description: dto.description?.trim() || null,
+        price: new Prisma.Decimal(dto.price),
+        currency: (dto.currency ?? 'TRY').toUpperCase().slice(0, 3),
+        isRequired: dto.isRequired ?? false,
+        isActive: dto.isActive ?? true,
+        dayNumber: dto.dayNumber ?? null,
+        sortOrder: dto.sortOrder ?? 0,
+      },
+    });
+    return {
+      success: true as const,
+      data: this.toPaidExtra(row),
+      error: null,
+    };
+  }
+
+  async updatePaidExtra(
+    tourId: string,
+    extraId: string,
+    dto: UpdatePaidTourExtraDto,
+    agencyId: string | undefined,
+    role: string,
+  ) {
+    const tour = await this.findOwnedTour(tourId, agencyId, role);
+    const existing = await this.prisma.tourExtra.findFirst({
+      where: { id: extraId, tourId: tour.id, deletedAt: null },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'TOUR_EXTRA_NOT_FOUND',
+        message: 'Ekstra bulunamadı',
+      });
+    }
+
+    const row = await this.prisma.tourExtra.update({
+      where: { id: existing.id },
+      data: {
+        ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
+        ...(dto.description !== undefined
+          ? { description: dto.description?.trim() || null }
+          : {}),
+        ...(dto.price !== undefined
+          ? { price: new Prisma.Decimal(dto.price) }
+          : {}),
+        ...(dto.currency !== undefined
+          ? { currency: dto.currency.toUpperCase().slice(0, 3) }
+          : {}),
+        ...(dto.isRequired !== undefined ? { isRequired: dto.isRequired } : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+        ...(dto.dayNumber !== undefined ? { dayNumber: dto.dayNumber } : {}),
+        ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
+      },
+    });
+
+    return {
+      success: true as const,
+      data: this.toPaidExtra(row),
+      error: null,
+    };
+  }
+
+  async softDeletePaidExtra(
+    tourId: string,
+    extraId: string,
+    agencyId: string | undefined,
+    role: string,
+    deletedBy?: string,
+  ) {
+    const tour = await this.findOwnedTour(tourId, agencyId, role);
+    const existing = await this.prisma.tourExtra.findFirst({
+      where: { id: extraId, tourId: tour.id, deletedAt: null },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'TOUR_EXTRA_NOT_FOUND',
+        message: 'Ekstra bulunamadı',
+      });
+    }
+    await this.prisma.tourExtra.update({
+      where: { id: existing.id },
+      data: {
+        deletedAt: new Date(),
+        isActive: false,
+        ...(deletedBy ? { deletedBy } : {}),
+      },
+    });
+    return {
+      success: true as const,
+      data: { id: extraId, deleted: true },
+      error: null,
+    };
+  }
+
+  private toPaidExtra(row: {
+    id: string;
+    tourId: string;
+    title: string;
+    description: string | null;
+    dayNumber: number | null;
+    price: Prisma.Decimal;
+    currency: string;
+    isRequired: boolean;
+    isActive: boolean;
+    sortOrder: number;
+  }) {
+    return {
+      id: row.id,
+      tourId: row.tourId,
+      title: row.title,
+      description: row.description,
+      dayNumber: row.dayNumber,
+      price: row.price.toString(),
+      currency: row.currency,
+      isRequired: row.isRequired,
+      isActive: row.isActive,
+      sortOrder: row.sortOrder,
     };
   }
 
