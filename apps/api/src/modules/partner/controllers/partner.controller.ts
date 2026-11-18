@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Put,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -10,6 +18,7 @@ import { Type } from 'class-transformer';
 import {
   IsIn,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Max,
@@ -20,6 +29,7 @@ import {
 import { Role } from '@turta/shared-constants';
 
 import {
+  AGENCY_REPORTS_MANAGER_ROLES,
   AGENCY_SELLER_ROLES,
   PLATFORM_ADMIN_ROLES,
 } from '../../../core/auth/utils/role-access';
@@ -70,6 +80,94 @@ class ListPartnerCustomersQueryDto {
   @Min(1)
   @Max(50)
   pageSize?: number;
+}
+
+class ListPartnerReportsQueryDto {
+  @ApiPropertyOptional({ enum: ['monthly', 'yearly'] })
+  @IsOptional()
+  @IsIn(['monthly', 'yearly'])
+  period?: 'monthly' | 'yearly';
+
+  @ApiPropertyOptional({
+    enum: [
+      'today',
+      'yesterday',
+      'thisWeek',
+      'lastWeek',
+      'thisMonth',
+      'lastMonth',
+      'last3Months',
+      'lastYear',
+      'thisYear',
+      'custom',
+    ],
+  })
+  @IsOptional()
+  @IsIn([
+    'today',
+    'yesterday',
+    'thisWeek',
+    'lastWeek',
+    'thisMonth',
+    'lastMonth',
+    'last3Months',
+    'lastYear',
+    'thisYear',
+    'custom',
+  ])
+  dateRange?:
+    | 'today'
+    | 'yesterday'
+    | 'thisWeek'
+    | 'lastWeek'
+    | 'thisMonth'
+    | 'lastMonth'
+    | 'last3Months'
+    | 'lastYear'
+    | 'thisYear'
+    | 'custom';
+
+  @ApiPropertyOptional({ description: 'ISO date YYYY-MM-DD' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  startDate?: string;
+
+  @ApiPropertyOptional({ description: 'ISO date YYYY-MM-DD' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  endDate?: string;
+}
+
+class UpsertPartnerSalesGoalDto {
+  @ApiProperty({ enum: ['monthly', 'yearly'] })
+  @IsIn(['monthly', 'yearly'])
+  period!: 'monthly' | 'yearly';
+
+  @ApiProperty({
+    enum: ['reservations', 'revenue', 'occupancy', 'completion'],
+  })
+  @IsIn(['reservations', 'revenue', 'occupancy', 'completion'])
+  metric!: 'reservations' | 'revenue' | 'occupancy' | 'completion';
+
+  @ApiProperty({ example: 100 })
+  @Type(() => Number)
+  @IsNumber()
+  targetValue!: number;
+
+  @ApiProperty({ example: 2026 })
+  @Type(() => Number)
+  @IsInt()
+  year!: number;
+
+  @ApiPropertyOptional({ example: 11, description: 'monthly için 1-12' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  month?: number;
 }
 
 class ListPartnerFinancialsQueryDto {
@@ -393,28 +491,34 @@ export class PartnerController {
   }
 
   @Get('reports')
-  @RequireStaffPermissions('reports')
-  @ApiOperation({ summary: 'Partner sales/performance/customer reports' })
+  @Roles(...AGENCY_REPORTS_MANAGER_ROLES)
+  @ApiOperation({
+    summary:
+      'Agency analytics (OWNER/MANAGER only) — aggregates, occupancy, goals',
+  })
   async reports(
     @CurrentUser() user: UserPayload,
-    @Query('dateRange') dateRange?: string,
+    @Query() query: ListPartnerReportsQueryDto,
   ) {
-    const allowed = [
-      'today',
-      'yesterday',
-      'thisWeek',
-      'lastWeek',
-      'thisMonth',
-      'lastMonth',
-      'last3Months',
-      'lastYear',
-      'custom',
-    ] as const;
-    const range = allowed.includes(dateRange as (typeof allowed)[number])
-      ? (dateRange as (typeof allowed)[number])
-      : 'thisMonth';
     const agencyId = await this.sellerAgencyId(user);
-    return this.partnerService.getReports(agencyId, range);
+    return this.partnerService.getReports(agencyId, {
+      dateRangeId: query.dateRange,
+      period: query.period,
+      startDate: query.startDate,
+      endDate: query.endDate,
+      role: user.role,
+    });
+  }
+
+  @Put('reports/goals')
+  @Roles(...AGENCY_REPORTS_MANAGER_ROLES)
+  @ApiOperation({ summary: 'Upsert period sales goal (OWNER/MANAGER)' })
+  async upsertReportGoal(
+    @CurrentUser() user: UserPayload,
+    @Body() body: UpsertPartnerSalesGoalDto,
+  ) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.partnerService.upsertSalesGoal(agencyId, user.role, body);
   }
 
   @Get('tours')

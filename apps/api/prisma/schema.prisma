@@ -240,12 +240,39 @@ model Agency {
   earnings            AgencyEarning[]
   payouts             AgencyPayout[]
   experiences         Experience[]
+  salesGoals          AgencySalesGoal[]
 
   @@index([status])
   @@index([taxNumber])
   @@index([sellerTier])
   @@index([deletedAt])
   @@index([contactEmail])
+  @@schema("identity")
+}
+
+/// Dönemsel satış / rezervasyon / doluluk hedefleri (rapor goal tracking).
+model AgencySalesGoal {
+  id          String    @id @default(cuid())
+  agencyId    String
+  agency      Agency    @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  /// monthly | yearly
+  period      String    @db.VarChar(20)
+  /// reservations | revenue | occupancy | completion
+  metric      String    @db.VarChar(40)
+  targetValue Decimal   @db.Decimal(12, 2)
+  year        Int
+  /// monthly: 1–12; yearly: 0
+  month       Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdBy   String?
+  updatedBy   String?
+  deletedBy   String?
+  deletedAt   DateTime?
+
+  @@unique([agencyId, period, metric, year, month])
+  @@index([agencyId, period, year])
+  @@index([deletedAt])
   @@schema("identity")
 }
 

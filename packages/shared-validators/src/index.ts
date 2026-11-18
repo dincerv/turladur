@@ -498,6 +498,65 @@ export function parseAgencyFinancialsQuery(
   return agencyFinancialsQuerySchema.parse(input);
 }
 
+/** Agency reports — period + date range query */
+export const REPORT_DATE_RANGE_IDS = [
+  'today',
+  'yesterday',
+  'thisWeek',
+  'lastWeek',
+  'thisMonth',
+  'lastMonth',
+  'last3Months',
+  'lastYear',
+  'thisYear',
+  'custom',
+] as const;
+
+export const agencyReportsQuerySchema = z
+  .object({
+    period: z.enum(['monthly', 'yearly']).optional(),
+    dateRange: z.enum(REPORT_DATE_RANGE_IDS).optional(),
+    startDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih YYYY-MM-DD olmalı')
+      .optional(),
+    endDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih YYYY-MM-DD olmalı')
+      .optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.startDate && val.endDate && val.startDate > val.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'startDate endDate sonrası olamaz',
+        path: ['startDate'],
+      });
+    }
+  });
+
+export type AgencyReportsQuery = z.infer<typeof agencyReportsQuerySchema>;
+
+export function parseAgencyReportsQuery(input: unknown): AgencyReportsQuery {
+  return agencyReportsQuerySchema.parse(input);
+}
+
+export const agencySalesGoalUpsertSchema = z.object({
+  period: z.enum(['monthly', 'yearly']),
+  metric: z.enum(['reservations', 'revenue', 'occupancy', 'completion']),
+  targetValue: z.coerce.number().positive().max(1_000_000_000),
+  year: z.coerce.number().int().min(2020).max(2100),
+  month: z.coerce.number().int().min(1).max(12).optional().nullable(),
+});
+
+export type AgencySalesGoalUpsert = z.infer<typeof agencySalesGoalUpsertSchema>;
+
+export function parseAgencySalesGoalUpsert(
+  input: unknown,
+): AgencySalesGoalUpsert {
+  return agencySalesGoalUpsertSchema.parse(input);
+}
+
 export function decodeCustomerKey(key: string): string {
   const decoded = fromBase64Url(key).trim();
   if (!decoded || !decoded.includes('@')) {

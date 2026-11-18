@@ -21,6 +21,14 @@ export const AGENCY_SELLER_ROLES: readonly Role[] = [
   ...PLATFORM_ADMIN_ROLES,
 ] as const;
 
+/** Reports / owner menu — OWNER + MANAGER (AGENCY_ADMIN) only; staff excluded. */
+export const AGENCY_REPORTS_MANAGER_ROLES: readonly Role[] = [
+  Role.PARTNER,
+  Role.AGENCY_OWNER,
+  Role.AGENCY_ADMIN,
+  ...PLATFORM_ADMIN_ROLES,
+] as const;
+
 const PLATFORM_ADMIN_ROLE_SET = new Set<string>(PLATFORM_ADMIN_ROLES);
 const AGENCY_SELLER_ROLE_SET = new Set<string>(AGENCY_SELLER_ROLES);
 const AGENCY_TENANT_ROLE_SET = new Set<string>([

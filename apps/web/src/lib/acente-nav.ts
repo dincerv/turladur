@@ -74,7 +74,7 @@ export const ACENTE_SIDEBAR_LINKS: readonly AcenteSidebarLink[] = [
     name: 'Raporlar',
     href: ACENTE_ROUTES.reports,
     icon: BarChart3,
-    permission: 'reports',
+    permission: 'owner',
   },
   {
     name: 'Kullanıcılar',

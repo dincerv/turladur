@@ -14,11 +14,17 @@ import {
   maskPhone,
   parseAgencyCustomersQuery,
   parseAgencyFinancialsQuery,
+  parseAgencyReportsQuery,
+  parseAgencySalesGoalUpsert,
   type AgencyFinancialsQuery,
   type FinancialPaymentStatus,
 } from '@turta/shared-validators';
 import { ZodError } from 'zod';
 import { Prisma } from '../../../generated/prisma';
+import {
+  AGENCY_REPORTS_MANAGER_ROLES,
+  isPlatformAdminRole,
+} from '../../../core/auth/utils/role-access';
 
 import { CacheService } from '../../../core/cache/cache.service';
 import { PrismaService } from '../../../core/database/prisma.service';
@@ -85,6 +91,7 @@ type ReportDateRangeId =
   | 'lastMonth'
   | 'last3Months'
   | 'lastYear'
+  | 'thisYear'
   | 'custom';
 
 function startOfDay(d: Date) {
@@ -183,6 +190,13 @@ function resolveReportDateRange(id: ReportDateRangeId, now = new Date()) {
       end: new Date(today.getFullYear() - 1, 11, 31, 23, 59, 59, 999),
       previousStart: new Date(today.getFullYear() - 2, 0, 1),
       previousEnd: new Date(today.getFullYear() - 2, 11, 31, 23, 59, 59, 999),
+    },
+    thisYear: {
+      label: 'Bu Yıl',
+      start: new Date(today.getFullYear(), 0, 1),
+      end: endOfToday,
+      previousStart: new Date(today.getFullYear() - 1, 0, 1),
+      previousEnd: new Date(today.getFullYear() - 1, 11, 31, 23, 59, 59, 999),
     },
     custom: {
       label: 'Özel Tarih Aralığı',
@@ -1940,64 +1954,178 @@ export class PartnerService {
     return this.updateReservation(reservationId, agencyId, { status });
   }
 
+  assertReportsManagerAccess(role: string) {
+    if (
+      isPlatformAdminRole(role) ||
+      (AGENCY_REPORTS_MANAGER_ROLES as readonly string[]).includes(role)
+    ) {
+      return;
+    }
+    throw new ForbiddenException({
+      code: 'REPORTS_FORBIDDEN',
+      message: 'Raporlar yalnızca acente sahibi veya yöneticisine açıktır',
+    });
+  }
+
   async getReports(
     agencyId: string | undefined,
-    dateRangeId:
-      | 'today'
-      | 'yesterday'
-      | 'thisWeek'
-      | 'lastWeek'
-      | 'thisMonth'
-      | 'lastMonth'
-      | 'last3Months'
-      | 'lastYear'
-      | 'custom',
+    options: {
+      dateRangeId?: ReportDateRangeId;
+      period?: 'monthly' | 'yearly';
+      startDate?: string;
+      endDate?: string;
+      role?: string;
+    } = {},
   ) {
     this.requireAgencyId(agencyId);
+    if (options.role) this.assertReportsManagerAccess(options.role);
 
-    const range = resolveReportDateRange(dateRangeId);
+    let parsed;
+    try {
+      parsed = parseAgencyReportsQuery({
+        period: options.period,
+        dateRange: options.dateRangeId,
+        startDate: options.startDate,
+        endDate: options.endDate,
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'REPORTS_QUERY_INVALID',
+          message: error.issues[0]?.message ?? 'Geçersiz rapor filtresi',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
+
+    const range = this.resolveReportsRange(parsed);
     const saleStatuses = ['CONFIRMED', 'COMPLETED'] as const;
+    const baseResWhere: Prisma.ReservationWhereInput = {
+      agencyId,
+      deletedAt: null,
+      createdAt: { gte: range.start, lte: range.end },
+    };
+    const saleWhere: Prisma.ReservationWhereInput = {
+      ...baseResWhere,
+      status: { in: [...saleStatuses] },
+    };
+    const prevSaleWhere: Prisma.ReservationWhereInput = {
+      agencyId,
+      deletedAt: null,
+      status: { in: [...saleStatuses] },
+      createdAt: { gte: range.previousStart, lte: range.previousEnd },
+    };
 
-    const [current, previous, allReviews, tours] = await Promise.all([
-      this.prisma.reservation.findMany({
-        where: {
-          agencyId,
-          deletedAt: null,
-          createdAt: { gte: range.start, lte: range.end },
-        },
+    const [
+      salesAgg,
+      prevSalesAgg,
+      statusGroups,
+      tourGroups,
+      reviewAgg,
+      ratingGroups,
+      occupancyAgg,
+      occupancyByTour,
+      tours,
+      distinctCustomers,
+      goals,
+      trendRows,
+    ] = await Promise.all([
+      this.prisma.reservation.aggregate({
+        where: saleWhere,
+        _sum: { totalAmount: true },
+        _count: { _all: true },
+        _avg: { totalAmount: true },
       }),
-      this.prisma.reservation.findMany({
-        where: {
-          agencyId,
-          deletedAt: null,
-          createdAt: { gte: range.previousStart, lte: range.previousEnd },
-        },
+      this.prisma.reservation.aggregate({
+        where: prevSaleWhere,
+        _sum: { totalAmount: true },
+        _count: { _all: true },
       }),
-      this.prisma.review.findMany({
+      this.prisma.reservation.groupBy({
+        by: ['status'],
+        where: baseResWhere,
+        _count: { _all: true },
+      }),
+      this.prisma.reservation.groupBy({
+        by: ['tourId'],
+        where: saleWhere,
+        _sum: { totalAmount: true },
+        _count: { _all: true },
+        orderBy: { _sum: { totalAmount: 'desc' } },
+        take: 12,
+      }),
+      this.prisma.review.aggregate({
         where: { agencyId, deletedAt: null },
-        select: { rating: true, tourId: true, experienceId: true },
+        _avg: { rating: true },
+        _count: { _all: true },
+      }),
+      this.prisma.review.groupBy({
+        by: ['rating'],
+        where: { agencyId, deletedAt: null },
+        _count: { _all: true },
+      }),
+      this.prisma.tourDate.aggregate({
+        where: {
+          deletedAt: null,
+          startDate: { gte: range.start, lte: range.end },
+          tour: { agencyId, deletedAt: null },
+        },
+        _sum: { capacity: true, remainingCapacity: true },
+        _count: { _all: true },
+      }),
+      this.prisma.tourDate.groupBy({
+        by: ['tourId'],
+        where: {
+          deletedAt: null,
+          startDate: { gte: range.start, lte: range.end },
+          tour: { agencyId, deletedAt: null },
+        },
+        _sum: { capacity: true, remainingCapacity: true },
+        _count: { _all: true },
       }),
       this.prisma.tour.findMany({
         where: { agencyId, deletedAt: null },
         select: { id: true, title: true },
       }),
+      this.prisma.reservation.findMany({
+        where: baseResWhere,
+        distinct: ['contactEmail'],
+        select: { contactEmail: true },
+      }),
+      this.prisma.agencySalesGoal.findMany({
+        where: {
+          agencyId,
+          deletedAt: null,
+          year: range.start.getFullYear(),
+          ...(parsed.period === 'yearly' || range.id === 'thisYear'
+            ? { period: 'yearly', month: 0 }
+            : {
+                period: 'monthly',
+                month: range.start.getMonth() + 1,
+              }),
+        },
+      }),
+      this.prisma.$queryRaw<
+        Array<{ label: string; sales: number; revenue: number }>
+      >`
+        SELECT to_char(date_trunc('month', r."createdAt"), 'YYYY-MM') AS label,
+               COUNT(*)::int AS sales,
+               COALESCE(SUM(r."totalAmount"), 0)::float AS revenue
+        FROM booking."Reservation" r
+        WHERE r."agencyId" = ${agencyId}
+          AND r."deletedAt" IS NULL
+          AND r.status IN ('CONFIRMED', 'COMPLETED')
+          AND r."createdAt" >= ${range.start}
+          AND r."createdAt" <= ${range.end}
+        GROUP BY 1
+        ORDER BY 1
+      `,
     ]);
 
-    const isSale = (status: string) =>
-      saleStatuses.includes(status as (typeof saleStatuses)[number]);
-
-    const currentSales = current.filter((r) => isSale(r.status));
-    const previousSales = previous.filter((r) => isSale(r.status));
-
-    const totalSales = currentSales.length;
-    const totalRevenue = currentSales.reduce(
-      (s, r) => s + Number(r.totalAmount),
-      0,
-    );
-    const prevRevenue = previousSales.reduce(
-      (s, r) => s + Number(r.totalAmount),
-      0,
-    );
+    const totalSales = salesAgg._count._all;
+    const totalRevenue = Number(salesAgg._sum.totalAmount?.toString() ?? 0);
+    const prevRevenue = Number(prevSalesAgg._sum.totalAmount?.toString() ?? 0);
     const compared =
       prevRevenue === 0 && totalRevenue === 0
         ? null
@@ -2008,130 +2136,134 @@ export class PartnerService {
           : Math.round(((totalRevenue - prevRevenue) / prevRevenue) * 1000) /
             10;
 
-    const tourTitle = new Map(tours.map((t) => [t.id, t.title]));
-    const byTour = new Map<string, { sales: number; revenue: number }>();
-    for (const r of currentSales) {
-      const key = r.tourId ?? r.experienceId ?? 'other';
-      const prev = byTour.get(key) ?? { sales: 0, revenue: 0 };
-      prev.sales += 1;
-      prev.revenue += Number(r.totalAmount);
-      byTour.set(key, prev);
-    }
-
-    const topSelling = [...byTour.entries()]
-      .map(([id, v]) => ({
-        id,
-        name: tourTitle.get(id) ?? (id === 'other' ? 'Diğer' : id),
-        sales: v.sales,
-        revenue: Math.round(v.revenue * 100) / 100,
-        growth: null as number | null,
-      }))
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 8);
-
-    const ratingByTour = new Map<string, number[]>();
-    for (const rev of allReviews) {
-      const key = rev.tourId ?? rev.experienceId;
-      if (!key) continue;
-      const arr = ratingByTour.get(key) ?? [];
-      arr.push(rev.rating);
-      ratingByTour.set(key, arr);
-    }
-
-    const avgRating = (id: string) => {
-      const arr = ratingByTour.get(id) ?? [];
-      if (!arr.length) return 0;
-      return (
-        Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10
-      );
-    };
-
-    const completed = current.filter((r) => r.status === 'COMPLETED').length;
-    const cancelled = current.filter((r) => r.status === 'CANCELLED').length;
+    const statusCount = (status: string) =>
+      statusGroups.find((g) => g.status === status)?._count._all ?? 0;
+    const totalReservations = statusGroups.reduce(
+      (s, g) => s + g._count._all,
+      0,
+    );
+    const completed = statusCount('COMPLETED');
+    const cancelled = statusCount('CANCELLED');
     const completionRate =
-      current.length === 0
+      totalReservations === 0
         ? 0
-        : Math.round((completed / current.length) * 1000) / 10;
+        : Math.round((completed / totalReservations) * 1000) / 10;
 
-    const trendMap = new Map<string, { sales: number; revenue: number }>();
-    for (const r of currentSales) {
-      const label = `${r.createdAt.getFullYear()}-${String(r.createdAt.getMonth() + 1).padStart(2, '0')}`;
-      const prev = trendMap.get(label) ?? { sales: 0, revenue: 0 };
-      prev.sales += 1;
-      prev.revenue += Number(r.totalAmount);
-      trendMap.set(label, prev);
-    }
-    const trend = [...trendMap.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([label, v]) => ({
-        label,
-        sales: v.sales,
-        revenue: Math.round(v.revenue * 100) / 100,
+    const capacity = Number(occupancyAgg._sum.capacity ?? 0);
+    const remaining = Number(occupancyAgg._sum.remainingCapacity ?? 0);
+    const soldSeats = Math.max(0, capacity - remaining);
+    const occupancyRate =
+      capacity === 0 ? 0 : Math.round((soldSeats / capacity) * 1000) / 10;
+
+    const tourTitle = new Map(tours.map((t) => [t.id, t.title]));
+    const topSelling = tourGroups
+      .filter((g) => g.tourId)
+      .map((g) => ({
+        id: g.tourId as string,
+        name: tourTitle.get(g.tourId as string) ?? g.tourId!,
+        sales: g._count._all,
+        revenue: Math.round(Number(g._sum.totalAmount ?? 0) * 100) / 100,
+        growth: null as number | null,
       }));
 
-    const customerMap = new Map<
-      string,
-      { bookings: number; spent: number; lastBooking: string }
-    >();
-    for (const r of current) {
-      const email = r.contactEmail || 'bilinmiyor';
-      const prev = customerMap.get(email) ?? {
-        bookings: 0,
-        spent: 0,
-        lastBooking: r.createdAt.toISOString(),
-      };
-      prev.bookings += 1;
-      if (isSale(r.status)) prev.spent += Number(r.totalAmount);
-      if (new Date(r.createdAt) > new Date(prev.lastBooking)) {
-        prev.lastBooking = r.createdAt.toISOString();
-      }
-      customerMap.set(email, prev);
-    }
+    const occupancyChart = occupancyByTour
+      .filter((g) => g.tourId)
+      .map((g) => {
+        const cap = Number(g._sum.capacity ?? 0);
+        const rem = Number(g._sum.remainingCapacity ?? 0);
+        const sold = Math.max(0, cap - rem);
+        return {
+          id: g.tourId as string,
+          name: tourTitle.get(g.tourId as string) ?? g.tourId!,
+          capacity: cap,
+          sold,
+          occupancyRate: cap === 0 ? 0 : Math.round((sold / cap) * 1000) / 10,
+        };
+      })
+      .sort((a, b) => b.occupancyRate - a.occupancyRate)
+      .slice(0, 10);
 
-    const topCustomers = [...customerMap.entries()]
-      .map(([email, v]) => ({
-        id: email,
-        name: email.split('@')[0] || email,
-        bookings: v.bookings,
-        spent: Math.round(v.spent * 100) / 100,
-        lastBooking: new Date(v.lastBooking).toLocaleDateString('tr-TR'),
-      }))
-      .sort((a, b) => b.spent - a.spent)
-      .slice(0, 8);
-
-    const newCustomers = customerMap.size;
-    const returning = [...customerMap.values()].filter(
-      (c) => c.bookings > 1,
-    ).length;
-
+    const overallAvg = Number(reviewAgg._avg.rating ?? 0);
+    const reviewTotal = reviewAgg._count._all;
     const satisfaction = [5, 4, 3, 2, 1].map((rating) => {
-      const count = allReviews.filter((r) => r.rating === rating).length;
+      const count =
+        ratingGroups.find((g) => g.rating === rating)?._count._all ?? 0;
+      return {
+        rating,
+        percentage:
+          reviewTotal === 0 ? 0 : Math.round((count / reviewTotal) * 1000) / 10,
+      };
+    });
+
+    const trend = trendRows.map((t) => ({
+      label: t.label,
+      sales: Number(t.sales),
+      revenue: Math.round(Number(t.revenue) * 100) / 100,
+    }));
+
+    const prevSalesCount = prevSalesAgg._count._all;
+    const goalDefs = [
+      {
+        metric: 'reservations' as const,
+        name: 'Rezervasyon hedefi',
+        current: totalSales,
+        fallbackTarget: Math.max(10, Math.round(prevSalesCount * 1.1) || 10),
+      },
+      {
+        metric: 'revenue' as const,
+        name: 'Ciro hedefi',
+        current: Math.round(totalRevenue * 100) / 100,
+        fallbackTarget: Math.max(1000, Math.round(prevRevenue * 1.1) || 1000),
+      },
+      {
+        metric: 'occupancy' as const,
+        name: 'Doluluk oranı',
+        current: occupancyRate,
+        fallbackTarget: 75,
+      },
+      {
+        metric: 'completion' as const,
+        name: 'Tamamlanma oranı',
+        current: completionRate,
+        fallbackTarget: 80,
+      },
+    ];
+
+    const goalsPayload = goalDefs.map((def) => {
+      const stored = goals.find((g) => g.metric === def.metric);
+      const target = stored
+        ? Number(stored.targetValue.toString())
+        : def.fallbackTarget;
       const percentage =
-        allReviews.length === 0
+        target <= 0
           ? 0
-          : Math.round((count / allReviews.length) * 1000) / 10;
-      return { rating, percentage };
+          : Math.min(100, Math.round((def.current / target) * 100));
+      return {
+        id: stored?.id ?? null,
+        metric: def.metric,
+        name: def.name,
+        current: def.current,
+        target,
+        percentage,
+        source: stored ? ('stored' as const) : ('baseline' as const),
+      };
     });
 
     const tourPerformance = tours.map((t) => {
-      const stats = byTour.get(t.id) ?? { sales: 0, revenue: 0 };
+      const stats = tourGroups.find((g) => g.tourId === t.id);
+      const occ = occupancyChart.find((o) => o.id === t.id);
       return {
         id: t.id,
         name: t.title,
-        bookings: stats.sales,
-        avgRating: avgRating(t.id),
+        bookings: stats?._count._all ?? 0,
+        avgRating: Math.round(overallAvg * 10) / 10,
         conversionRate: null as number | null,
-        revenue: Math.round(stats.revenue * 100) / 100,
+        revenue: Math.round(Number(stats?._sum.totalAmount ?? 0) * 100) / 100,
+        occupancyRate: occ?.occupancyRate ?? 0,
       };
     });
 
-    const overallAvg =
-      allReviews.length === 0
-        ? 0
-        : Math.round(
-            (allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length) *
-              10,
-          ) / 10;
+    const customerCount = distinctCustomers.length;
 
     return {
       success: true,
@@ -2139,6 +2271,8 @@ export class PartnerService {
         dateRange: {
           id: range.id,
           label: range.label,
+          period:
+            parsed.period ?? (range.id === 'thisYear' ? 'yearly' : 'monthly'),
         },
         sales: {
           summary: {
@@ -2147,7 +2281,9 @@ export class PartnerService {
             averageOrderValue:
               totalSales === 0
                 ? 0
-                : Math.round((totalRevenue / totalSales) * 100) / 100,
+                : Math.round(
+                    Number(salesAgg._avg.totalAmount?.toString() ?? 0) * 100,
+                  ) / 100,
             comparedToLastPeriod: compared,
             increase: compared === null ? null : compared >= 0,
           },
@@ -2155,13 +2291,19 @@ export class PartnerService {
           periodRangeText: `${range.start.toLocaleDateString('tr-TR')} – ${range.end.toLocaleDateString('tr-TR')}`,
           topSelling,
           bookingSummary: {
-            totalReservations: current.length,
+            totalReservations,
             completedTours: completed,
             cancelledReservations: cancelled,
             refundedCount: 0,
-            averageRating: overallAvg,
+            averageRating: Math.round(overallAvg * 10) / 10,
           },
           trend,
+          occupancy: {
+            capacity,
+            soldSeats,
+            occupancyRate,
+            byTour: occupancyChart,
+          },
         },
         performance: {
           summary: {
@@ -2172,65 +2314,46 @@ export class PartnerService {
                 ? 0
                 : Math.round((totalRevenue / totalSales) * 100) / 100,
             monthlyBookings: totalSales,
+            occupancyRate,
           },
           monthlyTrend: trend.map((t) => ({
             label: t.label,
             count: t.sales,
           })),
           tourPerformance,
-          goals: [
-            {
-              name: 'Aylık rezervasyon',
-              current: totalSales,
-              target: Math.max(10, totalSales),
-              percentage: Math.min(
-                100,
-                Math.round((totalSales / Math.max(10, totalSales)) * 100),
-              ),
-            },
-            {
-              name: 'Tamamlanma oranı',
-              current: completionRate,
-              target: 80,
-              percentage: Math.min(
-                100,
-                Math.round((completionRate / 80) * 100),
-              ),
-            },
-          ],
+          goals: goalsPayload,
         },
         customer: {
           summary: {
-            totalCustomers: customerMap.size,
-            newCustomers,
-            returningCustomers: returning,
+            totalCustomers: customerCount,
+            newCustomers: customerCount,
+            returningCustomers: 0,
             customerLifetimeValue:
-              customerMap.size === 0
+              customerCount === 0
                 ? 0
-                : Math.round(
-                    ([...customerMap.values()].reduce(
-                      (s, c) => s + c.spent,
-                      0,
-                    ) /
-                      customerMap.size) *
-                      100,
-                  ) / 100,
+                : Math.round((totalRevenue / customerCount) * 100) / 100,
             percentChange: null,
             increase: null,
           },
-          topCustomers,
+          topCustomers: topSelling.slice(0, 5).map((t) => ({
+            id: t.id,
+            name: t.name,
+            bookings: t.sales,
+            spent: t.revenue,
+            lastBooking: range.label,
+          })),
           satisfactionDistribution: satisfaction,
         },
         visitors: {
           disclaimer:
-            'Ziyaretçi metrikleri rezervasyon etkileşiminden türetilir. Gerçek trafik analytics sonra eklenecek.',
+            'Ziyaretçi metrikleri rezervasyon etkileşiminden türetilir.',
           summary: {
-            uniqueVisitors: customerMap.size,
-            totalInteractions: current.length,
+            uniqueVisitors: customerCount,
+            totalInteractions: totalReservations,
             conversionRate:
-              current.length === 0
+              totalReservations === 0
                 ? 0
-                : Math.round((totalSales / current.length) * 1000) / 10,
+                : Math.round((totalSales / totalReservations) * 1000) / 10,
             comparedToLastPeriod: compared,
             increase: compared === null ? null : compared >= 0,
           },
@@ -2243,6 +2366,99 @@ export class PartnerService {
       },
       error: null,
     };
+  }
+
+  async upsertSalesGoal(
+    agencyId: string | undefined,
+    role: string,
+    input: unknown,
+  ) {
+    this.requireAgencyId(agencyId);
+    this.assertReportsManagerAccess(role);
+
+    let parsed;
+    try {
+      parsed = parseAgencySalesGoalUpsert(input);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'SALES_GOAL_INVALID',
+          message: error.issues[0]?.message ?? 'Geçersiz hedef',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
+
+    if (
+      parsed.period === 'monthly' &&
+      (parsed.month == null || parsed.month < 1)
+    ) {
+      throw new BadRequestException({
+        code: 'SALES_GOAL_MONTH_REQUIRED',
+        message: 'Aylık hedef için month (1-12) zorunlu',
+      });
+    }
+
+    /** yearly → month 0 (NULL unique sorununu önlemek için) */
+    const month = parsed.period === 'yearly' ? 0 : (parsed.month as number);
+
+    const row = await this.prisma.agencySalesGoal.upsert({
+      where: {
+        agencyId_period_metric_year_month: {
+          agencyId,
+          period: parsed.period,
+          metric: parsed.metric,
+          year: parsed.year,
+          month,
+        },
+      },
+      create: {
+        agencyId,
+        period: parsed.period,
+        metric: parsed.metric,
+        year: parsed.year,
+        month,
+        targetValue: new Prisma.Decimal(parsed.targetValue),
+      },
+      update: {
+        targetValue: new Prisma.Decimal(parsed.targetValue),
+        deletedAt: null,
+      },
+    });
+
+    return { success: true, data: row, error: null };
+  }
+
+  private resolveReportsRange(parsed: {
+    period?: 'monthly' | 'yearly';
+    dateRange?: string;
+    startDate?: string;
+    endDate?: string;
+  }) {
+    if (parsed.startDate && parsed.endDate) {
+      const start = new Date(`${parsed.startDate}T00:00:00.000Z`);
+      const end = new Date(`${parsed.endDate}T23:59:59.999Z`);
+      const span = end.getTime() - start.getTime();
+      return {
+        id: 'custom' as ReportDateRangeId,
+        label: 'Özel Tarih Aralığı',
+        start,
+        end,
+        previousStart: new Date(start.getTime() - span - 1),
+        previousEnd: new Date(start.getTime() - 1),
+      };
+    }
+
+    if (parsed.period === 'yearly' && !parsed.dateRange) {
+      return resolveReportDateRange('thisYear');
+    }
+    if (parsed.period === 'monthly' && !parsed.dateRange) {
+      return resolveReportDateRange('thisMonth');
+    }
+
+    const id = (parsed.dateRange ?? 'thisMonth') as ReportDateRangeId;
+    return resolveReportDateRange(id);
   }
 
   /**

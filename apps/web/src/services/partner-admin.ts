@@ -1504,7 +1504,11 @@ export async function replyPartnerReview(
 }
 
 export type PartnerReportsData = {
-  dateRange: { id: string; label: string };
+  dateRange: {
+    id: string;
+    label: string;
+    period?: 'monthly' | 'yearly' | string;
+  };
   sales: {
     summary: {
       totalSales: number;
@@ -1530,6 +1534,18 @@ export type PartnerReportsData = {
       averageRating: number;
     };
     trend: Array<{ label: string; sales: number; revenue: number }>;
+    occupancy?: {
+      capacity: number;
+      soldSeats: number;
+      occupancyRate: number;
+      byTour: Array<{
+        id: string;
+        name: string;
+        capacity: number;
+        sold: number;
+        occupancyRate: number;
+      }>;
+    };
   };
   performance: {
     summary: {
@@ -1537,6 +1553,7 @@ export type PartnerReportsData = {
       completionRate: number;
       avgBookingValue: number;
       monthlyBookings: number;
+      occupancyRate?: number;
     };
     monthlyTrend: Array<{ label: string; count: number }>;
     tourPerformance: Array<{
@@ -1546,12 +1563,16 @@ export type PartnerReportsData = {
       avgRating: number;
       conversionRate: number | null;
       revenue: number;
+      occupancyRate?: number;
     }>;
     goals: Array<{
+      id?: string | null;
+      metric?: string;
       name: string;
       current: number;
       target: number;
       percentage: number;
+      source?: 'stored' | 'baseline';
     }>;
   };
   customer: {
@@ -1606,16 +1627,55 @@ export type ReportDateRangeId =
   | 'lastMonth'
   | 'last3Months'
   | 'lastYear'
+  | 'thisYear'
   | 'custom';
+
+export type PartnerReportsParams = {
+  period?: 'monthly' | 'yearly';
+  dateRange?: ReportDateRangeId;
+  startDate?: string;
+  endDate?: string;
+};
+
+function buildReportsQuery(params?: PartnerReportsParams): string {
+  const sp = new URLSearchParams();
+  if (params?.period) sp.set('period', params.period);
+  if (params?.dateRange) sp.set('dateRange', params.dateRange);
+  if (params?.startDate) sp.set('startDate', params.startDate);
+  if (params?.endDate) sp.set('endDate', params.endDate);
+  const qs = sp.toString();
+  return qs ? `?${qs}` : '';
+}
 
 export async function getPartnerReports(
   token: string,
-  dateRange = 'thisMonth',
+  dateRangeOrParams: string | PartnerReportsParams = 'thisMonth',
 ) {
+  const params: PartnerReportsParams =
+    typeof dateRangeOrParams === 'string'
+      ? { dateRange: dateRangeOrParams as ReportDateRangeId }
+      : dateRangeOrParams;
   return apiRequest<PartnerReportsData>(
-    `/partner/reports?dateRange=${encodeURIComponent(dateRange)}`,
-    { token },
+    `/partner/reports${buildReportsQuery(params)}`,
+    { token, cache: 'no-store' },
   );
+}
+
+export async function upsertPartnerSalesGoal(
+  token: string,
+  body: {
+    period: 'monthly' | 'yearly';
+    metric: 'reservations' | 'revenue' | 'occupancy' | 'completion';
+    targetValue: number;
+    year: number;
+    month?: number;
+  },
+) {
+  return apiRequest('/partner/reports/goals', {
+    method: 'PUT',
+    body,
+    token,
+  });
 }
 
 export type PartnerCustomerListItem = {
