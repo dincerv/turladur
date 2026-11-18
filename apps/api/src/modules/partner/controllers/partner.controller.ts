@@ -879,7 +879,10 @@ export class PartnerController {
     @Query() query: ListPartnerFinancialsQueryDto,
   ) {
     const agencyId = await this.sellerAgencyId(user);
-    return this.partnerService.listFinancialTransactions(agencyId, query);
+    return this.partnerService.listFinancialTransactions(
+      agencyId,
+      query as unknown as Record<string, unknown>,
+    );
   }
 
   @Get('financials/export')
@@ -890,7 +893,10 @@ export class PartnerController {
     @Query() query: ListPartnerFinancialsQueryDto,
   ) {
     const agencyId = await this.sellerAgencyId(user);
-    return this.partnerService.exportFinancials(agencyId, query);
+    return this.partnerService.exportFinancials(
+      agencyId,
+      query as unknown as Record<string, unknown>,
+    );
   }
 
   @Get('financials')
