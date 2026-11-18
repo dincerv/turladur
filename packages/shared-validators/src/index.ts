@@ -307,6 +307,63 @@ export function parsePersonaMatchRequest(input: unknown): PersonaMatchRequest {
   return personaMatchRequestSchema.parse(input);
 }
 
+/** Tour date assignment invites — GUIDE / BUS */
+export const ASSIGNMENT_ROLES = ['GUIDE', 'BUS'] as const;
+export type AssignmentRole = (typeof ASSIGNMENT_ROLES)[number];
+
+export const inviteGuideAssignmentSchema = z.object({
+  guideId: z.string().min(1, 'Rehber ID gerekli'),
+  note: z.string().max(2000).optional(),
+});
+
+export const inviteBusAssignmentSchema = z.object({
+  busCompanyId: z.string().min(1, 'Otobüs firması ID gerekli'),
+  note: z.string().max(2000).optional(),
+});
+
+export const createAssignmentInviteSchema = z.discriminatedUnion('role', [
+  z.object({
+    role: z.literal('GUIDE'),
+    tourDateId: z.string().min(1, 'Tur tarih ID gerekli'),
+    guideId: z.string().min(1, 'Rehber ID gerekli'),
+    note: z.string().max(2000).optional(),
+  }),
+  z.object({
+    role: z.literal('BUS'),
+    tourDateId: z.string().min(1, 'Tur tarih ID gerekli'),
+    busCompanyId: z.string().min(1, 'Otobüs firması ID gerekli'),
+    note: z.string().max(2000).optional(),
+  }),
+]);
+
+export type InviteGuideAssignmentInput = z.infer<
+  typeof inviteGuideAssignmentSchema
+>;
+export type InviteBusAssignmentInput = z.infer<
+  typeof inviteBusAssignmentSchema
+>;
+export type CreateAssignmentInviteInput = z.infer<
+  typeof createAssignmentInviteSchema
+>;
+
+export function parseInviteGuideAssignment(
+  input: unknown,
+): InviteGuideAssignmentInput {
+  return inviteGuideAssignmentSchema.parse(input);
+}
+
+export function parseInviteBusAssignment(
+  input: unknown,
+): InviteBusAssignmentInput {
+  return inviteBusAssignmentSchema.parse(input);
+}
+
+export function parseCreateAssignmentInvite(
+  input: unknown,
+): CreateAssignmentInviteInput {
+  return createAssignmentInviteSchema.parse(input);
+}
+
 export type ContactMessagePayload = {
   name: string;
   email: string;

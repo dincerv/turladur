@@ -1,9 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw } from 'lucide-react';
 
+import { InviteAssignmentModal } from '@/components/features/acente-assignments/invite-assignment-modal';
 import { ACENTE_ROUTES } from '@/lib/panel-routes';
 import { useAuth } from '@/providers/auth-provider';
 import { ApiError } from '@/services/api-client';
@@ -14,8 +16,22 @@ import {
   type TourDateAssignmentRow,
 } from '@/services/tour-date-assignment';
 
+import { revalidateAssignmentsPath } from './actions';
+
 type FilterStatus = 'all' | 'PENDING' | 'ACCEPTED' | 'REJECTED';
 type FilterRole = 'all' | 'GUIDE' | 'BUS';
+
+type ToastState = {
+  type: 'success' | 'error';
+  message: string;
+} | null;
+
+type ResendPrefill = {
+  role: 'GUIDE' | 'BUS';
+  tourDateId?: string;
+  guideId?: string;
+  busCompanyId?: string;
+};
 
 function toDay(iso: string): string {
   return iso.slice(0, 10);
@@ -58,29 +74,50 @@ function assigneeLabel(row: TourDateAssignmentRow): string {
   return row.busCompany?.companyName ?? row.busCompanyId ?? 'Otobüs firması';
 }
 
+const STATUS_TABS: Array<{ key: FilterStatus; label: string }> = [
+  { key: 'all', label: 'Tümü' },
+  { key: 'PENDING', label: 'Bekleyen Davetler' },
+  { key: 'ACCEPTED', label: 'Kabul Edilenler' },
+  { key: 'REJECTED', label: 'Reddedilenler' },
+];
+
 export default function AgencyAssignmentsPage() {
   const { accessToken } = useAuth();
+  const router = useRouter();
   const [rows, setRows] = useState<TourDateAssignmentRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastState>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
   const [roleFilter, setRoleFilter] = useState<FilterRole>('all');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [resendPrefill, setResendPrefill] = useState<
+    ResendPrefill | undefined
+  >();
+
+  const showToast = useCallback(
+    (type: 'success' | 'error', message: string) => {
+      setToast({ type, message });
+      window.setTimeout(() => setToast(null), 4000);
+    },
+    [],
+  );
 
   const load = useCallback(async () => {
     if (!accessToken) return;
     setLoading(true);
-    setError(null);
     try {
       const data = await listAgencyAssignments(accessToken);
       setRows(data);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Atamalar yüklenemedi');
+      showToast(
+        'error',
+        err instanceof ApiError ? err.message : 'Atamalar yüklenemedi',
+      );
     } finally {
       setLoading(false);
     }
-  }, [accessToken]);
+  }, [accessToken, showToast]);
 
   useEffect(() => {
     void load();
@@ -94,17 +131,36 @@ export default function AgencyAssignmentsPage() {
     });
   }, [rows, statusFilter, roleFilter]);
 
+  const counts = useMemo(() => {
+    return {
+      all: rows.length,
+      PENDING: rows.filter((r) => r.status === 'PENDING').length,
+      ACCEPTED: rows.filter((r) => r.status === 'ACCEPTED').length,
+      REJECTED: rows.filter((r) => r.status === 'REJECTED').length,
+    };
+  }, [rows]);
+
+  async function afterMutation() {
+    await revalidateAssignmentsPath();
+    router.refresh();
+    await load();
+  }
+
   async function handleWithdraw(assignmentId: string) {
     if (!accessToken) return;
+    const snapshot = rows;
     setBusyId(assignmentId);
-    setError(null);
-    setMessage(null);
+    setRows((prev) => prev.filter((r) => r.id !== assignmentId));
     try {
       await withdrawTourDateAssignment(accessToken, assignmentId);
-      setMessage('Davet geri çekildi');
-      await load();
+      showToast('success', 'Davet geri çekildi');
+      await afterMutation();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Geri çekme başarısız');
+      setRows(snapshot);
+      showToast(
+        'error',
+        err instanceof ApiError ? err.message : 'Geri çekme başarısız',
+      );
     } finally {
       setBusyId(null);
     }
@@ -112,64 +168,106 @@ export default function AgencyAssignmentsPage() {
 
   async function handleCancel(assignmentId: string) {
     if (!accessToken) return;
+    const snapshot = rows;
     setBusyId(assignmentId);
-    setError(null);
-    setMessage(null);
+    setRows((prev) =>
+      prev.map((r) =>
+        r.id === assignmentId
+          ? { ...r, status: 'REJECTED', note: 'Cancelled by agency' }
+          : r,
+      ),
+    );
     try {
       await cancelTourDateAssignment(accessToken, assignmentId);
-      setMessage('Atama iptal edildi');
-      await load();
+      showToast('success', 'Atama iptal edildi');
+      await afterMutation();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'İptal başarısız');
+      setRows(snapshot);
+      showToast(
+        'error',
+        err instanceof ApiError ? err.message : 'İptal başarısız',
+      );
     } finally {
       setBusyId(null);
     }
   }
 
+  function openNewInvite() {
+    setResendPrefill(undefined);
+    setModalOpen(true);
+  }
+
+  function openResend(row: TourDateAssignmentRow) {
+    setResendPrefill({
+      role: row.role === 'BUS' ? 'BUS' : 'GUIDE',
+      tourDateId: row.tourDateId,
+      guideId: row.guideId ?? undefined,
+      busCompanyId: row.busCompanyId ?? undefined,
+    });
+    setModalOpen(true);
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+    <div className="space-y-6" data-testid="acente-assignments-page">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Atamalar</h1>
           <p className="mt-1 text-sm text-gray-600">
-            Rehber ve otobüs davetlerini tüm seferler için buradan takip edin.
-            Yeni davet tur detayındaki sefer panelinden gönderilir.
+            Rehber ve otobüs / araç davetlerini buradan yönetin. Çakışan tarih
+            aralıklarında aktif görev engellenir.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Yenile
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            data-testid="assignments-refresh-btn"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Yenile
+          </button>
+          <button
+            type="button"
+            onClick={openNewInvite}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700"
+            data-testid="assignments-new-invite-btn"
+          >
+            <Plus className="h-4 w-4" />
+            Yeni Atama / Davet Gönder
+          </button>
+        </div>
       </div>
 
-      <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              ['all', 'Tümü'],
-              ['PENDING', 'Bekleyen'],
-              ['ACCEPTED', 'Kabul'],
-              ['REJECTED', 'Red'],
-            ] as const
-          ).map(([key, label]) => (
+      <div
+        className="rounded-xl border border-gray-100 bg-white p-2 shadow-sm"
+        data-testid="assignments-tabs"
+        role="tablist"
+        aria-label="Atama durumu"
+      >
+        <div className="flex flex-wrap gap-1">
+          {STATUS_TABS.map((tab) => (
             <button
-              key={key}
+              key={tab.key}
               type="button"
-              onClick={() => setStatusFilter(key)}
-              className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
-                statusFilter === key
-                  ? 'border-blue-200 bg-blue-50 text-blue-700'
-                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+              role="tab"
+              aria-selected={statusFilter === tab.key}
+              data-testid={`assignments-tab-${tab.key}`}
+              onClick={() => setStatusFilter(tab.key)}
+              className={`rounded-lg px-3 py-2 text-xs font-medium transition ${
+                statusFilter === tab.key
+                  ? 'bg-blue-50 text-blue-800'
+                  : 'text-gray-600 hover:bg-gray-50'
               }`}
             >
-              {label}
+              {tab.label}
+              <span className="ml-1.5 text-[10px] text-gray-400">
+                {counts[tab.key]}
+              </span>
             </button>
           ))}
-          <span className="mx-1 hidden h-6 w-px bg-gray-200 sm:inline-block" />
+        </div>
+        <div className="mt-2 flex flex-wrap gap-1 border-t border-gray-100 pt-2">
           {(
             [
               ['all', 'Rol: Tümü'],
@@ -180,6 +278,7 @@ export default function AgencyAssignmentsPage() {
             <button
               key={key}
               type="button"
+              data-testid={`assignments-role-${key}`}
               onClick={() => setRoleFilter(key)}
               className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
                 roleFilter === key
@@ -193,118 +292,176 @@ export default function AgencyAssignmentsPage() {
         </div>
       </div>
 
-      {error ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </p>
-      ) : null}
-      {message ? (
-        <p className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
-          {message}
+      {toast ? (
+        <p
+          role="status"
+          data-testid="assignments-toast"
+          data-toast-type={toast.type}
+          className={`rounded-lg border px-3 py-2 text-sm ${
+            toast.type === 'success'
+              ? 'border-green-200 bg-green-50 text-green-800'
+              : 'border-red-200 bg-red-50 text-red-700'
+          }`}
+        >
+          {toast.message}
         </p>
       ) : null}
 
       {loading ? (
-        <div className="flex h-40 items-center justify-center">
+        <div
+          className="flex h-40 items-center justify-center"
+          data-testid="assignments-loading"
+        >
           <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-blue-500" />
         </div>
       ) : null}
 
       {!loading && filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-gray-200 bg-white px-6 py-16 text-center text-sm text-gray-500">
-          Atama bulunamadı. Tur detayından rehber veya otobüs daveti
-          gönderebilirsiniz.
+        <div
+          className="rounded-xl border border-dashed border-gray-200 bg-white px-6 py-16 text-center text-sm text-gray-500"
+          data-testid="assignments-empty"
+        >
+          Atama bulunamadı. Yeni davet göndermek için yukarıdaki butonu
+          kullanın.
         </div>
       ) : null}
 
-      {!loading ? (
-        <ul className="space-y-3">
-          {filtered.map((row) => {
-            const tourId = row.tourDate?.tour.id;
-            const tourTitle = row.tourDate?.tour.title ?? 'Tur';
-            const range =
-              row.tourDate != null
-                ? formatRange(row.tourDate.startDate, row.tourDate.endDate)
-                : '—';
-            return (
-              <li
-                key={row.id}
-                className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm"
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-gray-900">{tourTitle}</p>
-                      <span
-                        className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusClass(row.status)}`}
-                      >
-                        {statusLabel(row.status)}
-                      </span>
+      {!loading && filtered.length > 0 ? (
+        <div
+          className="overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm"
+          data-testid="assignments-table"
+        >
+          <table className="min-w-full divide-y divide-gray-100 text-left text-sm">
+            <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+              <tr>
+                <th className="px-4 py-3 font-medium">Tur</th>
+                <th className="px-4 py-3 font-medium">Tarih</th>
+                <th className="px-4 py-3 font-medium">Personel / Araç</th>
+                <th className="px-4 py-3 font-medium">Rol</th>
+                <th className="px-4 py-3 font-medium">Durum</th>
+                <th className="px-4 py-3 font-medium text-right">İşlemler</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filtered.map((row) => {
+                const tourId = row.tourDate?.tour.id;
+                const tourTitle = row.tourDate?.tour.title ?? 'Tur';
+                const range =
+                  row.tourDate != null
+                    ? formatRange(row.tourDate.startDate, row.tourDate.endDate)
+                    : '—';
+                return (
+                  <tr
+                    key={row.id}
+                    data-testid={`assignment-row-${row.id}`}
+                    className="align-top"
+                  >
+                    <td className="px-4 py-3 font-medium text-gray-900">
+                      {tourTitle}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{range}</td>
+                    <td className="px-4 py-3 text-gray-800">
+                      {assigneeLabel(row)}
+                      {row.note ? (
+                        <span className="mt-1 block text-xs text-gray-400">
+                          {row.note}
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3">
                       <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-xs font-medium text-gray-700">
                         {roleLabel(row.role)}
                       </span>
-                    </div>
-                    <p className="mt-1 text-sm text-gray-800">
-                      {assigneeLabel(row)}
-                    </p>
-                    <p className="mt-0.5 text-sm text-gray-500">
-                      Sefer: {range}
-                    </p>
-                    {row.note ? (
-                      <p className="mt-2 text-xs text-gray-500">{row.note}</p>
-                    ) : null}
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {tourId ? (
-                        <Link
-                          href={`${ACENTE_ROUTES.tours}/${tourId}`}
-                          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                        >
-                          Tur detayı
-                        </Link>
-                      ) : null}
-                      {row.role === 'BUS' &&
-                      row.status === 'ACCEPTED' &&
-                      tourId &&
-                      row.tourDateId ? (
-                        <Link
-                          href={ACENTE_ROUTES.tourDateSeats(
-                            tourId,
-                            row.tourDateId,
-                          )}
-                          className="rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
-                        >
-                          Koltuk haritası
-                        </Link>
-                      ) : null}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2 sm:justify-end">
-                    {row.status === 'PENDING' ? (
-                      <button
-                        type="button"
-                        disabled={busyId === row.id}
-                        onClick={() => void handleWithdraw(row.id)}
-                        className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusClass(row.status)}`}
+                        data-testid={`assignment-status-${row.id}`}
                       >
-                        Daveti geri çek
-                      </button>
-                    ) : null}
-                    {row.status === 'ACCEPTED' ? (
-                      <button
-                        type="button"
-                        disabled={busyId === row.id}
-                        onClick={() => void handleCancel(row.id)}
-                        className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
-                      >
-                        Atamayı iptal et
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                        {statusLabel(row.status)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        {tourId ? (
+                          <Link
+                            href={`${ACENTE_ROUTES.tours}/${tourId}`}
+                            className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                          >
+                            Tur
+                          </Link>
+                        ) : null}
+                        {row.role === 'BUS' &&
+                        row.status === 'ACCEPTED' &&
+                        tourId &&
+                        row.tourDateId ? (
+                          <Link
+                            href={ACENTE_ROUTES.tourDateSeats(
+                              tourId,
+                              row.tourDateId,
+                            )}
+                            className="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                          >
+                            Koltuk
+                          </Link>
+                        ) : null}
+                        {row.status === 'PENDING' ? (
+                          <button
+                            type="button"
+                            disabled={busyId === row.id}
+                            data-testid={`assignment-withdraw-${row.id}`}
+                            onClick={() => void handleWithdraw(row.id)}
+                            className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                          >
+                            Geri çek
+                          </button>
+                        ) : null}
+                        {row.status === 'ACCEPTED' ? (
+                          <button
+                            type="button"
+                            disabled={busyId === row.id}
+                            data-testid={`assignment-cancel-${row.id}`}
+                            onClick={() => void handleCancel(row.id)}
+                            className="rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            İptal
+                          </button>
+                        ) : null}
+                        {row.status === 'REJECTED' ||
+                        row.status === 'PENDING' ? (
+                          <button
+                            type="button"
+                            data-testid={`assignment-resend-${row.id}`}
+                            onClick={() => openResend(row)}
+                            className="rounded-md border border-blue-200 bg-white px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50"
+                          >
+                            Yeniden gönder
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {accessToken ? (
+        <InviteAssignmentModal
+          open={modalOpen}
+          accessToken={accessToken}
+          prefills={resendPrefill}
+          onClose={() => {
+            setModalOpen(false);
+            setResendPrefill(undefined);
+          }}
+          onSuccess={(message) => {
+            showToast('success', message);
+            void afterMutation();
+          }}
+        />
       ) : null}
     </div>
   );

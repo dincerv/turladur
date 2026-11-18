@@ -1,17 +1,25 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import {
+  parseInviteBusAssignment,
+  parseInviteGuideAssignment,
+} from '@turta/shared-validators';
+import { ZodError } from 'zod';
 import { isPlatformAdminRole } from '../../../core/auth/utils/role-access';
 
 import { AgencyLinkService } from '../../../core/agency/agency-link.service';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { Prisma } from '../../../generated/prisma';
 import { BusinessException } from '../../../shared/exceptions/business.exception';
 
 const ACTIVE_STATUSES = ['PENDING', 'ACCEPTED'] as const;
 
 type AssignmentRole = 'GUIDE' | 'BUS';
+type DbClient = Prisma.TransactionClient | PrismaService;
 
 @Injectable()
 export class TourDateAssignmentService {
@@ -155,13 +163,15 @@ export class TourDateAssignmentService {
     agencyId: string | undefined,
     role: string,
   ) {
+    const parsed = this.parseGuideDto(dto);
     const tourDate = await this.findOwnedTourDate(tourDateId, agencyId, role);
     const invitedByAgencyId = await this.requireAgencyId(
       tourDate.tour.agencyId,
     );
+    this.assertAgencyMatchesTenant(invitedByAgencyId, agencyId, role);
 
     const guide = await this.prisma.guide.findFirst({
-      where: { id: dto.guideId, deletedAt: null, status: 'VERIFIED' },
+      where: { id: parsed.guideId, deletedAt: null, status: 'VERIFIED' },
     });
     if (!guide) {
       throw new NotFoundException({
@@ -177,31 +187,40 @@ export class TourDateAssignmentService {
       );
     }
 
-    await this.assertNoActiveRoleAssignment(tourDateId, 'GUIDE');
-
     const days = eachCalendarDay(tourDate.startDate, tourDate.endDate);
-    await this.assertGuideDaysFree(dto.guideId, days);
 
-    const row = await this.prisma.tourDateAssignment.create({
-      data: {
+    const row = await this.prisma.$transaction(async (tx) => {
+      await this.assertNoActiveRoleAssignment(tx, tourDateId, 'GUIDE');
+      await this.assertGuideDaysFree(tx, parsed.guideId, days);
+      await this.assertNoGuideScheduleConflict(
+        tx,
+        parsed.guideId,
+        tourDate.startDate,
+        tourDate.endDate,
         tourDateId,
-        role: 'GUIDE',
-        guideId: dto.guideId,
-        status: 'PENDING',
-        invitedByAgencyId,
-        note: dto.note ?? null,
-      },
-      include: {
-        guide: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            city: true,
+      );
+
+      return tx.tourDateAssignment.create({
+        data: {
+          tourDateId,
+          role: 'GUIDE',
+          guideId: parsed.guideId,
+          status: 'PENDING',
+          invitedByAgencyId,
+          note: parsed.note ?? null,
+        },
+        include: {
+          guide: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              city: true,
+            },
           },
         },
-      },
+      });
     });
 
     return { success: true, data: row, error: null };
@@ -235,6 +254,11 @@ export class TourDateAssignmentService {
       { agencyId, role },
       'Bu tura erişim yetkiniz yok',
     );
+    this.assertAgencyMatchesTenant(
+      assignment.invitedByAgencyId,
+      agencyId,
+      role,
+    );
 
     if (assignment.status !== 'PENDING') {
       throw new BusinessException(
@@ -243,15 +267,17 @@ export class TourDateAssignmentService {
       );
     }
 
-    const updated = await this.prisma.tourDateAssignment.update({
-      where: { id: assignmentId },
-      data: {
-        deletedAt: new Date(),
-        ...(deletedBy ? { deletedBy } : {}),
-        note: assignment.note
-          ? `${assignment.note}\n[Withdrawn by agency]`
-          : 'Withdrawn by agency',
-      },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      return tx.tourDateAssignment.update({
+        where: { id: assignmentId },
+        data: {
+          deletedAt: new Date(),
+          ...(deletedBy ? { deletedBy } : {}),
+          note: assignment.note
+            ? `${assignment.note}\n[Withdrawn by agency]`
+            : 'Withdrawn by agency',
+        },
+      });
     });
 
     return { success: true, data: updated, error: null };
@@ -263,14 +289,16 @@ export class TourDateAssignmentService {
     agencyId: string | undefined,
     role: string,
   ) {
+    const parsed = this.parseBusDto(dto);
     const tourDate = await this.findOwnedTourDate(tourDateId, agencyId, role);
     const invitedByAgencyId = await this.requireAgencyId(
       tourDate.tour.agencyId,
     );
+    this.assertAgencyMatchesTenant(invitedByAgencyId, agencyId, role);
 
     const busCompany = await this.prisma.busCompany.findFirst({
       where: {
-        id: dto.busCompanyId,
+        id: parsed.busCompanyId,
         deletedAt: null,
         status: 'VERIFIED',
       },
@@ -282,17 +310,35 @@ export class TourDateAssignmentService {
       });
     }
 
-    await this.assertNoActiveRoleAssignment(tourDateId, 'BUS');
-
-    const row = await this.prisma.tourDateAssignment.create({
-      data: {
+    const row = await this.prisma.$transaction(async (tx) => {
+      await this.assertNoActiveRoleAssignment(tx, tourDateId, 'BUS');
+      await this.assertNoBusScheduleConflict(
+        tx,
+        parsed.busCompanyId,
+        tourDate.startDate,
+        tourDate.endDate,
         tourDateId,
-        role: 'BUS',
-        busCompanyId: dto.busCompanyId,
-        status: 'PENDING',
-        invitedByAgencyId,
-        note: dto.note ?? null,
-      },
+      );
+
+      return tx.tourDateAssignment.create({
+        data: {
+          tourDateId,
+          role: 'BUS',
+          busCompanyId: parsed.busCompanyId,
+          status: 'PENDING',
+          invitedByAgencyId,
+          note: parsed.note ?? null,
+        },
+        include: {
+          busCompany: {
+            select: {
+              id: true,
+              companyName: true,
+              contactEmail: true,
+            },
+          },
+        },
+      });
     });
 
     return { success: true, data: row, error: null };
@@ -337,13 +383,15 @@ export class TourDateAssignmentService {
     this.assertRespondActor(assignment, dto, isAdmin);
 
     if (dto.status === 'REJECTED') {
-      const updated = await this.prisma.tourDateAssignment.update({
-        where: { id: assignmentId },
-        data: {
-          status: 'REJECTED',
-          respondedAt: new Date(),
-          note: dto.note ?? assignment.note,
-        },
+      const updated = await this.prisma.$transaction(async (tx) => {
+        return tx.tourDateAssignment.update({
+          where: { id: assignmentId },
+          data: {
+            status: 'REJECTED',
+            respondedAt: new Date(),
+            note: dto.note ?? assignment.note,
+          },
+        });
       });
       return { success: true, data: updated, error: null };
     }
@@ -406,6 +454,11 @@ export class TourDateAssignmentService {
 
     await this.assertTourOwnership(
       assignment.tourDate.tour.agencyId,
+      agencyId,
+      role,
+    );
+    this.assertAgencyMatchesTenant(
+      assignment.invitedByAgencyId,
       agencyId,
       role,
     );
@@ -501,9 +554,17 @@ export class TourDateAssignmentService {
       assignment.tourDate.startDate,
       assignment.tourDate.endDate,
     );
-    await this.assertGuideDaysFree(guideId, days);
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      await this.assertGuideDaysFree(tx, guideId, days);
+      await this.assertNoGuideScheduleConflict(
+        tx,
+        guideId,
+        assignment.tourDate.startDate,
+        assignment.tourDate.endDate,
+        assignment.tourDateId,
+      );
+
       for (const day of days) {
         await tx.guideAvailability.upsert({
           where: { guideId_date: { guideId, date: day } },
@@ -556,7 +617,6 @@ export class TourDateAssignmentService {
       assignment.tourDate.startDate,
       assignment.tourDate.endDate,
     );
-    await this.assertVehicleDaysFree(vehicleId, days);
 
     const layout = await this.prisma.busSeatLayout.findFirst({
       where: {
@@ -567,6 +627,15 @@ export class TourDateAssignmentService {
     });
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      await this.assertVehicleDaysFree(tx, vehicleId, days);
+      await this.assertNoVehicleScheduleConflict(
+        tx,
+        vehicleId,
+        assignment.tourDate.startDate,
+        assignment.tourDate.endDate,
+        assignment.tourDateId,
+      );
+
       for (const day of days) {
         await tx.vehicleAvailability.upsert({
           where: { vehicleId_date: { vehicleId, date: day } },
@@ -612,8 +681,12 @@ export class TourDateAssignmentService {
     return { success: true, data: updated, error: null };
   }
 
-  private async assertGuideDaysFree(guideId: string, days: Date[]) {
-    const blocked = await this.prisma.guideAvailability.findMany({
+  private async assertGuideDaysFree(
+    db: DbClient,
+    guideId: string,
+    days: Date[],
+  ) {
+    const blocked = await db.guideAvailability.findMany({
       where: {
         guideId,
         date: { in: days },
@@ -630,8 +703,12 @@ export class TourDateAssignmentService {
     }
   }
 
-  private async assertVehicleDaysFree(vehicleId: string, days: Date[]) {
-    const blocked = await this.prisma.vehicleAvailability.findMany({
+  private async assertVehicleDaysFree(
+    db: DbClient,
+    vehicleId: string,
+    days: Date[],
+  ) {
+    const blocked = await db.vehicleAvailability.findMany({
       where: {
         vehicleId,
         date: { in: days },
@@ -648,11 +725,106 @@ export class TourDateAssignmentService {
     }
   }
 
+  /**
+   * Overlap: guide already PENDING/ACCEPTED on another TourDate whose
+   * [startDate, endDate] intersects this range.
+   */
+  private async assertNoGuideScheduleConflict(
+    db: DbClient,
+    guideId: string,
+    startDate: Date,
+    endDate: Date,
+    excludeTourDateId: string,
+  ) {
+    const conflicting = await db.tourDateAssignment.findFirst({
+      where: {
+        guideId,
+        role: 'GUIDE',
+        deletedAt: null,
+        status: { in: [...ACTIVE_STATUSES] },
+        tourDateId: { not: excludeTourDateId },
+        tourDate: {
+          deletedAt: null,
+          startDate: { lte: endDate },
+          endDate: { gte: startDate },
+        },
+      },
+      select: { id: true },
+    });
+    if (conflicting) {
+      throw new BusinessException(
+        'GUIDE_SCHEDULE_CONFLICT',
+        'Rehber bu tarih aralığında başka bir turda görevli',
+      );
+    }
+  }
+
+  /**
+   * Overlap: bus company already PENDING/ACCEPTED on another TourDate
+   * whose range intersects this one.
+   */
+  private async assertNoBusScheduleConflict(
+    db: DbClient,
+    busCompanyId: string,
+    startDate: Date,
+    endDate: Date,
+    excludeTourDateId: string,
+  ) {
+    const conflicting = await db.tourDateAssignment.findFirst({
+      where: {
+        busCompanyId,
+        role: 'BUS',
+        deletedAt: null,
+        status: { in: [...ACTIVE_STATUSES] },
+        tourDateId: { not: excludeTourDateId },
+        tourDate: {
+          deletedAt: null,
+          startDate: { lte: endDate },
+          endDate: { gte: startDate },
+        },
+      },
+      select: { id: true },
+    });
+    if (conflicting) {
+      throw new BusinessException(
+        'BUS_SCHEDULE_CONFLICT',
+        'Otobüs firması bu tarih aralığında başka bir turda görevli',
+      );
+    }
+  }
+
+  /** Overlap: same vehicle already mirrored on another TourDate. */
+  private async assertNoVehicleScheduleConflict(
+    db: DbClient,
+    vehicleId: string,
+    startDate: Date,
+    endDate: Date,
+    excludeTourDateId: string,
+  ) {
+    const conflicting = await db.tourDate.findFirst({
+      where: {
+        vehicleId,
+        deletedAt: null,
+        id: { not: excludeTourDateId },
+        startDate: { lte: endDate },
+        endDate: { gte: startDate },
+      },
+      select: { id: true },
+    });
+    if (conflicting) {
+      throw new BusinessException(
+        'VEHICLE_SCHEDULE_CONFLICT',
+        'Araç bu tarih aralığında başka bir turda görevli',
+      );
+    }
+  }
+
   private async assertNoActiveRoleAssignment(
+    db: DbClient,
     tourDateId: string,
     assignmentRole: AssignmentRole,
   ) {
-    const existing = await this.prisma.tourDateAssignment.findFirst({
+    const existing = await db.tourDateAssignment.findFirst({
       where: {
         tourDateId,
         role: assignmentRole,
@@ -665,6 +837,52 @@ export class TourDateAssignmentService {
         'ASSIGNMENT_ALREADY_ACTIVE',
         `Bu tarih için aktif ${assignmentRole} ataması zaten var`,
       );
+    }
+  }
+
+  private parseGuideDto(dto: { guideId: string; note?: string }) {
+    try {
+      return parseInviteGuideAssignment(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'ASSIGNMENT_INVITE_INVALID',
+          message: error.issues[0]?.message ?? 'Geçersiz rehber daveti',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
+  }
+
+  private parseBusDto(dto: { busCompanyId: string; note?: string }) {
+    try {
+      return parseInviteBusAssignment(dto);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'ASSIGNMENT_INVITE_INVALID',
+          message: error.issues[0]?.message ?? 'Geçersiz otobüs daveti',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
+  }
+
+  /** Extra IDOR guard: invitedByAgencyId must match session agency. */
+  private assertAgencyMatchesTenant(
+    invitedByAgencyId: string | null | undefined,
+    agencyId: string | undefined,
+    role: string,
+  ) {
+    if (isPlatformAdminRole(role)) return;
+    if (!agencyId || !invitedByAgencyId || invitedByAgencyId !== agencyId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message:
+          'Bu işlem yalnızca kendi acentenizin kaynakları için yapılabilir',
+      });
     }
   }
 
@@ -746,7 +964,6 @@ export class TourDateAssignmentService {
     tourPartnerId: string,
     agencyId: string | undefined,
     role: string,
-    tourAgencyId?: string | null,
   ) {
     this.agencyLink.assertSellerOwner(
       { agencyId: tourPartnerId },

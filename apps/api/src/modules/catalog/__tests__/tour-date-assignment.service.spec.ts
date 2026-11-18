@@ -120,15 +120,17 @@ describe('TourDateAssignmentService', () => {
 
   describe('respond ACCEPTED GUIDE', () => {
     it('should block availability for each day and mirror guideId', async () => {
-      (prisma.tourDateAssignment.findFirst as jest.Mock).mockResolvedValue({
-        id: 'as1',
-        role: 'GUIDE',
-        guideId: 'g1',
-        busCompanyId: null,
-        status: 'PENDING',
-        tourDateId: 'td1',
-        tourDate: tourDateBase,
-      });
+      (prisma.tourDateAssignment.findFirst as jest.Mock)
+        .mockResolvedValueOnce({
+          id: 'as1',
+          role: 'GUIDE',
+          guideId: 'g1',
+          busCompanyId: null,
+          status: 'PENDING',
+          tourDateId: 'td1',
+          tourDate: tourDateBase,
+        })
+        .mockResolvedValueOnce(null);
       (prisma.guideAvailability.findMany as jest.Mock).mockResolvedValue([]);
       (prisma.guideAvailability.upsert as jest.Mock).mockResolvedValue({});
       (prisma.tourDate.update as jest.Mock).mockResolvedValue({});
@@ -171,6 +173,25 @@ describe('TourDateAssignmentService', () => {
         service.respond('as1', { status: 'ACCEPTED' }, undefined, 'ADMIN'),
       ).rejects.toMatchObject({ code: 'GUIDE_UNAVAILABLE' });
     });
+
+    it('should reject overlapping schedule conflict', async () => {
+      (prisma.tourDateAssignment.findFirst as jest.Mock)
+        .mockResolvedValueOnce({
+          id: 'as1',
+          role: 'GUIDE',
+          guideId: 'g1',
+          busCompanyId: null,
+          status: 'PENDING',
+          tourDateId: 'td1',
+          tourDate: tourDateBase,
+        })
+        .mockResolvedValueOnce({ id: 'as-other' });
+      (prisma.guideAvailability.findMany as jest.Mock).mockResolvedValue([]);
+
+      await expect(
+        service.respond('as1', { status: 'ACCEPTED' }, undefined, 'ADMIN'),
+      ).rejects.toMatchObject({ code: 'GUIDE_SCHEDULE_CONFLICT' });
+    });
   });
 
   describe('respond ACCEPTED BUS', () => {
@@ -196,6 +217,7 @@ describe('TourDateAssignmentService', () => {
       });
       (prisma.busSeatLayout.findFirst as jest.Mock).mockResolvedValue(null);
       (prisma.vehicleAvailability.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.tourDate.findFirst as jest.Mock).mockResolvedValue(null);
       (prisma.vehicleAvailability.upsert as jest.Mock).mockResolvedValue({});
       (prisma.tourDate.update as jest.Mock).mockResolvedValue({});
       (prisma.tourDateAssignment.update as jest.Mock).mockResolvedValue({

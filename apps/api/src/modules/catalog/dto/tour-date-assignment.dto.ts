@@ -7,6 +7,8 @@ import {
   MinLength,
 } from 'class-validator';
 
+import { ASSIGNMENT_ROLES } from '@turta/shared-validators';
+
 export class InviteGuideAssignmentDto {
   @ApiProperty({ description: 'Guide.id' })
   @IsString()
@@ -25,6 +27,35 @@ export class InviteBusAssignmentDto {
   @IsString()
   @MinLength(1)
   busCompanyId!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  note?: string;
+}
+
+export class CreateAssignmentInviteDto {
+  @ApiProperty({ enum: ASSIGNMENT_ROLES })
+  @IsIn([...ASSIGNMENT_ROLES])
+  role!: 'GUIDE' | 'BUS';
+
+  @ApiProperty({ description: 'TourDate.id' })
+  @IsString()
+  @MinLength(1)
+  tourDateId!: string;
+
+  @ApiPropertyOptional({ description: 'GUIDE için zorunlu' })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  guideId?: string;
+
+  @ApiPropertyOptional({ description: 'BUS için zorunlu' })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  busCompanyId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
