@@ -65,13 +65,19 @@ export function hasAgencyOwnerAccess(role: string | undefined | null): boolean {
   );
 }
 
+/** Acente paneli aktörleri — platform ADMIN buraya düşmez (middleware bounce). */
 export function isSellerPanelRole(role: string | undefined | null): boolean {
   return (
     role === 'PARTNER' ||
     role === 'PARTNER_STAFF' ||
     role === 'AGENCY_OWNER' ||
     role === 'AGENCY_ADMIN' ||
-    role === 'AGENCY_STAFF' ||
+    role === 'AGENCY_STAFF'
+  );
+}
+
+export function isPlatformAdminRole(role: string | undefined | null): boolean {
+  return (
     role === 'ADMIN' ||
     role === 'SUPER_ADMIN' ||
     role === 'PLATFORM_ADMIN' ||

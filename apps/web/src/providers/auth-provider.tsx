@@ -28,6 +28,7 @@ import {
   registerUser,
 } from '@/services/identity';
 import {
+  isPlatformAdminRole,
   isSellerPanelRole,
   normalizeStaffPermissions,
 } from '@/lib/partner-permissions';
@@ -234,6 +235,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const loggedIn = await login(email, password);
+      if (isPlatformAdminRole(loggedIn.role)) {
+        clearSessionLocal();
+        throw new Error(
+          'Platform admin hesabı /login üzerinden girer. Acente paneli için owner01@agency.demo.turta.com kullanın.',
+        );
+      }
       if (!isSellerPanelRole(loggedIn.role)) {
         clearSessionLocal();
         throw new Error(

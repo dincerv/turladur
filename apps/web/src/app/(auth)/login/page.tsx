@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -51,7 +51,6 @@ function authErrorMessage(code: string | null): string | null {
 
 function LoginForm() {
   const { login } = useAuth();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -84,20 +83,22 @@ function LoginForm() {
           ? rawCallback
           : null;
 
-      if (safeCallback) {
-        router.push(safeCallback);
-      } else if (
-        user.role === 'ADMIN' ||
-        user.role === 'SUPER_ADMIN' ||
-        user.role === 'PLATFORM_ADMIN' ||
-        user.role === 'PLATFORM_SUPER_ADMIN'
-      ) {
-        router.push('/admin/dashboard');
-      } else if (user.role === 'PARTNER' || user.role === 'PARTNER_STAFF') {
-        router.push('/acente/dashboard');
-      } else {
-        router.push('/tours');
-      }
+      // Hard assign — soft router.push after login can hang on admin shell gate.
+      const destination = safeCallback
+        ? safeCallback
+        : user.role === 'ADMIN' ||
+            user.role === 'SUPER_ADMIN' ||
+            user.role === 'PLATFORM_ADMIN' ||
+            user.role === 'PLATFORM_SUPER_ADMIN'
+          ? '/admin/dashboard'
+          : user.role === 'PARTNER' ||
+              user.role === 'PARTNER_STAFF' ||
+              user.role === 'AGENCY_OWNER' ||
+              user.role === 'AGENCY_ADMIN' ||
+              user.role === 'AGENCY_STAFF'
+            ? '/acente/dashboard'
+            : '/tours';
+      window.location.assign(destination);
     } catch (err) {
       setFormError(
         err instanceof ApiError ? err.message : 'Giriş başarısız oldu',
