@@ -964,12 +964,113 @@ export async function updatePartnerProfile(
   return apiRequest('/partner/me', { method: 'PATCH', body, token });
 }
 
-export async function getPartnerFinancials(token: string) {
+export type PartnerFinancialKpis = {
+  grossRevenue: string;
+  netEarnings: string;
+  platformCommission: string;
+  pendingReceivables: string;
+  completedPayouts: string;
+  overdueAmount: string;
+  refundedGross: string;
+  transactionCount: number;
+  pendingCount: number;
+  paidCount: number;
+  overdueCount: number;
+  refundedCount: number;
+};
+
+export type PartnerFinancialsOverview = {
+  currency: string;
+  total: string;
+  months: Array<{ month: string; total: string }>;
+  kpis: PartnerFinancialKpis;
+};
+
+export type PartnerFinancialTransaction = {
+  id: string;
+  reservationId: string;
+  bookingNumber: string;
+  contactEmailMasked: string;
+  status: 'PAID' | 'PENDING' | 'OVERDUE' | 'REFUNDED' | string;
+  earningStatus: string;
+  reservationPaymentStatus: string | null;
+  reservationStatus: string | null;
+  grossAmount: string;
+  commissionAmount: string;
+  commissionRatePercent: string;
+  netAmount: string;
+  currency: string;
+  tourDate: string | null;
+  createdAt: string;
+};
+
+export type PartnerFinancialTransactionList = {
+  items: PartnerFinancialTransaction[];
+  meta: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+export type PartnerFinancialsParams = {
+  startDate?: string;
+  endDate?: string;
+  status?: 'PAID' | 'PENDING' | 'OVERDUE' | 'REFUNDED';
+  q?: string;
+  page?: number;
+  pageSize?: number;
+  format?: 'csv' | 'pdf';
+};
+
+function buildFinancialsQuery(params?: PartnerFinancialsParams): string {
+  const sp = new URLSearchParams();
+  if (params?.startDate) sp.set('startDate', params.startDate);
+  if (params?.endDate) sp.set('endDate', params.endDate);
+  if (params?.status) sp.set('status', params.status);
+  if (params?.q?.trim()) sp.set('q', params.q.trim().slice(0, 80));
+  if (params?.page && params.page > 1) sp.set('page', String(params.page));
+  if (params?.pageSize) sp.set('pageSize', String(params.pageSize));
+  if (params?.format) sp.set('format', params.format);
+  const qs = sp.toString();
+  return qs ? `?${qs}` : '';
+}
+
+export async function getPartnerFinancials(
+  token: string,
+  params?: Pick<PartnerFinancialsParams, 'startDate' | 'endDate'>,
+) {
+  return apiRequest<PartnerFinancialsOverview>(
+    `/partner/financials${buildFinancialsQuery(params)}`,
+    { token, cache: 'no-store' },
+  );
+}
+
+export async function listPartnerFinancialTransactions(
+  token: string,
+  params?: PartnerFinancialsParams,
+) {
+  return apiRequest<PartnerFinancialTransactionList>(
+    `/partner/financials/transactions${buildFinancialsQuery(params)}`,
+    { token, cache: 'no-store' },
+  );
+}
+
+export async function exportPartnerFinancials(
+  token: string,
+  params?: PartnerFinancialsParams,
+) {
   return apiRequest<{
-    currency: string;
-    total: string;
-    months: Array<{ month: string; total: string }>;
-  }>('/partner/financials', { token });
+    filename: string;
+    contentType: string;
+    csv: string;
+    format: string;
+    rowCount: number;
+  }>(`/partner/financials/export${buildFinancialsQuery(params)}`, {
+    token,
+    cache: 'no-store',
+  });
 }
 
 export async function listPartnerSubUsers(token: string) {

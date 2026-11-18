@@ -9,9 +9,13 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   decodeCustomerKey,
   encodeCustomerKey,
+  FINANCIAL_OVERDUE_DAYS,
   maskEmail,
   maskPhone,
   parseAgencyCustomersQuery,
+  parseAgencyFinancialsQuery,
+  type AgencyFinancialsQuery,
+  type FinancialPaymentStatus,
 } from '@turta/shared-validators';
 import { ZodError } from 'zod';
 import { Prisma } from '../../../generated/prisma';
@@ -1276,55 +1280,441 @@ export class PartnerService {
     };
   }
 
-  /** Monthly revenue for financial charts (last 12 months). */
-  async getFinancials(agencyId: string | undefined) {
+  /**
+   * Financial overview — KPI aggregates via Prisma `_sum` / `_count`
+   * (AgencyEarning, tenant-scoped). Keeps `total`/`months` for dashboard.
+   */
+  async getFinancials(
+    agencyId: string | undefined,
+    options?: {
+      startDate?: string;
+      endDate?: string;
+    },
+  ) {
     this.requireAgencyId(agencyId);
-
-    const since = new Date();
-    since.setMonth(since.getMonth() - 11);
-    since.setDate(1);
-    since.setHours(0, 0, 0, 0);
-
-    const rows = await this.prisma.reservation.findMany({
-      where: {
-        agencyId,
-        deletedAt: null,
-        status: { in: ['CONFIRMED', 'COMPLETED'] },
-        createdAt: { gte: since },
-      },
-      select: { createdAt: true, totalAmount: true, currency: true },
-      orderBy: { createdAt: 'asc' },
+    const query = this.parseFinancialsQuery({
+      startDate: options?.startDate,
+      endDate: options?.endDate,
+      page: 1,
+      pageSize: 20,
     });
 
-    const byMonth = new Map<string, number>();
-    for (let i = 0; i < 12; i++) {
-      const d = new Date(since);
-      d.setMonth(since.getMonth() + i);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      byMonth.set(key, 0);
-    }
+    const baseWhere = this.buildEarningDateWhere(agencyId, query);
+    const overdueCutoff = this.overdueCutoff();
 
-    for (const row of rows) {
-      const key = `${row.createdAt.getFullYear()}-${String(row.createdAt.getMonth() + 1).padStart(2, '0')}`;
-      byMonth.set(key, (byMonth.get(key) ?? 0) + Number(row.totalAmount));
+    const [totals, pendingAgg, paidAgg, overdueAgg, refundedAgg, monthBuckets] =
+      await Promise.all([
+        this.prisma.agencyEarning.aggregate({
+          where: baseWhere,
+          _sum: {
+            grossAmount: true,
+            commissionAmount: true,
+            amount: true,
+          },
+          _count: { _all: true },
+        }),
+        this.prisma.agencyEarning.aggregate({
+          where: {
+            ...baseWhere,
+            status: { in: ['ACCRUED', 'PAYABLE'] },
+          },
+          _sum: { amount: true },
+          _count: { _all: true },
+        }),
+        this.prisma.agencyEarning.aggregate({
+          where: { ...baseWhere, status: 'PAID' },
+          _sum: { amount: true },
+          _count: { _all: true },
+        }),
+        this.prisma.agencyEarning.aggregate({
+          where: {
+            ...baseWhere,
+            status: 'ACCRUED',
+            createdAt: { lt: overdueCutoff },
+          },
+          _sum: { amount: true },
+          _count: { _all: true },
+        }),
+        this.prisma.agencyEarning.aggregate({
+          where: {
+            ...baseWhere,
+            reservation: { paymentStatus: 'REFUNDED', deletedAt: null },
+          },
+          _sum: { grossAmount: true },
+          _count: { _all: true },
+        }),
+        this.prisma.agencyEarning.findMany({
+          where: baseWhere,
+          select: { createdAt: true, grossAmount: true },
+          orderBy: { createdAt: 'asc' },
+        }),
+      ]);
+
+    const since = query.startDate
+      ? new Date(`${query.startDate}T00:00:00.000Z`)
+      : (() => {
+          const d = new Date();
+          d.setUTCMonth(d.getUTCMonth() - 11, 1);
+          d.setUTCHours(0, 0, 0, 0);
+          return d;
+        })();
+    const until = query.endDate
+      ? new Date(`${query.endDate}T23:59:59.999Z`)
+      : new Date();
+
+    const byMonth = new Map<string, number>();
+    const cursor = new Date(
+      Date.UTC(since.getUTCFullYear(), since.getUTCMonth(), 1),
+    );
+    const endMonth = new Date(
+      Date.UTC(until.getUTCFullYear(), until.getUTCMonth(), 1),
+    );
+    while (cursor.getTime() <= endMonth.getTime()) {
+      const key = `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}`;
+      byMonth.set(key, 0);
+      cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+    }
+    for (const row of monthBuckets) {
+      const key = `${row.createdAt.getUTCFullYear()}-${String(row.createdAt.getUTCMonth() + 1).padStart(2, '0')}`;
+      if (!byMonth.has(key)) byMonth.set(key, 0);
+      byMonth.set(
+        key,
+        (byMonth.get(key) ?? 0) + Number(row.grossAmount.toString()),
+      );
     }
 
     const months = [...byMonth.entries()].map(([month, total]) => ({
       month,
       total: total.toFixed(2),
     }));
-
-    const total = months.reduce((sum, m) => sum + Number(m.total), 0);
+    const grossTotal = Number(totals._sum.grossAmount?.toString() ?? 0);
 
     return {
       success: true,
       data: {
         currency: 'TRY',
-        total: total.toFixed(2),
+        total: grossTotal.toFixed(2),
         months,
+        kpis: {
+          grossRevenue: (
+            totals._sum.grossAmount ?? new Prisma.Decimal(0)
+          ).toString(),
+          netEarnings: (totals._sum.amount ?? new Prisma.Decimal(0)).toString(),
+          platformCommission: (
+            totals._sum.commissionAmount ?? new Prisma.Decimal(0)
+          ).toString(),
+          pendingReceivables: (
+            pendingAgg._sum.amount ?? new Prisma.Decimal(0)
+          ).toString(),
+          completedPayouts: (
+            paidAgg._sum.amount ?? new Prisma.Decimal(0)
+          ).toString(),
+          overdueAmount: (
+            overdueAgg._sum.amount ?? new Prisma.Decimal(0)
+          ).toString(),
+          refundedGross: (
+            refundedAgg._sum.grossAmount ?? new Prisma.Decimal(0)
+          ).toString(),
+          transactionCount: totals._count._all,
+          pendingCount: pendingAgg._count._all,
+          paidCount: paidAgg._count._all,
+          overdueCount: overdueAgg._count._all,
+          refundedCount: refundedAgg._count._all,
+        },
       },
       error: null,
     };
+  }
+
+  async listFinancialTransactions(
+    agencyId: string | undefined,
+    options?: Record<string, unknown>,
+  ) {
+    this.requireAgencyId(agencyId);
+    const query = this.parseFinancialsQuery(options ?? {});
+    const where = await this.buildFinancialTransactionWhere(agencyId, query);
+
+    const [total, rows] = await Promise.all([
+      this.prisma.agencyEarning.count({ where }),
+      this.prisma.agencyEarning.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+        include: {
+          reservation: {
+            select: {
+              id: true,
+              bookingNumber: true,
+              contactEmail: true,
+              paymentStatus: true,
+              status: true,
+              startDate: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const overdueCutoff = this.overdueCutoff();
+    const items = rows.map((row) =>
+      this.toFinancialTransactionRow(row, overdueCutoff),
+    );
+
+    return {
+      success: true,
+      data: {
+        items,
+        meta: {
+          page: query.page,
+          pageSize: query.pageSize,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+        },
+      },
+      error: null,
+    };
+  }
+
+  async exportFinancials(
+    agencyId: string | undefined,
+    options?: Record<string, unknown>,
+  ) {
+    this.requireAgencyId(agencyId);
+    const query = this.parseFinancialsQuery({
+      ...(options ?? {}),
+      page: 1,
+      pageSize: 50,
+    });
+    const where = await this.buildFinancialTransactionWhere(agencyId, query);
+    const overdueCutoff = this.overdueCutoff();
+
+    const rows = await this.prisma.agencyEarning.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 2000,
+      include: {
+        reservation: {
+          select: {
+            id: true,
+            bookingNumber: true,
+            contactEmail: true,
+            paymentStatus: true,
+            status: true,
+            startDate: true,
+          },
+        },
+      },
+    });
+
+    const items = rows.map((row) =>
+      this.toFinancialTransactionRow(row, overdueCutoff),
+    );
+
+    const header = [
+      'bookingNumber',
+      'status',
+      'grossAmount',
+      'commissionAmount',
+      'netAmount',
+      'currency',
+      'paymentStatus',
+      'createdAt',
+    ];
+    const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const lines = [
+      header.join(','),
+      ...items.map((item) =>
+        [
+          item.bookingNumber,
+          item.status,
+          item.grossAmount,
+          item.commissionAmount,
+          item.netAmount,
+          item.currency,
+          item.reservationPaymentStatus ?? '',
+          item.createdAt,
+        ]
+          .map((cell) => escape(String(cell)))
+          .join(','),
+      ),
+    ];
+
+    const stamp = new Date().toISOString().slice(0, 10);
+    return {
+      success: true,
+      data: {
+        filename: `acente-finans-${stamp}.csv`,
+        contentType: 'text/csv; charset=utf-8',
+        csv: `\uFEFF${lines.join('\n')}`,
+        format: query.format ?? 'csv',
+        rowCount: items.length,
+      },
+      error: null,
+    };
+  }
+
+  private parseFinancialsQuery(input: unknown): AgencyFinancialsQuery {
+    try {
+      return parseAgencyFinancialsQuery(input);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'FINANCIALS_QUERY_INVALID',
+          message: error.issues[0]?.message ?? 'Geçersiz finans filtresi',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
+  }
+
+  private overdueCutoff(): Date {
+    return new Date(Date.now() - FINANCIAL_OVERDUE_DAYS * 24 * 60 * 60 * 1000);
+  }
+
+  private buildEarningDateWhere(
+    agencyId: string,
+    query: AgencyFinancialsQuery,
+  ): Prisma.AgencyEarningWhereInput {
+    const createdAt: Prisma.DateTimeFilter = {};
+    if (query.startDate) {
+      createdAt.gte = new Date(`${query.startDate}T00:00:00.000Z`);
+    }
+    if (query.endDate) {
+      createdAt.lte = new Date(`${query.endDate}T23:59:59.999Z`);
+    }
+    return {
+      agencyId,
+      deletedAt: null,
+      ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
+    };
+  }
+
+  private async buildFinancialTransactionWhere(
+    agencyId: string,
+    query: AgencyFinancialsQuery,
+  ): Promise<Prisma.AgencyEarningWhereInput> {
+    const where: Prisma.AgencyEarningWhereInput = {
+      ...this.buildEarningDateWhere(agencyId, query),
+    };
+    const overdueCutoff = this.overdueCutoff();
+
+    if (query.status === 'PAID') {
+      where.status = 'PAID';
+    } else if (query.status === 'PENDING') {
+      where.AND = [
+        {
+          OR: [
+            { status: 'PAYABLE' },
+            { status: 'ACCRUED', createdAt: { gte: overdueCutoff } },
+          ],
+        },
+        { NOT: { reservation: { paymentStatus: 'REFUNDED' } } },
+      ];
+    } else if (query.status === 'OVERDUE') {
+      const dateFilter: Prisma.DateTimeFilter = {
+        ...((where.createdAt as Prisma.DateTimeFilter | undefined) ?? {}),
+        lt: overdueCutoff,
+      };
+      where.status = 'ACCRUED';
+      where.createdAt = dateFilter;
+      where.NOT = { reservation: { paymentStatus: 'REFUNDED' } };
+    } else if (query.status === 'REFUNDED') {
+      where.reservation = { paymentStatus: 'REFUNDED', deletedAt: null };
+    }
+
+    if (query.q) {
+      const q = query.q;
+      const searchClause: Prisma.AgencyEarningWhereInput = {
+        OR: [
+          {
+            reservation: {
+              bookingNumber: { contains: q, mode: 'insensitive' },
+            },
+          },
+          {
+            reservation: {
+              contactEmail: { contains: q, mode: 'insensitive' },
+            },
+          },
+          { reservationId: { contains: q, mode: 'insensitive' } },
+        ],
+      };
+      where.AND = [
+        ...((Array.isArray(where.AND)
+          ? where.AND
+          : where.AND
+            ? [where.AND]
+            : []) as Prisma.AgencyEarningWhereInput[]),
+        searchClause,
+      ];
+    }
+
+    return where;
+  }
+
+  private toFinancialTransactionRow(
+    row: {
+      id: string;
+      reservationId: string;
+      amount: Prisma.Decimal;
+      grossAmount: Prisma.Decimal;
+      commissionAmount: Prisma.Decimal;
+      commissionRatePercent: Prisma.Decimal;
+      currency: string;
+      status: string;
+      createdAt: Date;
+      reservation: {
+        id: string;
+        bookingNumber: string;
+        contactEmail: string;
+        paymentStatus: string;
+        status: string;
+        startDate: Date | null;
+      } | null;
+    },
+    overdueCutoff: Date,
+  ) {
+    const status = this.resolveFinancialStatus(row, overdueCutoff);
+    return {
+      id: row.id,
+      reservationId: row.reservationId,
+      bookingNumber: row.reservation?.bookingNumber ?? row.reservationId,
+      contactEmailMasked: maskEmail(
+        row.reservation?.contactEmail ?? 'unknown@example.com',
+      ),
+      status,
+      earningStatus: row.status,
+      reservationPaymentStatus: row.reservation?.paymentStatus ?? null,
+      reservationStatus: row.reservation?.status ?? null,
+      grossAmount: row.grossAmount.toString(),
+      commissionAmount: row.commissionAmount.toString(),
+      commissionRatePercent: row.commissionRatePercent.toString(),
+      netAmount: row.amount.toString(),
+      currency: row.currency,
+      tourDate: row.reservation?.startDate?.toISOString() ?? null,
+      createdAt: row.createdAt.toISOString(),
+    };
+  }
+
+  private resolveFinancialStatus(
+    row: {
+      status: string;
+      createdAt: Date;
+      reservation: { paymentStatus: string } | null;
+    },
+    overdueCutoff: Date,
+  ): FinancialPaymentStatus {
+    if (row.reservation?.paymentStatus === 'REFUNDED') return 'REFUNDED';
+    if (row.status === 'PAID') return 'PAID';
+    if (
+      row.status === 'ACCRUED' &&
+      row.createdAt.getTime() < overdueCutoff.getTime()
+    ) {
+      return 'OVERDUE';
+    }
+    return 'PENDING';
   }
 
   async listSubUsers(agencyId: string | undefined) {

@@ -440,6 +440,64 @@ export function encodeCustomerKey(email: string): string {
   return toBase64Url(email.trim().toLowerCase());
 }
 
+/** Agency financials — ledger filters */
+export const FINANCIAL_PAYMENT_STATUSES = [
+  'PAID',
+  'PENDING',
+  'OVERDUE',
+  'REFUNDED',
+] as const;
+export type FinancialPaymentStatus =
+  (typeof FINANCIAL_PAYMENT_STATUSES)[number];
+
+export const AGENCY_FINANCIALS_Q_MAX = 80;
+export const AGENCY_FINANCIALS_PAGE_SIZE_MAX = 50;
+export const FINANCIAL_OVERDUE_DAYS = 30;
+
+const isoDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih YYYY-MM-DD olmalı');
+
+export const agencyFinancialsQuerySchema = z
+  .object({
+    startDate: isoDateSchema.optional(),
+    endDate: isoDateSchema.optional(),
+    status: z.enum(FINANCIAL_PAYMENT_STATUSES).optional(),
+    q: z
+      .string()
+      .trim()
+      .max(AGENCY_FINANCIALS_Q_MAX)
+      .optional()
+      .default('')
+      .transform((v) => v.replace(/[\u0000-\u001F\u007F]/g, '')),
+    page: z.coerce.number().int().min(1).max(10_000).optional().default(1),
+    pageSize: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(AGENCY_FINANCIALS_PAGE_SIZE_MAX)
+      .optional()
+      .default(20),
+    format: z.enum(['csv', 'pdf']).optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.startDate && val.endDate && val.startDate > val.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'startDate endDate sonrası olamaz',
+        path: ['startDate'],
+      });
+    }
+  });
+
+export type AgencyFinancialsQuery = z.infer<typeof agencyFinancialsQuerySchema>;
+
+export function parseAgencyFinancialsQuery(
+  input: unknown,
+): AgencyFinancialsQuery {
+  return agencyFinancialsQuerySchema.parse(input);
+}
+
 export function decodeCustomerKey(key: string): string {
   const decoded = fromBase64Url(key).trim();
   if (!decoded || !decoded.includes('@')) {

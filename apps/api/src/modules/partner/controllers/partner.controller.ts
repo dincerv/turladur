@@ -72,6 +72,53 @@ class ListPartnerCustomersQueryDto {
   pageSize?: number;
 }
 
+class ListPartnerFinancialsQueryDto {
+  @ApiPropertyOptional({ description: 'ISO date YYYY-MM-DD' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  startDate?: string;
+
+  @ApiPropertyOptional({ description: 'ISO date YYYY-MM-DD' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  endDate?: string;
+
+  @ApiPropertyOptional({
+    enum: ['PAID', 'PENDING', 'OVERDUE', 'REFUNDED'],
+  })
+  @IsOptional()
+  @IsIn(['PAID', 'PENDING', 'OVERDUE', 'REFUNDED'])
+  status?: 'PAID' | 'PENDING' | 'OVERDUE' | 'REFUNDED';
+
+  @ApiPropertyOptional({ description: 'Booking number / email search' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  q?: string;
+
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ default: 20 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  pageSize?: number;
+
+  @ApiPropertyOptional({ enum: ['csv', 'pdf'] })
+  @IsOptional()
+  @IsIn(['csv', 'pdf'])
+  format?: 'csv' | 'pdf';
+}
+
 class ListPartnerReservationsQueryDto {
   @ApiPropertyOptional({ description: 'Customer / booking / tour search' })
   @IsOptional()
@@ -305,12 +352,44 @@ export class PartnerController {
     return this.partnerService.updateProfile(agencyId, dto);
   }
 
+  @Get('financials/transactions')
+  @RequireStaffPermissions('reports')
+  @ApiOperation({
+    summary: 'Paginated agency earnings ledger (tenant-scoped)',
+  })
+  async financialTransactions(
+    @CurrentUser() user: UserPayload,
+    @Query() query: ListPartnerFinancialsQueryDto,
+  ) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.partnerService.listFinancialTransactions(agencyId, query);
+  }
+
+  @Get('financials/export')
+  @RequireStaffPermissions('reports')
+  @ApiOperation({ summary: 'Export financial ledger as CSV (tenant-scoped)' })
+  async financialExport(
+    @CurrentUser() user: UserPayload,
+    @Query() query: ListPartnerFinancialsQueryDto,
+  ) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.partnerService.exportFinancials(agencyId, query);
+  }
+
   @Get('financials')
   @RequireStaffPermissions('reports')
-  @ApiOperation({ summary: 'Monthly revenue for partner charts' })
-  async financials(@CurrentUser() user: UserPayload) {
+  @ApiOperation({
+    summary: 'Financial KPIs + monthly revenue (AgencyEarning aggregates)',
+  })
+  async financials(
+    @CurrentUser() user: UserPayload,
+    @Query() query: ListPartnerFinancialsQueryDto,
+  ) {
     const agencyId = await this.sellerAgencyId(user);
-    return this.partnerService.getFinancials(agencyId);
+    return this.partnerService.getFinancials(agencyId, {
+      startDate: query.startDate,
+      endDate: query.endDate,
+    });
   }
 
   @Get('reports')
