@@ -1044,6 +1044,62 @@ export async function updatePartnerCompanyLogo(
   );
 }
 
+export type PartnerSupportTicket = {
+  id: string;
+  agencyId: string;
+  userId: string;
+  subject: string;
+  message: string;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | string;
+  status: 'OPEN' | 'ANSWERED' | 'CLOSED' | string;
+  category: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PartnerSupportTicketsResult = {
+  items: PartnerSupportTicket[];
+  meta: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+export async function listPartnerSupportTickets(
+  token: string,
+  params: { status?: string; page?: number; pageSize?: number } = {},
+) {
+  const sp = new URLSearchParams();
+  if (params.status) sp.set('status', params.status);
+  if (params.page && params.page > 1) sp.set('page', String(params.page));
+  if (params.pageSize && params.pageSize !== 20) {
+    sp.set('pageSize', String(params.pageSize));
+  }
+  const qs = sp.toString();
+  return apiRequest<PartnerSupportTicketsResult>(
+    `/partner/support-tickets${qs ? `?${qs}` : ''}`,
+    { token, cache: 'no-store' },
+  );
+}
+
+export async function createPartnerSupportTicket(
+  body: {
+    subject: string;
+    message: string;
+    priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+    category?: string;
+  },
+  token: string,
+) {
+  return apiRequest<PartnerSupportTicket>('/partner/support-tickets', {
+    method: 'POST',
+    body,
+    token,
+  });
+}
+
 export type PartnerFinancialKpis = {
   grossRevenue: string;
   netEarnings: string;

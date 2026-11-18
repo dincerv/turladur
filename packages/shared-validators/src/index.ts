@@ -599,6 +599,65 @@ export function parseAgencySettingsCompany(
   return agencySettingsCompanySchema.parse(input);
 }
 
+/** Agency help — support tickets */
+export const SUPPORT_TICKET_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH'] as const;
+export type SupportTicketPriority = (typeof SUPPORT_TICKET_PRIORITIES)[number];
+
+export const SUPPORT_TICKET_STATUSES = ['OPEN', 'ANSWERED', 'CLOSED'] as const;
+export type SupportTicketStatus = (typeof SUPPORT_TICKET_STATUSES)[number];
+
+export const SUPPORT_TICKET_CATEGORIES = [
+  'RESERVATIONS',
+  'PAYMENTS',
+  'ASSIGNMENTS',
+  'ACCOUNT',
+  'OTHER',
+] as const;
+export type SupportTicketCategory = (typeof SUPPORT_TICKET_CATEGORIES)[number];
+
+export const agencySupportTicketCreateSchema = z.object({
+  subject: z
+    .string()
+    .trim()
+    .min(5, 'Konu en az 5 karakter olmalı')
+    .max(200)
+    .transform((v) => sanitizeContactPlainText(v)),
+  message: z
+    .string()
+    .trim()
+    .min(20, 'Mesaj en az 20 karakter olmalı')
+    .max(4000)
+    .transform((v) => sanitizeContactPlainText(v)),
+  priority: z.enum(SUPPORT_TICKET_PRIORITIES).default('MEDIUM'),
+  category: z.enum(SUPPORT_TICKET_CATEGORIES).optional().default('OTHER'),
+});
+
+export type AgencySupportTicketCreateInput = z.infer<
+  typeof agencySupportTicketCreateSchema
+>;
+
+export function parseAgencySupportTicketCreate(
+  input: unknown,
+): AgencySupportTicketCreateInput {
+  return agencySupportTicketCreateSchema.parse(input);
+}
+
+export const agencySupportTicketsQuerySchema = z.object({
+  status: z.enum(SUPPORT_TICKET_STATUSES).optional(),
+  page: z.coerce.number().int().min(1).max(10_000).optional().default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).optional().default(20),
+});
+
+export type AgencySupportTicketsQuery = z.infer<
+  typeof agencySupportTicketsQuerySchema
+>;
+
+export function parseAgencySupportTicketsQuery(
+  input: unknown,
+): AgencySupportTicketsQuery {
+  return agencySupportTicketsQuerySchema.parse(input);
+}
+
 export function maskEmail(email: string): string {
   const trimmed = email.trim();
   const at = trimmed.indexOf('@');

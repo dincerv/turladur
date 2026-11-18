@@ -24,6 +24,8 @@ import {
   parseAgencySettingsNotifications,
   parseAgencySettingsPassword,
   parseAgencySettingsProfile,
+  parseAgencySupportTicketCreate,
+  parseAgencySupportTicketsQuery,
   type AgencyFinancialsQuery,
   type AgencyReviewsQuery,
   type AgencySettingsNotificationsInput,
@@ -3647,6 +3649,134 @@ export class PartnerService {
         partnerRepliedAt: updated.partnerRepliedAt?.toISOString() ?? null,
       },
       error: null,
+    };
+  }
+
+  /** Create support ticket — tenant + actor bound, Zod-validated. */
+  async createSupportTicket(
+    agencyId: string | undefined,
+    actor: { userId?: string; agencyStaffId?: string },
+    body: unknown,
+  ) {
+    this.requireAgencyId(agencyId);
+
+    const requesterId = actor.agencyStaffId ?? actor.userId;
+    if (!requesterId) {
+      throw new ForbiddenException({
+        code: 'ACTOR_REQUIRED',
+        message: 'Destek talebi için oturum gerekli',
+      });
+    }
+
+    let parsed;
+    try {
+      parsed = parseAgencySupportTicketCreate(body);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'SUPPORT_TICKET_INVALID',
+          message: error.issues[0]?.message ?? 'Geçersiz destek talebi',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
+
+    const row = await this.prisma.supportTicket.create({
+      data: {
+        agencyId,
+        userId: requesterId,
+        subject: parsed.subject,
+        message: parsed.message,
+        priority: parsed.priority,
+        category: parsed.category ?? 'OTHER',
+        status: 'OPEN',
+        createdBy: requesterId,
+      },
+    });
+
+    return {
+      success: true,
+      data: this.toSupportTicket(row),
+      error: null,
+    };
+  }
+
+  /** List support tickets for current agency only (tenant isolation). */
+  async listSupportTickets(
+    agencyId: string | undefined,
+    options?: { status?: string; page?: number; pageSize?: number },
+  ) {
+    this.requireAgencyId(agencyId);
+
+    let parsed;
+    try {
+      parsed = parseAgencySupportTicketsQuery(options ?? {});
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new BadRequestException({
+          code: 'SUPPORT_TICKETS_QUERY_INVALID',
+          message: error.issues[0]?.message ?? 'Geçersiz filtre',
+          details: error.issues,
+        });
+      }
+      throw error;
+    }
+
+    const where: Prisma.SupportTicketWhereInput = {
+      agencyId,
+      deletedAt: null,
+      ...(parsed.status ? { status: parsed.status } : {}),
+    };
+
+    const [total, rows] = await Promise.all([
+      this.prisma.supportTicket.count({ where }),
+      this.prisma.supportTicket.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (parsed.page - 1) * parsed.pageSize,
+        take: parsed.pageSize,
+      }),
+    ]);
+
+    return {
+      success: true,
+      data: {
+        items: rows.map((r) => this.toSupportTicket(r)),
+        meta: {
+          page: parsed.page,
+          pageSize: parsed.pageSize,
+          total,
+          totalPages: Math.ceil(total / parsed.pageSize) || 0,
+        },
+      },
+      error: null,
+    };
+  }
+
+  private toSupportTicket(row: {
+    id: string;
+    agencyId: string;
+    userId: string;
+    subject: string;
+    message: string;
+    priority: string;
+    status: string;
+    category: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }) {
+    return {
+      id: row.id,
+      agencyId: row.agencyId,
+      userId: row.userId,
+      subject: row.subject,
+      message: row.message,
+      priority: row.priority,
+      status: row.status,
+      category: row.category,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 }

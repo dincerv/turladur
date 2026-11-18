@@ -15,6 +15,7 @@ import {
   ApiPropertyOptional,
   ApiTags,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -527,6 +528,54 @@ class UpdateCompanyLogoDto {
   logo?: string | null;
 }
 
+class CreateSupportTicketDto {
+  @ApiProperty({ example: 'Rezervasyon iptal sorunu' })
+  @IsString()
+  @MinLength(5)
+  @MaxLength(200)
+  subject!: string;
+
+  @ApiProperty({ example: 'Müşteri ödemesi iade edilmedi, detayları…' })
+  @IsString()
+  @MinLength(20)
+  @MaxLength(4000)
+  message!: string;
+
+  @ApiPropertyOptional({ enum: ['LOW', 'MEDIUM', 'HIGH'], default: 'MEDIUM' })
+  @IsOptional()
+  @IsIn(['LOW', 'MEDIUM', 'HIGH'])
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+
+  @ApiPropertyOptional({
+    enum: ['RESERVATIONS', 'PAYMENTS', 'ASSIGNMENTS', 'ACCOUNT', 'OTHER'],
+  })
+  @IsOptional()
+  @IsIn(['RESERVATIONS', 'PAYMENTS', 'ASSIGNMENTS', 'ACCOUNT', 'OTHER'])
+  category?: 'RESERVATIONS' | 'PAYMENTS' | 'ASSIGNMENTS' | 'ACCOUNT' | 'OTHER';
+}
+
+class ListSupportTicketsQueryDto {
+  @ApiPropertyOptional({ enum: ['OPEN', 'ANSWERED', 'CLOSED'] })
+  @IsOptional()
+  @IsIn(['OPEN', 'ANSWERED', 'CLOSED'])
+  status?: 'OPEN' | 'ANSWERED' | 'CLOSED';
+
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ default: 20 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  pageSize?: number;
+}
+
 @ApiTags('Partner')
 @ApiBearerAuth()
 @Controller('partner')
@@ -643,6 +692,39 @@ export class PartnerController {
       agencyId,
       dto.logo ?? null,
       user.role,
+    );
+  }
+
+  @Get('support-tickets')
+  @ApiOperation({
+    summary: 'List agency support tickets (tenant-scoped)',
+  })
+  async listSupportTickets(
+    @CurrentUser() user: UserPayload,
+    @Query() query: ListSupportTicketsQueryDto,
+  ) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.partnerService.listSupportTickets(agencyId, {
+      status: query.status,
+      page: query.page,
+      pageSize: query.pageSize,
+    });
+  }
+
+  @Post('support-tickets')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Create support ticket (rate-limited, Zod-validated)',
+  })
+  async createSupportTicket(
+    @CurrentUser() user: UserPayload,
+    @Body() dto: CreateSupportTicketDto,
+  ) {
+    const agencyId = await this.sellerAgencyId(user);
+    return this.partnerService.createSupportTicket(
+      agencyId,
+      { userId: user.userId, agencyStaffId: user.agencyStaffId },
+      dto,
     );
   }
 

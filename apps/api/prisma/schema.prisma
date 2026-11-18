@@ -241,12 +241,55 @@ model Agency {
   payouts             AgencyPayout[]
   experiences         Experience[]
   salesGoals          AgencySalesGoal[]
+  supportTickets      SupportTicket[]
 
   @@index([status])
   @@index([taxNumber])
   @@index([sellerTier])
   @@index([deletedAt])
   @@index([contactEmail])
+  @@schema("identity")
+}
+
+enum SupportTicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+
+  @@schema("identity")
+}
+
+enum SupportTicketStatus {
+  OPEN
+  ANSWERED
+  CLOSED
+
+  @@schema("identity")
+}
+
+/// Acente destek talebi — tenant (agencyId) + oluşturan aktör (userId).
+model SupportTicket {
+  id        String                @id @default(cuid())
+  agencyId  String
+  agency    Agency                @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  /// AgencyStaff.id veya legacy User.id
+  userId    String
+  subject   String                @db.VarChar(200)
+  message   String                @db.Text
+  priority  SupportTicketPriority @default(MEDIUM)
+  status    SupportTicketStatus   @default(OPEN)
+  category  String?               @db.VarChar(80)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  createdBy String?
+  updatedBy String?
+  deletedBy String?
+  deletedAt DateTime?
+
+  @@index([agencyId, status])
+  @@index([agencyId, createdAt])
+  @@index([userId])
+  @@index([deletedAt])
   @@schema("identity")
 }
 
