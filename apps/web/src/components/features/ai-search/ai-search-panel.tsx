@@ -55,8 +55,10 @@ function formatPrice(price: string, currency: string): string {
 
 export function AiSearchPanel({
   variant = 'dock',
+  autoFocus = false,
 }: {
   variant?: 'dock' | 'hero';
+  autoFocus?: boolean;
 }) {
   const inputId = useId();
   const isHero = variant === 'hero';
@@ -68,6 +70,12 @@ export function AiSearchPanel({
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!autoFocus) return;
+    const id = window.setTimeout(() => inputRef.current?.focus(), 80);
+    return () => window.clearTimeout(id);
+  }, [autoFocus]);
 
   const toggle = useTourCompareStore((state) => state.toggle);
   const openDrawer = useTourCompareStore((state) => state.openDrawer);
