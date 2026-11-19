@@ -1,7 +1,7 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import { ChevronRight, MapPin } from 'lucide-react';
 
+import { DestinationCardImage } from '@/components/features/home/destination-card-image';
 import { listRoutes } from '@/services/route';
 
 const HOMEPAGE_ROUTE_LIMIT = 4;
@@ -54,11 +54,9 @@ export async function Destinations() {
               href={`/routes/${route.id}`}
               className="group block overflow-hidden rounded-xl border border-neutral-200/80 bg-white transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2"
             >
-              <div className="relative aspect-[4/3] overflow-hidden">
-                <Image
+              <div className="relative aspect-[4/3] overflow-hidden bg-neutral-200">
+                <DestinationCardImage
                   src={route.image}
-                  alt=""
-                  fill
                   priority={index < 2}
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                   className="object-cover transition duration-500 group-hover:scale-105"
