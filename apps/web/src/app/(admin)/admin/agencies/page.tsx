@@ -28,7 +28,7 @@ const STATUS_FILTERS = [
 export default function AdminAgenciesPage() {
   const { accessToken } = useAuth();
   const [partners, setPartners] = useState<PartnerRow[]>([]);
-  const [statusFilter, setStatusFilter] = useState('PENDING');
+  const [statusFilter, setStatusFilter] = useState('');
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);

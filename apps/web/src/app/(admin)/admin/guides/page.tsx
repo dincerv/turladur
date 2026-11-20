@@ -21,7 +21,7 @@ const STATUS_FILTERS = [
 export default function AdminGuidesPage() {
   const { accessToken } = useAuth();
   const [guides, setGuides] = useState<AdminGuideRow[]>([]);
-  const [statusFilter, setStatusFilter] = useState('PENDING');
+  const [statusFilter, setStatusFilter] = useState('');
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
