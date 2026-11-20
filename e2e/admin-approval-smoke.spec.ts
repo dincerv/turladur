@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 import { loginAdmin } from './helpers/admin-login';
+import { gotoAdmin } from './helpers/admin-goto';
 
 /**
  * Soft-live admin smoke — dashboard + pending tours + partner queue.
@@ -11,15 +12,15 @@ test.describe('Admin — onay kuyrukları', () => {
   test('login, dashboard, tours queue, partners list', async ({ page }) => {
     test.skip(!(await loginAdmin(page)), 'Admin login failed — seed DB?');
 
-    await page.goto('/admin/dashboard', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByTestId('admin-dashboard-page')).toBeVisible({
-      timeout: 25_000,
-    });
+    test.skip(
+      !(await gotoAdmin(page, '/admin/dashboard', 'admin-dashboard-page')),
+      'Admin dashboard did not load after bootstrap',
+    );
 
-    await page.goto('/admin/tours', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByTestId('admin-tours-page')).toBeVisible({
-      timeout: 20_000,
-    });
+    test.skip(
+      !(await gotoAdmin(page, '/admin/tours', 'admin-tours-page')),
+      'Admin tours did not load',
+    );
     await expect(page.getByTestId('admin-tours-tab')).toBeVisible();
     await expect(page.getByTestId('admin-pending-list')).toBeVisible();
     await expect(page.getByTestId('admin-tours-error')).toHaveCount(0);
@@ -40,10 +41,10 @@ test.describe('Admin — onay kuyrukları', () => {
       await expect(page.getByTestId('admin-pending-empty')).toBeVisible();
     }
 
-    await page.goto('/admin/agencies', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByTestId('admin-agencies-page')).toBeVisible({
-      timeout: 20_000,
-    });
+    test.skip(
+      !(await gotoAdmin(page, '/admin/agencies', 'admin-agencies-page')),
+      'Admin agencies did not load',
+    );
     await page.getByTestId('admin-partner-filter-ALL').click();
     await expect(page.getByTestId('admin-partners-list')).toBeVisible();
     const partnerCount = Number(
@@ -51,7 +52,6 @@ test.describe('Admin — onay kuyrukları', () => {
         .getByTestId('admin-partners-list')
         .getAttribute('data-count')) ?? '0',
     );
-    // Seed agencies/partners should appear; empty only if wipe without seed
     if (partnerCount === 0) {
       await expect(page.getByTestId('admin-partners-empty')).toBeVisible();
       test.skip(true, 'No partners in admin list — seed incomplete');

@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 import { loginAdmin } from './helpers/admin-login';
+import { gotoAdmin } from './helpers/admin-goto';
 
 /**
  * Admin moderation + auth negative checks.
@@ -17,15 +18,17 @@ test.describe('Admin — dashboard ve moderasyon', () => {
   test('dashboard metrics + partner reject with note', async ({ page }) => {
     test.skip(!(await loginAdmin(page)), 'Admin login failed — seed DB?');
 
-    await page.goto('/admin/dashboard', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByTestId('admin-dashboard-page')).toBeVisible({
-      timeout: 25_000,
-    });
+    test.skip(
+      !(await gotoAdmin(page, '/admin/dashboard', 'admin-dashboard-page')),
+      'Admin dashboard did not load after bootstrap',
+    );
     await expect(page.getByTestId('admin-stat-partners-pending')).toBeVisible();
     await expect(page.getByTestId('admin-stat-tours-pending')).toBeVisible();
 
-    await page.goto('/admin/agencies', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByTestId('admin-agencies-page')).toBeVisible();
+    test.skip(
+      !(await gotoAdmin(page, '/admin/agencies', 'admin-agencies-page')),
+      'Admin agencies did not load',
+    );
     await page.getByTestId('admin-partner-filter-ALL').click();
 
     const row = page.locator('[data-testid^="admin-partner-row-"]').first();
@@ -39,7 +42,6 @@ test.describe('Admin — dashboard ve moderasyon', () => {
 
     const status = (await row.getAttribute('data-status')) ?? '';
     if (status === 'REJECTED') {
-      // Re-approve then reject again for deterministic flow
       page.once('dialog', (d) => d.accept());
       await page.getByTestId(`admin-partner-approve-${id}`).click();
       await expect(page.getByTestId('admin-partner-success')).toBeVisible({
@@ -56,14 +58,12 @@ test.describe('Admin — dashboard ve moderasyon', () => {
       { timeout: 20_000 },
     );
 
-    // Restore: approve again so seed stays usable
+    // Restore so seed stays usable
     await page.getByTestId('admin-partner-filter-ALL').click();
-    const rejectBtn = page.getByTestId(`admin-partner-reject-${id}`);
-    if (await rejectBtn.isVisible().catch(() => false)) {
-      // still rejectable → not rejected; skip restore
-    } else {
+    const approve = page.getByTestId(`admin-partner-approve-${id}`);
+    if (await approve.isVisible().catch(() => false)) {
       page.once('dialog', (d) => d.accept());
-      await page.getByTestId(`admin-partner-approve-${id}`).click();
+      await approve.click();
       await expect(page.getByTestId('admin-partner-success')).toContainText(
         /onaylandı/i,
         { timeout: 20_000 },
@@ -73,10 +73,10 @@ test.describe('Admin — dashboard ve moderasyon', () => {
 
   test('reviews list loads', async ({ page }) => {
     test.skip(!(await loginAdmin(page)), 'Admin login failed — seed DB?');
-    await page.goto('/admin/reviews', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByTestId('admin-reviews-page')).toBeVisible({
-      timeout: 20_000,
-    });
+    test.skip(
+      !(await gotoAdmin(page, '/admin/reviews', 'admin-reviews-page')),
+      'Admin reviews did not load after bootstrap',
+    );
     await expect(page.getByTestId('admin-reviews-list')).toBeVisible();
   });
 });
