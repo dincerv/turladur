@@ -103,9 +103,13 @@ export async function middleware(request: NextRequest) {
 
   if (session === null) {
     if (pathname.startsWith('/admin')) {
-      const login = new URL('/login', request.url);
-      login.searchParams.set('next', pathname);
-      return withNoStore(NextResponse.redirect(login));
+      const cookie = request.headers.get('cookie') ?? '';
+      // No refresh cookie → hard block. Probe timeout with cookie → let AdminShell decide.
+      if (!cookie.includes('turta_refresh=')) {
+        const login = new URL('/login', request.url);
+        login.searchParams.set('next', pathname);
+        return withNoStore(NextResponse.redirect(login));
+      }
     }
     return withNoStore(NextResponse.next());
   }

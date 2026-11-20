@@ -16,14 +16,29 @@ export function isAdminAuthenticatedUrl(url: string): boolean {
 /** Login via /login → /admin/dashboard. Returns false when seed/web down. */
 export async function loginAdmin(page: Page): Promise<boolean> {
   try {
-    await page.goto('/login', { waitUntil: 'domcontentloaded' });
-    const email = page.getByTestId('login-email');
-    if (!(await email.isVisible({ timeout: 15_000 }).catch(() => false))) {
+    await page.goto('/login', { waitUntil: 'networkidle' }).catch(async () => {
+      await page.goto('/login', { waitUntil: 'domcontentloaded' });
+    });
+    const email = page
+      .getByTestId('login-email')
+      .or(page.getByLabel(/e-posta/i));
+    if (
+      !(await email
+        .first()
+        .isVisible({ timeout: 25_000 })
+        .catch(() => false))
+    ) {
       return false;
     }
-    await email.fill(E2E_ADMIN_EMAIL);
-    await page.getByTestId('login-password').fill(E2E_ADMIN_PASSWORD);
-    await page.getByTestId('login-submit').click();
+    await email.first().fill(E2E_ADMIN_EMAIL);
+    const password = page
+      .getByTestId('login-password')
+      .or(page.getByLabel(/^şifre$/i));
+    await password.first().fill(E2E_ADMIN_PASSWORD);
+    const submit = page
+      .getByTestId('login-submit')
+      .or(page.getByRole('button', { name: /giriş yap/i }));
+    await submit.first().click();
 
     const deadline = Date.now() + 45_000;
     while (Date.now() < deadline) {
