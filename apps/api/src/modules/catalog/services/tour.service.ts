@@ -854,7 +854,15 @@ export class TourService {
         agency: {
           select: {
             companyName: true,
+            averageRating: true,
+            reviewCount: true,
           },
+        },
+        metrics: true,
+        pickupPoints: {
+          where: { deletedAt: null },
+          select: { id: true },
+          take: 1,
         },
         accommodation: {
           include: {
@@ -1566,13 +1574,28 @@ export class TourService {
     slug: string;
     coverUrl: string | null;
     category?: string | null;
+    stayKind?: string | null;
     extras: Prisma.JsonValue;
     price: Prisma.Decimal;
     currency: string;
     durationDays: number;
     averageRating: Prisma.Decimal;
     reviewCount: number;
-    agency?: { companyName: string } | null;
+    agency?: {
+      companyName: string;
+      averageRating?: Prisma.Decimal | null;
+      reviewCount?: number | null;
+    } | null;
+    metrics?: {
+      reviewCount: number;
+      averageRating: Prisma.Decimal;
+      averageGuideRating: Prisma.Decimal;
+      averageOperatorRating: Prisma.Decimal | null;
+      averageTransportRating: Prisma.Decimal;
+      averageAccommodationRating: Prisma.Decimal;
+      topTags: Prisma.JsonValue | null;
+    } | null;
+    pickupPoints?: Array<{ id: string }>;
     accommodation?: {
       name: string;
       type: string;
@@ -1609,6 +1632,35 @@ export class TourService {
     const accommodationType =
       accommodation?.type ?? this.readOptionalString(extras.accommodationType);
 
+    const stayKind =
+      tour.stayKind === 'DAY_TRIP' || tour.stayKind === 'OVERNIGHT'
+        ? tour.stayKind
+        : null;
+    const hasTransportCriterion =
+      (tour.pickupPoints?.length ?? 0) > 0 ||
+      Boolean(transportation) ||
+      stayKind === 'OVERNIGHT';
+    const hasAccommodationCriterion =
+      stayKind === 'OVERNIGHT' || Boolean(accommodation);
+
+    const reviewCount = tour.metrics?.reviewCount ?? tour.reviewCount;
+    const coldStart = reviewCount < 3;
+    const agencyAverageRating = tour.agency?.averageRating
+      ? Number(tour.agency.averageRating.toString())
+      : null;
+    const displayRating = coldStart
+      ? (agencyAverageRating ?? Number(tour.averageRating.toString()))
+      : Number((tour.metrics?.averageRating ?? tour.averageRating).toString());
+
+    const topTag = (() => {
+      const raw = tour.metrics?.topTags;
+      if (!Array.isArray(raw) || raw.length === 0) return null;
+      const first = raw[0];
+      if (!first || typeof first !== 'object') return null;
+      const tag = (first as { tag?: unknown }).tag;
+      return typeof tag === 'string' && tag.trim() ? tag.trim() : null;
+    })();
+
     return {
       id: tour.id,
       available: true,
@@ -1618,8 +1670,8 @@ export class TourService {
       price: Number(tour.price.toString()),
       currency: tour.currency,
       durationDays: tour.durationDays,
-      averageRating: Number(tour.averageRating.toString()),
-      reviewCount: tour.reviewCount,
+      averageRating: displayRating,
+      reviewCount,
       hotelStars,
       accommodationName,
       accommodationType,
@@ -1629,6 +1681,25 @@ export class TourService {
       partnerName: tour.agency?.companyName ?? null,
       entertainmentLevel: entertainment.level,
       entertainmentLabel: entertainment.label,
+      stayKind,
+      guideRatingAvg: tour.metrics
+        ? Number(tour.metrics.averageGuideRating.toString())
+        : null,
+      valueRatingAvg: tour.metrics?.averageOperatorRating
+        ? Number(tour.metrics.averageOperatorRating.toString())
+        : null,
+      transportRatingAvg: hasTransportCriterion
+        ? Number((tour.metrics?.averageTransportRating ?? 0).toString())
+        : null,
+      accommodationRatingAvg: hasAccommodationCriterion
+        ? Number((tour.metrics?.averageAccommodationRating ?? 0).toString())
+        : null,
+      topReviewTag: topTag,
+      ratingSource: coldStart ? 'AGENCY_COLD_START' : 'TOUR',
+      agencyAverageRating,
+      agencyReviewCount: tour.agency?.reviewCount ?? null,
+      hasTransportCriterion,
+      hasAccommodationCriterion,
     };
   }
 

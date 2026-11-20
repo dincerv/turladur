@@ -4,7 +4,15 @@ import type {
 } from '@turta/shared-types';
 
 export type CompareMetricKey =
-  'price' | 'durationDays' | 'hotelStars' | 'averageRating' | 'inclusionsCount';
+  | 'price'
+  | 'durationDays'
+  | 'hotelStars'
+  | 'averageRating'
+  | 'inclusionsCount'
+  | 'guideRatingAvg'
+  | 'valueRatingAvg'
+  | 'transportRatingAvg'
+  | 'accommodationRatingAvg';
 
 export type CompareHighlights = Partial<Record<CompareMetricKey, Set<string>>>;
 
@@ -25,7 +33,7 @@ function pickExtremeIds(
     .map((row) => ({ id: row.id, value: read(row) }))
     .filter(
       (entry): entry is { id: string; value: number } =>
-        entry.value != null && Number.isFinite(entry.value),
+        entry.value != null && Number.isFinite(entry.value) && entry.value > 0,
     );
 
   if (scored.length < 2) return new Set();
@@ -53,6 +61,35 @@ export function computeCompareHighlights(
     inclusionsCount: pickExtremeIds(
       rows,
       (row) => row.inclusions.length,
+      'max',
+    ),
+    guideRatingAvg: pickExtremeIds(
+      rows,
+      (row) => row.guideRatingAvg ?? null,
+      'max',
+    ),
+    valueRatingAvg: pickExtremeIds(
+      rows,
+      (row) =>
+        row.valueRatingAvg != null && row.valueRatingAvg > 0
+          ? row.valueRatingAvg
+          : null,
+      'max',
+    ),
+    transportRatingAvg: pickExtremeIds(
+      rows,
+      (row) =>
+        row.hasTransportCriterion === false
+          ? null
+          : (row.transportRatingAvg ?? null),
+      'max',
+    ),
+    accommodationRatingAvg: pickExtremeIds(
+      rows,
+      (row) =>
+        row.hasAccommodationCriterion === false
+          ? null
+          : (row.accommodationRatingAvg ?? null),
       'max',
     ),
   };

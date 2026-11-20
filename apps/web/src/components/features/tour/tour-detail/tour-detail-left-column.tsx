@@ -11,10 +11,10 @@ import {
   ShieldCheck as ShieldCheckIcon,
   Users as UserGroupIcon,
 } from 'lucide-react';
-import OperatorReviewsSection from '@/components/features/tour-operator/OperatorReviewsSection';
 import TourItineraryMobile from '@/components/features/tour/itinerary/tour-itinerary-mobile';
 import { stripDayPrefixFromTitle } from '@/components/features/tour/itinerary/normalize-itinerary';
 import { ReviewPersonaCard } from '@/components/features/tour/reviews/review-persona-card';
+import { TourReviews } from '@/components/features/review/tour-reviews';
 import { getDestinationLabel, sanitizePlainText } from './tour-detail.helpers';
 import { TourDetailExpandableText } from './tour-detail-expandable-text';
 import { TourDetailGallery } from './tour-detail-gallery';
@@ -23,17 +23,8 @@ import type { ItineraryItem } from './tour-detail.types';
 
 /** Split from tour-detail-client.tsx (Faz 7) — left column; UI unchanged. */
 export function TourDetailLeftColumn() {
-  const {
-    tour,
-    destinations,
-    itinerary,
-    galleryImages,
-    activePickupPoints,
-    tourReviews,
-    tourReviewCount,
-    tourAverageRating,
-    tourOperator,
-  } = useTourDetailUi();
+  const { tour, destinations, itinerary, galleryImages, activePickupPoints } =
+    useTourDetailUi();
 
   const getDestinationName = getDestinationLabel;
 
@@ -627,15 +618,7 @@ export function TourDetailLeftColumn() {
         <ReviewPersonaCard tourId={tour.id} initialPersona="CALM" />
       ) : null}
 
-      {tourReviewCount > 0 && (
-        <OperatorReviewsSection
-          reviews={tourReviews}
-          rating={tourAverageRating}
-          reviewCount={tourReviewCount}
-          variant="main"
-          operatorName={tourOperator?.companyName}
-        />
-      )}
+      {tour?.id ? <TourReviews tourId={tour.id} /> : null}
     </div>
   );
 }

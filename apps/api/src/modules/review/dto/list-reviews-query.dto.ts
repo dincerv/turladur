@@ -1,6 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsBoolean, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+
+import { TRAVELER_CONTEXTS } from '../utils/review-scoring';
 
 export class ListReviewsQueryDto {
   @ApiPropertyOptional({ minimum: 1, maximum: 5 })
@@ -10,6 +12,17 @@ export class ListReviewsQueryDto {
   @Min(1)
   @Max(5)
   minRating?: number;
+
+  @ApiPropertyOptional({ enum: TRAVELER_CONTEXTS })
+  @IsOptional()
+  @IsIn([...TRAVELER_CONTEXTS])
+  travelerContext?: (typeof TRAVELER_CONTEXTS)[number];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  hasPhotos?: boolean;
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()

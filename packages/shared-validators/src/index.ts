@@ -103,9 +103,24 @@ export const checkoutPaymentSchema = z.object({
   cvc: z.string().min(3).max(4),
 });
 
+export const travelerContextSchema = z.enum([
+  'SOLO',
+  'COUPLE',
+  'FAMILY',
+  'FRIENDS',
+]);
+
 export const createReviewSchema = z.object({
   reservationId: z.string().min(1),
-  rating: z.number().int().min(1).max(5),
+  /** Optional — backend prefers weighted average of criterion scores. */
+  rating: z.number().int().min(1).max(5).optional(),
+  guideRating: z.number().int().min(1).max(5),
+  /** Program & value-for-money. */
+  valueRating: z.number().int().min(1).max(5),
+  transportRating: z.number().int().min(1).max(5).optional(),
+  accommodationRating: z.number().int().min(1).max(5).optional(),
+  travelerContext: travelerContextSchema,
+  tags: z.array(z.string().min(2).max(80)).max(8).optional(),
   comment: z.string().min(3).max(2000).optional(),
   photoUrls: z.array(z.string().url()).max(5).optional(),
 });
@@ -116,6 +131,12 @@ export const updateReviewSchema = z.object({
   rating: z.number().int().min(1).max(5).optional(),
   comment: z.string().min(3).max(2000).nullable().optional(),
   photoUrls: z.array(z.string().url()).max(5).optional(),
+  guideRating: z.number().int().min(1).max(5).optional(),
+  valueRating: z.number().int().min(1).max(5).optional(),
+  transportRating: z.number().int().min(1).max(5).nullable().optional(),
+  accommodationRating: z.number().int().min(1).max(5).nullable().optional(),
+  travelerContext: travelerContextSchema.optional(),
+  tags: z.array(z.string().min(2).max(80)).max(8).optional(),
 });
 
 export type UpdateReviewInput = z.infer<typeof updateReviewSchema>;

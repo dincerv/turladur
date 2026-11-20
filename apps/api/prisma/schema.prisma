@@ -1571,6 +1571,10 @@ model Review {
   guideFeedback         String?          @db.Text
   transportFeedback     String?          @db.Text
   accommodationFeedback String?          @db.Text
+  /// SOLO | COUPLE | FAMILY | FRIENDS
+  travelerContext       String?          @db.VarChar(20)
+  /// Quick chip tags from review form (e.g. "Rehber çok ilgiliydi").
+  tags                  String[]         @default([])
   /// Expand: partnerReply hâlâ; hedef agencyReply.
   partnerReply          String?          @db.Text
   partnerRepliedAt      DateTime?
@@ -1614,6 +1618,8 @@ model TourMetrics {
   averageOperatorRating      Decimal?  @db.Decimal(3, 2)
   averageRouteRating         Decimal?  @db.Decimal(3, 2)
   averageFoodRating          Decimal?  @db.Decimal(3, 2)
+  /// Top review chip tags with counts: [{tag, count}, ...]
+  topTags                    Json?
   lastReviewAt               DateTime?
   updatedAt                  DateTime  @updatedAt
   createdBy  String?

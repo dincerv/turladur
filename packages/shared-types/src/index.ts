@@ -357,6 +357,18 @@ export type ComparedTourAvailable = {
   partnerName: string | null;
   entertainmentLevel: EntertainmentLevel | null;
   entertainmentLabel: string | null;
+  /** Passenger experience metrics for compare matrix. */
+  stayKind?: 'DAY_TRIP' | 'OVERNIGHT' | null;
+  guideRatingAvg?: number | null;
+  valueRatingAvg?: number | null;
+  transportRatingAvg?: number | null;
+  accommodationRatingAvg?: number | null;
+  topReviewTag?: string | null;
+  ratingSource?: 'TOUR' | 'AGENCY_COLD_START';
+  agencyAverageRating?: number | null;
+  agencyReviewCount?: number | null;
+  hasTransportCriterion?: boolean;
+  hasAccommodationCriterion?: boolean;
 };
 
 export type ComparedTourColumn =
@@ -551,6 +563,8 @@ export interface PaymentTransaction {
 
 export type ReviewTargetType = 'TOUR' | 'EXPERIENCE' | 'HOTEL' | 'PARTNER';
 
+export type TravelerContext = 'SOLO' | 'COUPLE' | 'FAMILY' | 'FRIENDS';
+
 export interface Review {
   id: string;
   tourId: string | null;
@@ -563,13 +577,43 @@ export interface Review {
   rating: number;
   comment: string | null;
   photoUrls: string[];
+  guideRating?: number | null;
+  /** Program & value-for-money (maps to operatorRating). */
+  valueRating?: number | null;
+  transportRating?: number | null;
+  accommodationRating?: number | null;
+  travelerContext?: TravelerContext | null;
+  tags?: string[];
   partnerReply: string | null;
   partnerRepliedAt: string | null;
+  agencyReply?: string | null;
+  agencyRepliedAt?: string | null;
   /** Denormalized / enriched title for profile lists. */
   targetTitle?: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
+export type TourReviewCriteria = {
+  guide: true;
+  value: true;
+  transport: boolean;
+  accommodation: boolean;
+};
+
+export type TourReviewSummary = {
+  reviewCount: number;
+  averageRating: number;
+  averageGuideRating: number | null;
+  averageValueRating: number | null;
+  averageTransportRating: number | null;
+  averageAccommodationRating: number | null;
+  topTags: Array<{ tag: string; count: number }>;
+  ratingSource: 'TOUR' | 'AGENCY_COLD_START';
+  agencyAverageRating: number | null;
+  agencyReviewCount: number | null;
+  criteria: TourReviewCriteria;
+};
 
 export interface Post {
   id: string;

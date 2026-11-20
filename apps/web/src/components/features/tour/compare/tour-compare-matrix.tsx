@@ -124,6 +124,27 @@ type RowDef = {
   render: (tour: ComparedTourAvailable) => ReactNode;
 };
 
+function formatPassengerScore(tour: ComparedTourAvailable): ReactNode {
+  if (tour.ratingSource === 'AGENCY_COLD_START') {
+    return (
+      <div className="space-y-1">
+        <p className="font-semibold">
+          {(tour.agencyAverageRating ?? tour.averageRating).toFixed(1)}
+        </p>
+        <p className="text-xs text-amber-700">
+          Yeni Rota — Acente Puanı
+          {tour.agencyReviewCount != null
+            ? ` (${tour.agencyReviewCount} yorum)`
+            : ''}
+        </p>
+      </div>
+    );
+  }
+  return tour.reviewCount > 0
+    ? `${tour.averageRating.toFixed(1)} (${tour.reviewCount})`
+    : 'Değerlendirme yok';
+}
+
 const ROWS: RowDef[] = [
   {
     key: 'price',
@@ -138,13 +159,55 @@ const ROWS: RowDef[] = [
     render: (tour) => `${tour.durationDays} gün`,
   },
   {
-    key: 'rating',
-    label: 'Puan',
+    key: 'passenger-overall',
+    label: 'Yolcu Deneyimi · Genel Puan',
     metric: 'averageRating',
+    render: (tour) => formatPassengerScore(tour),
+  },
+  {
+    key: 'passenger-guide',
+    label: 'Yolcu Deneyimi · Rehberlik',
+    metric: 'guideRatingAvg',
     render: (tour) =>
-      tour.reviewCount > 0
-        ? `${tour.averageRating.toFixed(1)} (${tour.reviewCount})`
-        : 'Değerlendirme yok',
+      tour.guideRatingAvg != null && tour.guideRatingAvg > 0
+        ? tour.guideRatingAvg.toFixed(1)
+        : '—',
+  },
+  {
+    key: 'passenger-value',
+    label: 'Yolcu Deneyimi · Program & Fiyat',
+    metric: 'valueRatingAvg',
+    render: (tour) =>
+      tour.valueRatingAvg != null && tour.valueRatingAvg > 0
+        ? tour.valueRatingAvg.toFixed(1)
+        : '—',
+  },
+  {
+    key: 'passenger-transport',
+    label: 'Yolcu Deneyimi · Ulaşım & Araç',
+    metric: 'transportRatingAvg',
+    render: (tour) =>
+      tour.hasTransportCriterion === false
+        ? '— (Ulaşımsız / transfer yok)'
+        : tour.transportRatingAvg != null && tour.transportRatingAvg > 0
+          ? tour.transportRatingAvg.toFixed(1)
+          : '—',
+  },
+  {
+    key: 'passenger-accommodation',
+    label: 'Yolcu Deneyimi · Konaklama',
+    metric: 'accommodationRatingAvg',
+    render: (tour) =>
+      tour.hasAccommodationCriterion === false
+        ? '— (Konaklamasız)'
+        : tour.accommodationRatingAvg != null && tour.accommodationRatingAvg > 0
+          ? tour.accommodationRatingAvg.toFixed(1)
+          : '—',
+  },
+  {
+    key: 'passenger-top-tag',
+    label: 'Yolcu Deneyimi · En Sık Etiket',
+    render: (tour) => tour.topReviewTag || '—',
   },
   {
     key: 'accommodation',

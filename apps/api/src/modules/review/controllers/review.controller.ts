@@ -40,6 +40,16 @@ export class ReviewController {
   }
 
   @Public()
+  @Get('tours/:tourId/summary')
+  @ApiOperation({
+    summary:
+      'Tour review summary — criterion averages, top tags, cold-start agency fallback',
+  })
+  tourSummary(@Param('tourId') tourId: string) {
+    return this.reviewService.getTourSummary(tourId);
+  }
+
+  @Public()
   @Post('tours/:tourId/persona-match')
   @ApiOperation({
     summary: 'Persona-based review matching — fit score and customized summary',

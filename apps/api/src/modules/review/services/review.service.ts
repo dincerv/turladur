@@ -20,6 +20,12 @@ import { ReviewCreatedEvent } from '../events/review-created.event';
 import { ReviewDeletedEvent } from '../events/review-deleted.event';
 import { ReviewUpdatedEvent } from '../events/review-updated.event';
 import { buildTourPersonaMatch } from '../utils/persona-review-engine';
+import {
+  clampStar,
+  computeOverallRating,
+  resolveReviewCriteria,
+  type ReviewCriteriaFlags,
+} from '../utils/review-scoring';
 
 @Injectable()
 export class ReviewService {
@@ -67,13 +73,49 @@ export class ReviewService {
     let agencyId: string | null = reservation.agencyId ?? null;
     let guideId: string | null = null;
     let busCompanyId: string | null = null;
+    let criteria: ReviewCriteriaFlags = {
+      guide: true,
+      value: true,
+      transport: true,
+      accommodation: true,
+    };
 
     if (reservation.tourId) {
       const tour = await this.prisma.tour.findFirst({
         where: { id: reservation.tourId, deletedAt: null },
-        select: { agencyId: true },
+        select: {
+          agencyId: true,
+          stayKind: true,
+          extras: true,
+          accommodation: { select: { id: true, deletedAt: true } },
+          pickupPoints: {
+            where: { deletedAt: null },
+            select: { id: true },
+            take: 1,
+          },
+        },
       });
       if (!agencyId) agencyId = tour?.agencyId ?? null;
+      if (tour) {
+        const extras =
+          tour.extras &&
+          typeof tour.extras === 'object' &&
+          !Array.isArray(tour.extras)
+            ? (tour.extras as Record<string, unknown>)
+            : {};
+        const transportation =
+          typeof extras.transportation === 'string'
+            ? extras.transportation.trim()
+            : '';
+        criteria = resolveReviewCriteria({
+          stayKind: tour.stayKind,
+          hasPickupPoints: tour.pickupPoints.length > 0,
+          hasTransportation: transportation.length > 0,
+          hasAccommodation: Boolean(
+            tour.accommodation && !tour.accommodation.deletedAt,
+          ),
+        });
+      }
     }
 
     if (!agencyId) {
@@ -92,6 +134,49 @@ export class ReviewService {
       busCompanyId = tourDate?.busCompanyId ?? null;
     }
 
+    const guideRating = clampStar(dto.guideRating);
+    const valueRating = clampStar(dto.valueRating);
+    if (!guideRating || !valueRating) {
+      throw new BusinessException(
+        'REVIEW_CRITERIA_REQUIRED',
+        'Rehberlik ve fiyat/performans puanları zorunludur',
+      );
+    }
+
+    const transportRating = criteria.transport
+      ? clampStar(dto.transportRating)
+      : null;
+    const accommodationRating = criteria.accommodation
+      ? clampStar(dto.accommodationRating)
+      : null;
+
+    if (criteria.transport && !transportRating) {
+      throw new BusinessException(
+        'TRANSPORT_RATING_REQUIRED',
+        'Bu tur için ulaşım puanı zorunludur',
+      );
+    }
+    if (criteria.accommodation && !accommodationRating) {
+      throw new BusinessException(
+        'ACCOMMODATION_RATING_REQUIRED',
+        'Bu tur için konaklama puanı zorunludur',
+      );
+    }
+
+    const computed = computeOverallRating(
+      {
+        guide: guideRating,
+        value: valueRating,
+        transport: transportRating ?? undefined,
+        accommodation: accommodationRating ?? undefined,
+      },
+      criteria,
+    );
+    const overall = Math.max(
+      1,
+      Math.min(5, Math.round(dto.rating ?? computed)),
+    );
+
     const review = await this.prisma.$transaction(async (tx) => {
       const created = await tx.review.create({
         data: {
@@ -108,12 +193,18 @@ export class ReviewService {
 
           guideId,
           busCompanyId,
-          rating: dto.rating,
+          rating: overall,
           comment: dto.comment?.trim(),
           photoUrls: dto.photoUrls ?? [],
-          guideRating: dto.guideRating,
-          transportRating: dto.transportRating,
-          accommodationRating: dto.accommodationRating,
+          guideRating,
+          operatorRating: valueRating,
+          transportRating,
+          accommodationRating,
+          travelerContext: dto.travelerContext,
+          tags: (dto.tags ?? [])
+            .map((tag) => tag.trim())
+            .filter(Boolean)
+            .slice(0, 8),
           guideFeedback: dto.guideFeedback?.trim(),
           transportFeedback: dto.transportFeedback?.trim(),
           accommodationFeedback: dto.accommodationFeedback?.trim(),
@@ -323,6 +414,10 @@ export class ReviewService {
       tourId,
       deletedAt: null,
       ...(query.minRating ? { rating: { gte: query.minRating } } : {}),
+      ...(query.hasPhotos ? { photoUrls: { isEmpty: false } } : {}),
+      ...(query.travelerContext
+        ? { travelerContext: query.travelerContext }
+        : {}),
     };
 
     const [total, rows] = await Promise.all([
@@ -340,6 +435,91 @@ export class ReviewService {
       data: rows.map((r) => this.toShared(r)),
       error: null,
       meta: { page, limit, total },
+    };
+  }
+
+  async getTourSummary(tourId: string) {
+    const tour = await this.prisma.tour.findFirst({
+      where: { id: tourId, deletedAt: null },
+      select: {
+        id: true,
+        stayKind: true,
+        extras: true,
+        averageRating: true,
+        reviewCount: true,
+        agencyId: true,
+        agency: {
+          select: { averageRating: true, reviewCount: true, companyName: true },
+        },
+        accommodation: { select: { id: true, deletedAt: true } },
+        pickupPoints: {
+          where: { deletedAt: null },
+          select: { id: true },
+          take: 1,
+        },
+        metrics: true,
+      },
+    });
+    if (!tour) {
+      throw new NotFoundException({
+        code: 'TOUR_NOT_FOUND',
+        message: 'Tur bulunamadı',
+      });
+    }
+
+    const extras =
+      tour.extras &&
+      typeof tour.extras === 'object' &&
+      !Array.isArray(tour.extras)
+        ? (tour.extras as Record<string, unknown>)
+        : {};
+    const transportation =
+      typeof extras.transportation === 'string'
+        ? extras.transportation.trim()
+        : '';
+    const criteria = resolveReviewCriteria({
+      stayKind: tour.stayKind,
+      hasPickupPoints: tour.pickupPoints.length > 0,
+      hasTransportation: transportation.length > 0,
+      hasAccommodation: Boolean(
+        tour.accommodation && !tour.accommodation.deletedAt,
+      ),
+    });
+
+    const reviewCount = tour.metrics?.reviewCount ?? tour.reviewCount;
+    const coldStart = reviewCount < 3;
+    const topTags = parseTopTags(tour.metrics?.topTags);
+
+    return {
+      success: true,
+      data: {
+        reviewCount,
+        averageRating: Number(
+          (coldStart
+            ? (tour.agency.averageRating ?? tour.averageRating)
+            : (tour.metrics?.averageRating ?? tour.averageRating)
+          ).toString(),
+        ),
+        averageGuideRating: nullableNum(tour.metrics?.averageGuideRating),
+        averageValueRating: nullableNum(tour.metrics?.averageOperatorRating),
+        averageTransportRating: criteria.transport
+          ? nullableNum(tour.metrics?.averageTransportRating)
+          : null,
+        averageAccommodationRating: criteria.accommodation
+          ? nullableNum(tour.metrics?.averageAccommodationRating)
+          : null,
+        topTags,
+        ratingSource: coldStart
+          ? ('AGENCY_COLD_START' as const)
+          : ('TOUR' as const),
+        agencyAverageRating: Number(
+          (tour.agency.averageRating ?? 0).toString(),
+        ),
+        agencyReviewCount: tour.agency.reviewCount,
+        agencyName: tour.agency.companyName,
+        criteria,
+      },
+      error: null,
     };
   }
 
@@ -579,25 +759,28 @@ export class ReviewService {
       orderBy: { updatedAt: 'desc' },
     });
 
+    const summary = await this.getTourSummary(tourId);
+    const criteria = summary.data.criteria;
+
     if (!reservation) {
-      return { success: true, data: null, error: null };
+      return {
+        success: true,
+        data: { reservationId: null, alreadyReviewed: false, criteria },
+        error: null,
+      };
     }
 
     const existing = await this.prisma.review.findFirst({
       where: { reservationId: reservation.id, deletedAt: null },
     });
 
-    if (existing) {
-      return {
-        success: true,
-        data: { reservationId: reservation.id, alreadyReviewed: true },
-        error: null,
-      };
-    }
-
     return {
       success: true,
-      data: { reservationId: reservation.id, alreadyReviewed: false },
+      data: {
+        reservationId: reservation.id,
+        alreadyReviewed: Boolean(existing),
+        criteria,
+      },
       error: null,
     };
   }
@@ -627,8 +810,16 @@ export class ReviewService {
       rating: number;
       comment: string | null;
       photoUrls: string[];
+      guideRating?: number | null;
+      operatorRating?: number | null;
+      transportRating?: number | null;
+      accommodationRating?: number | null;
+      travelerContext?: string | null;
+      tags?: string[];
       partnerReply: string | null;
       partnerRepliedAt: Date | null;
+      agencyReply?: string | null;
+      agencyRepliedAt?: Date | null;
       createdAt: Date;
       updatedAt: Date;
     },
@@ -646,11 +837,47 @@ export class ReviewService {
       rating: row.rating,
       comment: row.comment,
       photoUrls: row.photoUrls,
+      guideRating: row.guideRating ?? null,
+      valueRating: row.operatorRating ?? null,
+      transportRating: row.transportRating ?? null,
+      accommodationRating: row.accommodationRating ?? null,
+      travelerContext:
+        row.travelerContext === 'SOLO' ||
+        row.travelerContext === 'COUPLE' ||
+        row.travelerContext === 'FAMILY' ||
+        row.travelerContext === 'FRIENDS'
+          ? row.travelerContext
+          : null,
+      tags: row.tags ?? [],
       partnerReply: row.partnerReply,
       partnerRepliedAt: row.partnerRepliedAt?.toISOString() ?? null,
+      agencyReply: row.agencyReply ?? row.partnerReply,
+      agencyRepliedAt:
+        (row.agencyRepliedAt ?? row.partnerRepliedAt)?.toISOString() ?? null,
       targetTitle: extras?.targetTitle ?? null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
   }
+}
+
+function nullableNum(
+  value: { toString(): string } | null | undefined,
+): number | null {
+  if (value == null) return null;
+  const n = Number(value.toString());
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseTopTags(raw: unknown): Array<{ tag: string; count: number }> {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const row = item as { tag?: unknown; count?: unknown };
+      if (typeof row.tag !== 'string') return null;
+      const count = Number(row.count ?? 0);
+      return { tag: row.tag, count: Number.isFinite(count) ? count : 0 };
+    })
+    .filter((row): row is { tag: string; count: number } => row != null);
 }
