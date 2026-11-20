@@ -21,6 +21,8 @@ const ROLES = [
   'PARTNER_STAFF',
   'ADMIN',
   'SUPER_ADMIN',
+  'PLATFORM_ADMIN',
+  'PLATFORM_SUPER_ADMIN',
 ] as const;
 
 export default function AdminUsersPage() {
@@ -54,13 +56,21 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div>
+    <div data-testid="admin-users-page">
       <h1 className="text-2xl font-bold text-neutral-900">Kullanıcılar</h1>
       <p className="mt-1 text-sm text-neutral-600">Rol ve aktiflik yönetimi</p>
       {error ? (
         <p className="mt-4 rounded-lg bg-red-50 p-3 text-red-700">{error}</p>
       ) : null}
-      <ul className="mt-6 divide-y divide-neutral-200 rounded-xl border border-neutral-200 bg-white">
+      <ul
+        className="mt-6 divide-y divide-neutral-200 rounded-xl border border-neutral-200 bg-white"
+        data-testid="admin-users-list"
+      >
+        {rows.length === 0 ? (
+          <li className="p-4 text-sm text-neutral-600">
+            Kullanıcı bulunamadı.
+          </li>
+        ) : null}
         {rows.map((row) => (
           <li
             key={row.id}

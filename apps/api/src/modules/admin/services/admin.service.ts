@@ -98,6 +98,22 @@ export class AdminService {
       });
     }
 
+    const allowedUserRoles = new Set([
+      'CUSTOMER',
+      'PARTNER',
+      'PARTNER_STAFF',
+      'ADMIN',
+      'SUPER_ADMIN',
+      'PLATFORM_ADMIN',
+      'PLATFORM_SUPER_ADMIN',
+    ]);
+    if (input.role && !allowedUserRoles.has(input.role)) {
+      throw new BusinessException(
+        'INVALID_USER_ROLE',
+        'Bu rol kullanıcı kaydına atanamaz',
+      );
+    }
+
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -109,7 +125,9 @@ export class AdminService {
                 | 'PARTNER'
                 | 'PARTNER_STAFF'
                 | 'ADMIN'
-                | 'SUPER_ADMIN',
+                | 'SUPER_ADMIN'
+                | 'PLATFORM_ADMIN'
+                | 'PLATFORM_SUPER_ADMIN',
             }
           : {}),
       },
@@ -147,6 +165,7 @@ export class AdminService {
         contactEmail: p.contactEmail,
         contactPhone: p.contactPhone,
         status: p.status,
+        moderationNote: p.moderationNote,
         verifiedAt: p.verifiedAt?.toISOString() ?? null,
         createdAt: p.createdAt.toISOString(),
       })),
@@ -157,6 +176,7 @@ export class AdminService {
   async setPartnerStatus(
     agencyId: string,
     status: 'VERIFIED' | 'REJECTED' | 'SUSPENDED',
+    note?: string,
   ) {
     const partner = await this.prisma.agency.findFirst({
       where: { id: agencyId, deletedAt: null },
@@ -168,12 +188,23 @@ export class AdminService {
       });
     }
 
+    this.assertModerationNote(status, note);
+
     const wasVerified = partner.status === 'VERIFIED';
+    const trimmed = note?.trim().slice(0, 500) || null;
     const updated = await this.prisma.agency.update({
       where: { id: agencyId },
       data: {
         status,
         verifiedAt: status === 'VERIFIED' ? new Date() : partner.verifiedAt,
+        moderationNote:
+          status === 'VERIFIED' ? null : (trimmed ?? partner.moderationNote),
+        moderatedAt:
+          status === 'VERIFIED'
+            ? null
+            : trimmed
+              ? new Date()
+              : partner.moderatedAt,
       },
     });
 
@@ -187,6 +218,7 @@ export class AdminService {
         id: updated.id,
         companyName: updated.companyName,
         status: updated.status,
+        moderationNote: updated.moderationNote,
         verifiedAt: updated.verifiedAt?.toISOString() ?? null,
       },
       error: null,
@@ -226,6 +258,7 @@ export class AdminService {
           guide.ruhsatExpiresAt?.toISOString().slice(0, 10) ?? null,
         birthDate: guide.birthDate?.toISOString().slice(0, 10) ?? null,
         status: guide.status,
+        moderationNote: guide.moderationNote,
         verifiedAt: guide.verifiedAt?.toISOString() ?? null,
         createdAt: guide.createdAt.toISOString(),
       })),
@@ -236,6 +269,7 @@ export class AdminService {
   async setGuideStatus(
     guideId: string,
     status: 'VERIFIED' | 'REJECTED' | 'SUSPENDED',
+    note?: string,
   ) {
     const guide = await this.prisma.guide.findFirst({
       where: { id: guideId, deletedAt: null },
@@ -247,11 +281,22 @@ export class AdminService {
       });
     }
 
+    this.assertModerationNote(status, note);
+
+    const trimmed = note?.trim().slice(0, 500) || null;
     const updated = await this.prisma.guide.update({
       where: { id: guideId },
       data: {
         status,
         verifiedAt: status === 'VERIFIED' ? new Date() : guide.verifiedAt,
+        moderationNote:
+          status === 'VERIFIED' ? null : (trimmed ?? guide.moderationNote),
+        moderatedAt:
+          status === 'VERIFIED'
+            ? null
+            : trimmed
+              ? new Date()
+              : guide.moderatedAt,
       },
     });
 
@@ -261,6 +306,7 @@ export class AdminService {
         id: updated.id,
         email: updated.email,
         status: updated.status,
+        moderationNote: updated.moderationNote,
         verifiedAt: updated.verifiedAt?.toISOString() ?? null,
       },
       error: null,
@@ -381,6 +427,7 @@ export class AdminService {
         location: e.location,
         status: e.status,
         coverUrl: e.imageUrl,
+        moderationNote: e.moderationNote,
         createdAt: e.createdAt.toISOString(),
       })),
       error: null,
@@ -402,10 +449,31 @@ export class AdminService {
       });
     }
 
-    void note;
+    if (status === 'DRAFT' && !note?.trim()) {
+      throw new BusinessException(
+        'MODERATION_NOTE_REQUIRED',
+        'Red için gerekçe zorunludur',
+      );
+    }
+
+    const trimmed = note?.trim().slice(0, 500) || null;
     const updated = await this.prisma.experience.update({
       where: { id: experienceId },
-      data: { status },
+      data: {
+        status,
+        moderationNote:
+          status === 'PUBLISHED'
+            ? null
+            : status === 'DRAFT' && trimmed
+              ? trimmed
+              : experience.moderationNote,
+        moderatedAt:
+          status === 'PUBLISHED'
+            ? null
+            : status === 'DRAFT' && trimmed
+              ? new Date()
+              : experience.moderatedAt,
+      },
     });
 
     return {
@@ -414,6 +482,7 @@ export class AdminService {
         id: updated.id,
         title: updated.title,
         status: updated.status,
+        moderationNote: updated.moderationNote,
       },
       error: null,
     };
@@ -480,7 +549,13 @@ export class AdminService {
       !Array.isArray(tour.extras)
         ? { ...(tour.extras as Record<string, unknown>) }
         : {};
-    if (status === 'DRAFT' && note?.trim()) {
+    if (status === 'DRAFT') {
+      if (!note?.trim()) {
+        throw new BusinessException(
+          'MODERATION_NOTE_REQUIRED',
+          'Red için gerekçe zorunludur',
+        );
+      }
       prevExtras.moderationNote = note.trim().slice(0, 500);
       prevExtras.moderatedAt = new Date().toISOString();
     }
@@ -544,39 +619,21 @@ export class AdminService {
   async setAgencyStatus(
     agencyId: string,
     status: 'VERIFIED' | 'REJECTED' | 'SUSPENDED',
+    note?: string,
   ) {
-    const agency = await this.prisma.agency.findFirst({
-      where: { id: agencyId, deletedAt: null },
-    });
-    if (!agency) {
-      throw new NotFoundException({
-        code: 'AGENCY_NOT_FOUND',
-        message: 'Acente bulunamadı',
-      });
+    return this.setPartnerStatus(agencyId, status, note);
+  }
+
+  private assertModerationNote(
+    status: 'VERIFIED' | 'REJECTED' | 'SUSPENDED',
+    note?: string,
+  ) {
+    if ((status === 'REJECTED' || status === 'SUSPENDED') && !note?.trim()) {
+      throw new BusinessException(
+        'MODERATION_NOTE_REQUIRED',
+        'Red veya askıya alma için gerekçe zorunludur',
+      );
     }
-
-    const wasVerified = agency.status === 'VERIFIED';
-    const updated = await this.prisma.agency.update({
-      where: { id: agency.id },
-      data: {
-        status,
-        verifiedAt: status === 'VERIFIED' ? new Date() : agency.verifiedAt,
-      },
-    });
-
-    if (status === 'VERIFIED' && !wasVerified) {
-      this.emitPartnerVerified(updated);
-    }
-
-    return {
-      success: true,
-      data: {
-        id: updated.id,
-        name: updated.companyName,
-        status: updated.status,
-      },
-      error: null,
-    };
   }
 
   private emitPartnerVerified(agency: {
@@ -594,9 +651,34 @@ export class AdminService {
     );
   }
 
-  async listReservations() {
+  async listReservations(filters?: { status?: string; q?: string }) {
+    const q = filters?.q?.trim();
+    const status = filters?.status?.trim();
     const rows = await this.prisma.reservation.findMany({
-      where: { deletedAt: null },
+      where: {
+        deletedAt: null,
+        ...(status
+          ? {
+              status: status as
+                | 'PENDING'
+                | 'PENDING_PAYMENT'
+                | 'CONFIRMED'
+                | 'COMPLETED'
+                | 'CANCELLED'
+                | 'SUSPENDED'
+                | 'PAYMENT_FAILED'
+                | 'EXPIRED',
+            }
+          : {}),
+        ...(q
+          ? {
+              OR: [
+                { bookingNumber: { contains: q, mode: 'insensitive' } },
+                { contactEmail: { contains: q, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
       orderBy: { createdAt: 'desc' },
       take: 200,
     });
@@ -669,6 +751,77 @@ export class AdminService {
           createdAt: row.createdAt.toISOString(),
         };
       }),
+      error: null,
+    };
+  }
+
+  async listReviews(q?: string) {
+    const query = q?.trim();
+    const rows = await this.prisma.review.findMany({
+      where: {
+        deletedAt: null,
+        ...(query
+          ? {
+              OR: [
+                { comment: { contains: query, mode: 'insensitive' } },
+                { agencyReply: { contains: query, mode: 'insensitive' } },
+                { partnerReply: { contains: query, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      select: {
+        id: true,
+        tourId: true,
+        experienceId: true,
+        agencyId: true,
+        rating: true,
+        comment: true,
+        agencyReply: true,
+        partnerReply: true,
+        tags: true,
+        createdAt: true,
+      },
+    });
+
+    return {
+      success: true,
+      data: rows.map((row) => ({
+        id: row.id,
+        tourId: row.tourId,
+        experienceId: row.experienceId,
+        agencyId: row.agencyId,
+        rating: row.rating,
+        comment: row.comment,
+        agencyReply: row.agencyReply ?? row.partnerReply,
+        tags: row.tags ?? [],
+        createdAt: row.createdAt.toISOString(),
+      })),
+      error: null,
+    };
+  }
+
+  async hideReview(reviewId: string) {
+    const review = await this.prisma.review.findFirst({
+      where: { id: reviewId, deletedAt: null },
+    });
+    if (!review) {
+      throw new NotFoundException({
+        code: 'REVIEW_NOT_FOUND',
+        message: 'Yorum bulunamadı',
+      });
+    }
+
+    await this.prisma.review.update({
+      where: { id: reviewId },
+      data: { deletedAt: new Date() },
+    });
+
+    return {
+      success: true,
+      data: { id: reviewId, hidden: true },
       error: null,
     };
   }

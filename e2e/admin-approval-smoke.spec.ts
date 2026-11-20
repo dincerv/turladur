@@ -31,6 +31,7 @@ test.describe('Admin — onay kuyrukları', () => {
       const testId = await pendingRow.getAttribute('data-testid');
       const id = testId?.replace('admin-pending-row-', '') ?? '';
       expect(id.length).toBeGreaterThan(0);
+      page.once('dialog', (d) => d.accept());
       await page.getByTestId(`admin-publish-${id}`).click();
       await expect(page.getByTestId(`admin-pending-row-${id}`)).toHaveCount(0, {
         timeout: 20_000,
@@ -43,6 +44,7 @@ test.describe('Admin — onay kuyrukları', () => {
     await expect(page.getByTestId('admin-agencies-page')).toBeVisible({
       timeout: 20_000,
     });
+    await page.getByTestId('admin-partner-filter-ALL').click();
     await expect(page.getByTestId('admin-partners-list')).toBeVisible();
     const partnerCount = Number(
       (await page

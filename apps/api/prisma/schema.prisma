@@ -210,6 +210,9 @@ model Agency {
   logo                     String?
   license                  String?
   verifiedAt               DateTime?
+  /// Admin red / askı gerekçesi — satıcıya iletilebilir.
+  moderationNote           String?                  @db.Text
+  moderatedAt              DateTime?
   tursabBelgeNo            String?
   tursabUnvan              String?
   tursabGroup              String?
@@ -405,6 +408,9 @@ model Guide {
   photoUrl        String?
   city            String?
   verifiedAt      DateTime?
+  /// Admin red / askı gerekçesi.
+  moderationNote  String?     @db.Text
+  moderatedAt     DateTime?
   averageRating   Decimal?    @default(0) @db.Decimal(3, 2)
   reviewCount     Int         @default(0)
   createdAt       DateTime    @default(now())
@@ -1082,6 +1088,9 @@ model Experience {
   status              ExperienceStatus @default(DRAFT)
   meetingPoint        String?
   meetingPointAddress String?
+  /// Admin red / taslak gerekçesi.
+  moderationNote      String?          @db.Text
+  moderatedAt         DateTime?
   agencyId            String
   agency              Agency           @relation(fields: [agencyId], references: [id])
   dates               ActivityDate[]

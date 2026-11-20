@@ -183,9 +183,10 @@ export default function AdminToursPage() {
                       <div className="flex gap-2">
                         <button
                           type="button"
-                          className="rounded-lg bg-amber-600 px-2.5 py-1 text-xs font-medium text-white"
+                          className="rounded-lg bg-amber-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
+                          disabled={rejectNote.trim().length < 3}
                           onClick={() =>
-                            void setStatus(row.id, 'DRAFT', rejectNote)
+                            void setStatus(row.id, 'DRAFT', rejectNote.trim())
                           }
                           data-testid={`admin-reject-confirm-${row.id}`}
                         >
@@ -211,7 +212,12 @@ export default function AdminToursPage() {
                   type="button"
                   data-testid={`admin-publish-${row.id}`}
                   className="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white"
-                  onClick={() => void setStatus(row.id, 'PUBLISHED')}
+                  onClick={() => {
+                    if (!window.confirm(`“${row.title}” yayınlansın mı?`)) {
+                      return;
+                    }
+                    void setStatus(row.id, 'PUBLISHED');
+                  }}
                 >
                   Yayınla
                 </button>

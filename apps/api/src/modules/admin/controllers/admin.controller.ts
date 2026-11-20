@@ -37,6 +37,14 @@ class UpdatePartnerStatusDto {
   @ApiProperty({ enum: ['VERIFIED', 'REJECTED', 'SUSPENDED'] })
   @IsIn(['VERIFIED', 'REJECTED', 'SUSPENDED'])
   status!: 'VERIFIED' | 'REJECTED' | 'SUSPENDED';
+
+  @ApiPropertyOptional({
+    description: 'Red / askı gerekçesi (REJECTED ve SUSPENDED için zorunlu)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
 }
 
 class UpdateTourStatusDto {
@@ -97,7 +105,7 @@ export class AdminController {
   @Patch('partners/:id/status')
   @ApiOperation({ summary: 'Approve / reject / suspend partner' })
   partnerStatus(@Param('id') id: string, @Body() dto: UpdatePartnerStatusDto) {
-    return this.adminService.setPartnerStatus(id, dto.status);
+    return this.adminService.setPartnerStatus(id, dto.status, dto.note);
   }
 
   @Get('guides')
@@ -109,7 +117,7 @@ export class AdminController {
   @Patch('guides/:id/status')
   @ApiOperation({ summary: 'Approve / reject / suspend guide' })
   guideStatus(@Param('id') id: string, @Body() dto: UpdatePartnerStatusDto) {
-    return this.adminService.setGuideStatus(id, dto.status);
+    return this.adminService.setGuideStatus(id, dto.status, dto.note);
   }
 
   @Get('tours/pending')
@@ -163,12 +171,24 @@ export class AdminController {
   @ApiOperation({ summary: 'Verify / reject / suspend agency' })
   agencyStatus(@Param('id') id: string, @Body() dto: SetAgencyStatusDto) {
     const status = dto.status === 'APPROVED' ? 'VERIFIED' : dto.status;
-    return this.adminService.setAgencyStatus(id, status);
+    return this.adminService.setAgencyStatus(id, status, dto.note);
   }
 
   @Get('reservations')
   @ApiOperation({ summary: 'List platform reservations' })
-  reservations() {
-    return this.adminService.listReservations();
+  reservations(@Query('status') status?: string, @Query('q') q?: string) {
+    return this.adminService.listReservations({ status, q });
+  }
+
+  @Get('reviews')
+  @ApiOperation({ summary: 'List recent reviews for moderation' })
+  reviews(@Query('q') q?: string) {
+    return this.adminService.listReviews(q);
+  }
+
+  @Patch('reviews/:id/hide')
+  @ApiOperation({ summary: 'Hide (soft-delete) a review' })
+  hideReview(@Param('id') id: string) {
+    return this.adminService.hideReview(id);
   }
 }

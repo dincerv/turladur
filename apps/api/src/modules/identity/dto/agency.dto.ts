@@ -148,4 +148,12 @@ export class SetAgencyStatusDto {
   @ApiProperty({ enum: ['APPROVED', 'REJECTED', 'SUSPENDED'] })
   @IsIn(['APPROVED', 'REJECTED', 'SUSPENDED'])
   status!: 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+
+  @ApiPropertyOptional({
+    description: 'Red / askı gerekçesi (REJECTED ve SUSPENDED için zorunlu)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
 }

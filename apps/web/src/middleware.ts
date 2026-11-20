@@ -94,13 +94,19 @@ async function probeSession(
 
 /**
  * Cookie-based role guard (RefreshToken HttpOnly via same-origin proxy).
- * P0-B: /acente · /rehber · /otobus. API unreachable → fail-open + no-store.
+ * Panel routes (acente/rehber/otobus): API unreachable → fail-open + no-store.
+ * /admin: API unreachable → fail-closed (login redirect) — no HTML leak.
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = await probeSession(request);
 
   if (session === null) {
+    if (pathname.startsWith('/admin')) {
+      const login = new URL('/login', request.url);
+      login.searchParams.set('next', pathname);
+      return withNoStore(NextResponse.redirect(login));
+    }
     return withNoStore(NextResponse.next());
   }
 

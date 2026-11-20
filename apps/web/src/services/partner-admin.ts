@@ -355,8 +355,42 @@ export type AdminReservationRow = {
   createdAt: string;
 };
 
-export async function listAdminReservations(token: string) {
-  return apiRequest<AdminReservationRow[]>('/admin/reservations', { token });
+export async function listAdminReservations(
+  token: string,
+  params?: { status?: string; q?: string },
+) {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set('status', params.status);
+  if (params?.q) qs.set('q', params.q);
+  const q = qs.toString();
+  return apiRequest<AdminReservationRow[]>(
+    `/admin/reservations${q ? `?${q}` : ''}`,
+    { token },
+  );
+}
+
+export type AdminReviewRow = {
+  id: string;
+  tourId: string | null;
+  experienceId: string | null;
+  agencyId: string;
+  rating: number;
+  comment: string | null;
+  agencyReply: string | null;
+  tags: string[];
+  createdAt: string;
+};
+
+export async function listAdminReviews(token: string, q?: string) {
+  const qs = q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : '';
+  return apiRequest<AdminReviewRow[]>(`/admin/reviews${qs}`, { token });
+}
+
+export async function hideAdminReview(id: string, token: string) {
+  return apiRequest<{ id: string; hidden: boolean }>(
+    `/admin/reviews/${id}/hide`,
+    { method: 'PATCH', token },
+  );
 }
 
 export type AdminStats = {
@@ -399,13 +433,14 @@ export async function updateAdminUser(
 }
 
 export async function listAdminPartners(token: string, status?: string) {
-  const qs = status ? `?status=${status}` : '';
+  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
   return apiRequest<
     Array<{
       id: string;
       companyName: string;
       contactEmail: string;
       status: string;
+      moderationNote?: string | null;
       verifiedAt: string | null;
     }>
   >(`/admin/partners${qs}`, { token });
@@ -415,10 +450,11 @@ export async function setPartnerStatus(
   id: string,
   status: 'VERIFIED' | 'REJECTED' | 'SUSPENDED',
   token: string,
+  note?: string,
 ) {
   return apiRequest(`/admin/partners/${id}/status`, {
     method: 'PATCH',
-    body: { status },
+    body: note?.trim() ? { status, note: note.trim() } : { status },
     token,
   });
 }
@@ -438,12 +474,13 @@ export type AdminGuideRow = {
   ruhsatExpiresAt: string | null;
   birthDate: string | null;
   status: string;
+  moderationNote?: string | null;
   verifiedAt: string | null;
   createdAt: string;
 };
 
 export async function listAdminGuides(token: string, status?: string) {
-  const qs = status ? `?status=${status}` : '';
+  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
   return apiRequest<AdminGuideRow[]>(`/admin/guides${qs}`, { token });
 }
 
@@ -451,10 +488,11 @@ export async function setGuideStatusAdmin(
   id: string,
   status: 'VERIFIED' | 'REJECTED' | 'SUSPENDED',
   token: string,
+  note?: string,
 ) {
   return apiRequest(`/admin/guides/${id}/status`, {
     method: 'PATCH',
-    body: { status },
+    body: note?.trim() ? { status, note: note.trim() } : { status },
     token,
   });
 }

@@ -14,16 +14,33 @@ function formatMoney(amount: string, currency: string) {
   return `${Number(amount).toLocaleString('tr-TR')} ${currency}`;
 }
 
+const STATUS_OPTIONS = [
+  '',
+  'PENDING',
+  'CONFIRMED',
+  'COMPLETED',
+  'CANCELLED',
+  'PENDING_PAYMENT',
+  'PAYMENT_FAILED',
+] as const;
+
 export default function AdminReservationsPage() {
   const { accessToken } = useAuth();
   const [rows, setRows] = useState<AdminReservationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [status, setStatus] = useState('');
+  const [query, setQuery] = useState('');
 
   async function reload() {
     if (!accessToken) return;
-    setRows(await listAdminReservations(accessToken));
+    setRows(
+      await listAdminReservations(accessToken, {
+        status: status || undefined,
+        q: query.trim() || undefined,
+      }),
+    );
   }
 
   useEffect(() => {
@@ -32,7 +49,7 @@ export default function AdminReservationsPage() {
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accessToken]);
+  }, [accessToken, status]);
 
   async function handleVoucher(row: AdminReservationRow) {
     if (!accessToken) return;
@@ -49,7 +66,7 @@ export default function AdminReservationsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="admin-reservations-page">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">
@@ -67,6 +84,43 @@ export default function AdminReservationsPage() {
           <RefreshCw className="h-4 w-4" />
           Yenile
         </button>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <select
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+          className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+          data-testid="admin-reservations-status"
+        >
+          {STATUS_OPTIONS.map((s) => (
+            <option key={s || 'all'} value={s}>
+              {s || 'Tüm durumlar'}
+            </option>
+          ))}
+        </select>
+        <form
+          className="flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void reload().catch((err: Error) => setError(err.message));
+          }}
+        >
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="PNR veya e-posta…"
+            className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            data-testid="admin-reservations-search"
+          />
+          <button
+            type="submit"
+            className="rounded-lg bg-neutral-950 px-3 py-2 text-sm text-white"
+          >
+            Ara
+          </button>
+        </form>
       </div>
 
       {error ? (
