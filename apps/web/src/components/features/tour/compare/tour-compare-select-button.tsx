@@ -11,7 +11,7 @@ export function TourCompareSelectButton({
 }) {
   return (
     <div className="absolute top-14 right-2 z-10">
-      <CompactCompareButton tour={tour} />
+      <CompactCompareButton tour={tour} addLabel="+ Kıyasla" />
     </div>
   );
 }

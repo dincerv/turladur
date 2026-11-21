@@ -76,9 +76,7 @@ export class IdentityController {
     @Body() dto: RegisterUserDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = (await this.commandBus.execute(
-      new RegisterUserCommand(dto),
-    )) as AuthSuccessWithRefresh<unknown>;
+    const result = await this.commandBus.execute(new RegisterUserCommand(dto));
     this.applyRefreshCookie(res, result);
     return this.stripRefresh(result);
   }
@@ -93,9 +91,7 @@ export class IdentityController {
     @Body() dto: LoginUserDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = (await this.commandBus.execute(
-      new LoginUserCommand(dto),
-    )) as AuthSuccessWithRefresh<unknown>;
+    const result = await this.commandBus.execute(new LoginUserCommand(dto));
     this.applyRefreshCookie(res, result);
     return this.stripRefresh(result);
   }

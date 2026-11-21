@@ -14,11 +14,12 @@ export function isAdminAuthenticatedUrl(url: string): boolean {
 }
 
 /** Login via /login → /admin/dashboard. Returns false when seed/web down. */
-export async function loginAdmin(page: Page): Promise<boolean> {
+export async function loginAdmin(
+  page: Page,
+  emailOverride?: string,
+): Promise<boolean> {
   try {
-    await page.goto('/login', { waitUntil: 'networkidle' }).catch(async () => {
-      await page.goto('/login', { waitUntil: 'domcontentloaded' });
-    });
+    await page.goto('/login', { waitUntil: 'domcontentloaded' });
     const email = page
       .getByTestId('login-email')
       .or(page.getByLabel(/e-posta/i));
@@ -30,7 +31,7 @@ export async function loginAdmin(page: Page): Promise<boolean> {
     ) {
       return false;
     }
-    await email.first().fill(E2E_ADMIN_EMAIL);
+    await email.first().fill(emailOverride ?? E2E_ADMIN_EMAIL);
     const password = page
       .getByTestId('login-password')
       .or(page.getByLabel(/^şifre$/i));

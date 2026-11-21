@@ -779,6 +779,22 @@ export class PartnerService {
       orderBy: { order: 'asc' },
     });
 
+    const routeStops = await this.prisma.tourRouteStop.findMany({
+      where: { tourId, deletedAt: null },
+      select: {
+        id: true,
+        tourId: true,
+        dayNumber: true,
+        order: true,
+        name: true,
+        description: true,
+        latitude: true,
+        longitude: true,
+        kind: true,
+      },
+      orderBy: [{ dayNumber: 'asc' }, { order: 'asc' }],
+    });
+
     const accommodation = await this.prisma.tourAccommodation.findFirst({
       where: { tourId, deletedAt: null },
       select: {
@@ -826,6 +842,17 @@ export class PartnerService {
           longitude: p.longitude,
           order: p.order,
           isActive: p.isActive,
+        })),
+        routeStops: routeStops.map((s) => ({
+          id: s.id,
+          tourId: s.tourId,
+          dayNumber: s.dayNumber,
+          order: s.order,
+          name: s.name,
+          description: s.description,
+          latitude: s.latitude,
+          longitude: s.longitude,
+          kind: s.kind,
         })),
         accommodation: accommodation
           ? {
@@ -1967,11 +1994,11 @@ export class PartnerService {
         ],
       };
       where.AND = [
-        ...((Array.isArray(where.AND)
+        ...(Array.isArray(where.AND)
           ? where.AND
           : where.AND
             ? [where.AND]
-            : []) as Prisma.AgencyEarningWhereInput[]),
+            : []),
         searchClause,
       ];
     }
@@ -2532,8 +2559,8 @@ export class PartnerService {
         const rem = Number(g._sum.remainingCapacity ?? 0);
         const sold = Math.max(0, cap - rem);
         return {
-          id: g.tourId as string,
-          name: tourTitle.get(g.tourId as string) ?? g.tourId!,
+          id: g.tourId,
+          name: tourTitle.get(g.tourId) ?? g.tourId,
           capacity: cap,
           sold,
           occupancyRate: cap === 0 ? 0 : Math.round((sold / cap) * 1000) / 10,

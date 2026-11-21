@@ -6,7 +6,6 @@ import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import type { LegacyTourCard as Tour } from '@/lib/tours/legacy-tour';
 import { tourPublicPath } from '@/lib/tours/tour-public-path';
-import MembershipBadge from '@/components/features/tour/membership-badge';
 import StarRating from '@/components/features/tour/star-rating';
 import { resolveMediaUrl, shouldUnoptimizeMedia } from '@/lib/media';
 import { Calendar, Clock, Heart, Zap, ArrowRight } from 'lucide-react';
@@ -203,14 +202,11 @@ export function ModernTourCard({
               <badge.icon className="h-3 w-3 shrink-0" aria-hidden />
               <span className="truncate">{badge.text}</span>
             </div>
+          ) : averageRating >= 4.2 && reviewCount >= 2 ? (
+            <div className="absolute top-3 left-3 rounded-full bg-sky-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
+              Popüler
+            </div>
           ) : null}
-
-          <div className={`absolute left-3 ${badge ? 'top-11' : 'top-3'}`}>
-            <MembershipBadge
-              tier={tour.tourOperator?.membershipTier}
-              variant="onImage"
-            />
-          </div>
 
           <button
             type="button"

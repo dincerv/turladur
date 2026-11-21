@@ -1,8 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { TourRouteStopKind } from '@turta/shared-constants';
 import { Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
+  IsEnum,
   IsInt,
   IsNumber,
   IsOptional,
@@ -162,6 +164,107 @@ export class UpdateTourPickupPointDto {
   @IsOptional()
   @IsBoolean()
   isFixedOrigin?: boolean;
+}
+
+export class CreateTourRouteStopDto {
+  @ApiProperty({ example: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(60)
+  dayNumber!: number;
+
+  @ApiPropertyOptional({ example: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  order?: number;
+
+  @ApiProperty({ example: 'Uçhisar Kalesi' })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(160)
+  name!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  description?: string;
+
+  @ApiProperty({ example: 38.6301 })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude!: number;
+
+  @ApiProperty({ example: 34.8053 })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude!: number;
+
+  @ApiPropertyOptional({
+    enum: TourRouteStopKind,
+    default: TourRouteStopKind.VISIT,
+  })
+  @IsOptional()
+  @IsEnum(TourRouteStopKind)
+  kind?: TourRouteStopKind;
+}
+
+export class UpdateTourRouteStopDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(60)
+  dayNumber?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  order?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(160)
+  name?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  description?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number;
+
+  @ApiPropertyOptional({ enum: TourRouteStopKind })
+  @IsOptional()
+  @IsEnum(TourRouteStopKind)
+  kind?: TourRouteStopKind;
 }
 
 export class CreatePaidTourExtraDto {

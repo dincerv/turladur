@@ -46,17 +46,8 @@ export class DomainAuditListener {
   }
 
   @OnEvent('partner.verified', { async: true })
-  async onPartnerVerified(event: {
-    agencyId: string;
-    contactEmail: string;
-  }): Promise<void> {
-    await this.auditService.record({
-      actorType: 'PLATFORM',
-      action: 'AGENCY_VERIFIED',
-      entityType: 'Agency',
-      entityId: event.agencyId,
-      meta: { contactEmail: event.contactEmail },
-    });
+  async onPartnerVerified(): Promise<void> {
+    // AGENCY_VERIFIED / AGENCY_UNSUSPENDED audit AdminService üzerinden actorId ile yazılır.
   }
 
   // booking.created → bilinçli no-op (audit emit tarafında; çift kayıt yok)

@@ -223,7 +223,7 @@ export class ReservationService {
               cancelScope: 'TOUR',
               cancelReason: reasonCode ?? null,
               cancelReasonLabel: reasonLabel ?? null,
-            } as Prisma.InputJsonValue,
+            },
           },
         });
       });
@@ -291,7 +291,7 @@ export class ReservationService {
               cancelReasonLabel: reasonLabel ?? null,
               cancelledDateLabel: dateLabel ?? null,
               cancelledTourDateId: reservation.tourDateId,
-            } as Prisma.InputJsonValue,
+            },
           },
         });
       });
@@ -646,7 +646,7 @@ export class ReservationService {
         metadata: {
           ...base,
           seatNumbers: seatNumbers.trim(),
-        } as Prisma.InputJsonValue,
+        },
       },
     });
   }

@@ -17,7 +17,7 @@ function parseCorsOrigins(raw: string | undefined): string | string[] {
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean);
-  return origins.length === 1 ? origins[0]! : origins;
+  return origins.length === 1 ? origins[0] : origins;
 }
 
 @WebSocketGateway({

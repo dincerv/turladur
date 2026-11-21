@@ -609,7 +609,7 @@ export class NotificationService {
       body: row.body,
       data:
         row.data && typeof row.data === 'object' && !Array.isArray(row.data)
-          ? (row.data as Record<string, unknown>)
+          ? row.data
           : null,
       readAt: row.readAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),

@@ -21,6 +21,7 @@ export type RouteDefinition = {
   longDescription: string;
   image: string;
   location: string;
+  clusterLabel?: string;
   bestTimeToVisit: string;
   weather: string;
   transportation: string;
@@ -79,7 +80,9 @@ export type RouteSearchParams = {
   season?: string;
 };
 
-export async function listRoutes(params: RouteSearchParams = {}) {
+export async function listRoutes(
+  params: RouteSearchParams & { fresh?: boolean } = {},
+) {
   const query = new URLSearchParams();
   const q = params.q ?? params.search;
   if (q) query.set('q', q);
@@ -89,7 +92,7 @@ export async function listRoutes(params: RouteSearchParams = {}) {
   const qs = query.toString();
   return apiRequest<RoutesListResponse>(
     `/catalog/routes${qs ? `?${qs}` : ''}`,
-    { next: { revalidate: 120 } },
+    params.fresh ? { cache: 'no-store' } : { next: { revalidate: 60 } },
   );
 }
 

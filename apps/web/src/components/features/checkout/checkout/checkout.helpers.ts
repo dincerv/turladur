@@ -69,7 +69,7 @@ export type PaymentMethod = 'bank_transfer' | 'card';
 
 export const STEPS = [
   { id: '01', name: 'Özet', description: 'Rezervasyon detaylarını inceleyin' },
-  { id: '02', name: 'Bilgiler', description: 'Katılımcı ve fatura bilgileri' },
+  { id: '02', name: 'Bilgiler', description: 'Katılımcı bilgileri' },
   { id: '03', name: 'Ödeme', description: 'Ödeme yöntemini seçin' },
   { id: '04', name: 'Onay', description: 'Rezervasyonu tamamlayın' },
 ];

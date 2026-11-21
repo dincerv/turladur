@@ -13,6 +13,7 @@ import { RouteController } from './controllers/route.controller';
 import { TourDateAssignmentController } from './controllers/tour-date-assignment.controller';
 import { BusSeatLayoutController } from './controllers/bus-seat-layout.controller';
 import { FavoriteController } from './controllers/favorite.controller';
+import { GeoController } from './controllers/geo.controller';
 import { TourExtrasController } from './controllers/tour-extras.controller';
 import { TourController } from './controllers/tour.controller';
 import { ReviewRatingListener } from './listeners/review-rating.listener';
@@ -23,6 +24,7 @@ import { AgeRangeService } from './services/age-range.service';
 import { BusSeatLayoutService } from './services/bus-seat-layout.service';
 import { ExperienceService } from './services/experience.service';
 import { FavoriteService } from './services/favorite.service';
+import { GeoService } from './services/geo.service';
 import { HotelService } from './services/hotel.service';
 import { RouteService } from './services/route.service';
 import { TourDateAssignmentService } from './services/tour-date-assignment.service';
@@ -54,6 +56,7 @@ const QueryHandlers = [
     ExperienceController,
     RouteController,
     AgeRangeController,
+    GeoController,
   ],
   providers: [
     TourService,
@@ -65,6 +68,7 @@ const QueryHandlers = [
     ExperienceService,
     RouteService,
     AgeRangeService,
+    GeoService,
     ReviewRatingListener,
     ...CommandHandlers,
     ...QueryHandlers,

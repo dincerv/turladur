@@ -78,10 +78,12 @@ function ToursPageContent() {
   );
   const featuredParam = searchParams.get('featured');
   const urlSearch = sanitizeSearchQueryStrict(
-    searchParams.get('search') || searchParams.get('q'),
+    searchParams.get('search') ||
+      searchParams.get('q') ||
+      searchParams.get('destination'),
   );
   const urlDepartureCity = sanitizeSearchQueryStrict(
-    searchParams.get('departureCity'),
+    searchParams.get('departureCity') || searchParams.get('origin'),
   );
   const urlRegion = sanitizeSearchQueryStrict(searchParams.get('region'));
   const urlStayKind = searchParams.get('stayKind');

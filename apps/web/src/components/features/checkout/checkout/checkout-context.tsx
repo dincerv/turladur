@@ -36,6 +36,8 @@ export type CheckoutUiContextValue = {
   pickupPoints: TourPickupPoint[];
   pickupPointId: string;
   setPickupPointId: Dispatch<SetStateAction<string>>;
+  wantCompanyInvoice: boolean;
+  setWantCompanyInvoice: Dispatch<SetStateAction<boolean>>;
   billingFullName: string;
   setBillingFullName: Dispatch<SetStateAction<string>>;
   billingLine1: string;

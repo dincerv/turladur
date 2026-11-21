@@ -1,8 +1,18 @@
+import {
+  normalizeDayImages,
+  normalizeMeals,
+  type ItineraryMeals,
+} from '@/lib/tours/itinerary-day';
+
 export interface NormalizedItineraryDay {
   dayNumber: number;
   title: string;
   description: string;
   highlights?: string[];
+  meals?: ItineraryMeals;
+  accommodation?: string | null;
+  /** Güne atanmış fotoğraf URL’leri. */
+  imageUrls?: string[];
   schedule?: { time?: string; activity?: string }[];
   distance?: string;
   duration?: string;
@@ -23,6 +33,32 @@ export function stripDayPrefixFromTitle(
     .trim();
 
   return withoutPrefix;
+}
+
+function mapDay(
+  item: Record<string, unknown>,
+  dayNumber: number,
+): NormalizedItineraryDay {
+  const highlights = item.highlights ?? item.activities;
+  const accommodation =
+    typeof item.accommodation === 'string' ? item.accommodation : null;
+  const imageUrls = normalizeDayImages(item.imageUrls ?? item.images).map(
+    (img) => img.url,
+  );
+  return {
+    dayNumber,
+    title: (item.title as string) || `${dayNumber}. Gün`,
+    description: (item.description as string) || '',
+    highlights: Array.isArray(highlights)
+      ? (highlights as string[])
+      : undefined,
+    meals: normalizeMeals(item.meals),
+    accommodation,
+    imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+    schedule: item.schedule as NormalizedItineraryDay['schedule'],
+    distance: item.distance as string | undefined,
+    duration: item.duration as string | undefined,
+  };
 }
 
 export function normalizeItinerary(
@@ -49,43 +85,27 @@ export function normalizeItinerary(
         };
       }
 
-      const dayNumber = typeof item.day === 'number' ? item.day : index + 1;
-      const highlights = item.highlights ?? item.activities;
-
-      return {
-        dayNumber,
-        title: item.title || `${dayNumber}. Gün`,
-        description: item.description || '',
-        highlights: Array.isArray(highlights) ? highlights : undefined,
-        schedule: item.schedule,
-        distance: item.distance,
-        duration: item.duration,
-      };
+      const row = (item || {}) as Record<string, unknown>;
+      const dayNumber =
+        typeof row.dayNumber === 'number'
+          ? row.dayNumber
+          : typeof row.day === 'number'
+            ? row.day
+            : index + 1;
+      return mapDay(row, dayNumber);
     });
   }
 
   if (typeof data === 'object' && data !== null) {
-    return Object.entries(data as Record<string, unknown>).map(
-      ([key, content], index) => {
+    return Object.entries(data as Record<string, unknown>)
+      .map(([key, content], index) => {
         const item = (content || {}) as Record<string, unknown>;
         const dayNumber = key.startsWith('day')
           ? parseInt(key.replace('day', ''), 10) + 1
           : index + 1;
-        const highlights = item.highlights ?? item.activities;
-
-        return {
-          dayNumber,
-          title: (item.title as string) || `${dayNumber}. Gün`,
-          description: (item.description as string) || '',
-          highlights: Array.isArray(highlights)
-            ? (highlights as string[])
-            : undefined,
-          schedule: item.schedule as NormalizedItineraryDay['schedule'],
-          distance: item.distance as string | undefined,
-          duration: item.duration as string | undefined,
-        };
-      },
-    );
+        return mapDay(item, Number.isFinite(dayNumber) ? dayNumber : index + 1);
+      })
+      .sort((a, b) => a.dayNumber - b.dayNumber);
   }
 
   return [];

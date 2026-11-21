@@ -77,12 +77,13 @@ export function Header() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Sayfa değiştiğinde dropdown ve menüyü kapat
+  // Sayfa değiştiğinde dropdown ve menüyü kapat; scroll durumunu yenile
   useEffect(() => {
     setActiveDropdown(null);
     setIsMenuOpen(false);
     setSearchOpen(false);
     setDealsOpen(false);
+    setIsScrolled(window.scrollY > 20);
   }, [pathname]);
 
   // Arama açıldığında input'a odaklan
@@ -188,8 +189,7 @@ export function Header() {
     router.push('/acente/giris');
   };
 
-  // Dark full-bleed hero → şeffaf header (ana sayfa / liste / tur+rota detay).
-  // Açık zeminli sayfalar → her zaman solid (beyaz) header.
+  // Dark full-bleed hero → şeffaf header (ana sayfa / liste / tur detay kapak).
   const darkHeroExactRoutes = new Set([
     '/',
     '/tours',
@@ -199,20 +199,22 @@ export function Header() {
     '/routes',
     '/tour-operator',
   ]);
-  const darkHeroPrefixes = ['/tours/', '/routes/', '/tour-operator/'];
+  const darkHeroPrefixes = ['/routes/', '/tour-operator/'];
+  const isTourDetailRoute = /^\/tours\/[^/]+\/?$/.test(pathname);
   const isDarkHeroRoute =
+    isTourDetailRoute ||
     darkHeroExactRoutes.has(pathname) ||
     darkHeroPrefixes.some(
       (prefix) => pathname === prefix || pathname.startsWith(prefix),
     );
-  // Allowlist dışı her şey solid (blog yazı, aktivite detay, checkout, legal…).
+  // Allowlist dışı her şey solid (blog yazı, checkout, legal…).
   const forceScrolledAppearance = !isDarkHeroRoute;
 
   // Eski sistem: scrollY > 20 → beyaz navbar + koyu logo; en üstte şeffaf + beyaz logo/metin
   const shouldAppearScrolled = isScrolled || forceScrolledAppearance;
 
   const headerBg = shouldAppearScrolled
-    ? 'bg-white/95 backdrop-blur-md shadow-sm'
+    ? 'bg-white/95 backdrop-blur-sm shadow-sm'
     : 'bg-transparent';
   const headerPadding = shouldAppearScrolled ? 'py-2' : 'py-4';
   const linkColor = shouldAppearScrolled ? 'text-neutral-800' : 'text-white';
@@ -259,7 +261,7 @@ export function Header() {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${headerBg} ${headerPadding}${shouldAppearScrolled ? ' border-b border-neutral-100' : ''}`}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${headerBg} ${headerPadding}${shouldAppearScrolled ? ' border-b border-neutral-200' : ''}`}
     >
       <div className="container mx-auto px-6">
         {' '}

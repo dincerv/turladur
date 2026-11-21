@@ -56,13 +56,17 @@ function formatPrice(price: string, currency: string): string {
 export function AiSearchPanel({
   variant = 'dock',
   autoFocus = false,
+  onClose,
 }: {
   variant?: 'dock' | 'hero';
   autoFocus?: boolean;
+  /** When set (home modal), header X / collapse closes the whole experience. */
+  onClose?: () => void;
 }) {
   const inputId = useId();
   const isHero = variant === 'hero';
-  const [open, setOpen] = useState(false);
+  const isModal = Boolean(onClose);
+  const [open, setOpen] = useState(isModal);
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +85,14 @@ export function AiSearchPanel({
   const openDrawer = useTourCompareStore((state) => state.openDrawer);
   const selectedCount = useTourCompareStore((state) => state.selected.length);
   const clearCompare = useTourCompareStore((state) => state.clear);
+
+  const closePanel = useCallback(() => {
+    if (onClose) {
+      onClose();
+      return;
+    }
+    setOpen(false);
+  }, [onClose]);
 
   const runSearch = useCallback(async (raw: string) => {
     const cleaned = sanitizeAiSearchPrompt(raw);
@@ -164,7 +176,10 @@ export function AiSearchPanel({
     openDrawer();
   };
 
-  const resultsBody = (
+  const showResultsChrome = isModal || open;
+  const hasResultsBody = loading || Boolean(error) || Boolean(result);
+
+  const resultsBody = hasResultsBody ? (
     <div
       className={
         isHero
@@ -314,28 +329,69 @@ export function AiSearchPanel({
           )}
         </div>
       ) : null}
-
-      {!loading && !error && !result ? (
-        <p className="text-sm text-neutral-500">
-          Örn. &quot;Ankara&apos;dan 3 gece Karadeniz, Uzungöl ve Ayder&quot;
-        </p>
-      ) : null}
     </div>
+  ) : null;
+
+  const headerBlock = (
+    <header className="flex items-start justify-between gap-3 border-b border-neutral-100 px-4 py-3">
+      <div className="min-w-0">
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-neutral-950">
+          <Sparkles className="h-4 w-4 text-amber-500" aria-hidden />
+          Turta&apos;ya Sor
+        </p>
+        <p className="mt-0.5 text-xs text-neutral-500">
+          Doğal dille tur arayın, sonuçları kıyaslayın.
+        </p>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          data-testid="compact-compare-btn"
+          aria-label={`Kıyasla (${selectedCount}/${COMPARE_TOURS_MAX})`}
+          disabled={
+            loading || !result || (result.tours.length < 2 && selectedCount < 1)
+          }
+          onClick={handleCompactCompareFromAi}
+          className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-800 shadow-sm transition-colors hover:bg-neutral-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <GitCompareArrows className="h-4 w-4" aria-hidden />
+          {selectedCount > 0 ? (
+            <span
+              data-testid="compact-compare-badge"
+              className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 px-1 text-[10px] font-bold text-white"
+            >
+              {selectedCount}
+            </span>
+          ) : null}
+        </button>
+        <button
+          type="button"
+          aria-label="Paneli kapat"
+          data-testid="ai-search-close-btn"
+          onClick={closePanel}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+        >
+          <X className="h-4 w-4" aria-hidden />
+        </button>
+      </div>
+    </header>
   );
 
-  const formBlock = (
+  const composer = (
     <form
       data-testid="ai-search-dock"
       onSubmit={handleSubmit}
       className={
         isHero
           ? 'rounded-2xl border border-neutral-200 bg-white p-2 shadow-sm'
-          : 'rounded-2xl border border-neutral-200 bg-white/95 p-2 shadow-xl shadow-neutral-900/10 backdrop-blur-md'
+          : showResultsChrome
+            ? 'border-t border-neutral-100 px-3 pb-3 pt-2'
+            : 'p-2'
       }
     >
       <div
         data-testid="ai-search-quick-prompts"
-        className="mb-2 flex gap-1.5 overflow-x-auto px-1 pb-1"
+        className="mb-2 flex gap-1.5 overflow-x-auto px-0.5 pb-0.5"
       >
         {AI_SEARCH_QUICK_PROMPTS.map((item) => (
           <button
@@ -350,7 +406,7 @@ export function AiSearchPanel({
         ))}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex h-11 items-center gap-2">
         <label htmlFor={inputId} className="sr-only">
           Turta&apos;ya yaz
         </label>
@@ -368,7 +424,7 @@ export function AiSearchPanel({
           }
           onChange={(event) => setPrompt(event.target.value)}
           onFocus={() => setOpen(true)}
-          className="min-h-11 flex-1 rounded-xl border-0 bg-transparent px-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus-visible:ring-0"
+          className="box-border h-11 flex-1 rounded-xl border-0 bg-transparent px-3 py-0 text-sm leading-none text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus-visible:ring-0"
         />
         <button
           type="submit"
@@ -387,92 +443,51 @@ export function AiSearchPanel({
     </form>
   );
 
-  const resultsPanel = (
-    <AnimatePresence>
-      {open ? (
-        <motion.section
-          key="ai-search-panel"
-          data-testid="ai-search-panel"
-          initial={{ y: isHero ? -8 : 24, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: isHero ? -8 : 24, opacity: 0 }}
-          transition={{ type: 'spring', stiffness: 380, damping: 34 }}
-          className={
-            isHero
-              ? 'mt-3 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm'
-              : 'mb-2 overflow-hidden rounded-2xl border border-neutral-200 bg-white/95 shadow-2xl shadow-neutral-900/15 backdrop-blur-md'
-          }
-          aria-label="Turta'ya Sor"
-        >
-          <header className="flex items-start justify-between gap-3 border-b border-neutral-100 px-4 py-3">
-            <div className="min-w-0">
-              <p className="flex items-center gap-1.5 text-sm font-semibold text-neutral-950">
-                <Sparkles className="h-4 w-4 text-amber-500" aria-hidden />
-                Turta&apos;ya Sor
-              </p>
-              <p className="mt-0.5 text-xs text-neutral-500">
-                Doğal dille tur arayın, sonuçları kıyaslayın.
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                data-testid="compact-compare-btn"
-                aria-label={`Kıyasla (${selectedCount}/${COMPARE_TOURS_MAX})`}
-                disabled={
-                  loading ||
-                  !result ||
-                  (result.tours.length < 2 && selectedCount < 1)
-                }
-                onClick={handleCompactCompareFromAi}
-                className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-800 shadow-sm transition-colors hover:bg-neutral-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <GitCompareArrows className="h-4 w-4" aria-hidden />
-                {selectedCount > 0 ? (
-                  <span
-                    data-testid="compact-compare-badge"
-                    className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 px-1 text-[10px] font-bold text-white"
-                  >
-                    {selectedCount}
-                  </span>
-                ) : null}
-              </button>
-              <button
-                type="button"
-                aria-label="Paneli kapat"
-                data-testid="ai-search-close-btn"
-                onClick={() => setOpen(false)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
-              >
-                <X className="h-4 w-4" aria-hidden />
-              </button>
-            </div>
-          </header>
-          {resultsBody}
-        </motion.section>
-      ) : null}
-    </AnimatePresence>
-  );
+  if (isHero) {
+    return (
+      <div className="pointer-events-auto w-full max-w-3xl">
+        {composer}
+        <AnimatePresence>
+          {open ? (
+            <motion.section
+              key="ai-search-panel"
+              data-testid="ai-search-panel"
+              initial={{ y: -8, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -8, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+              className="mt-3 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm"
+              aria-label="Turta'ya Sor"
+            >
+              {headerBlock}
+              {resultsBody}
+            </motion.section>
+          ) : null}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
+  // Dock / home modal: single opaque card (header + results + chips/input).
   return (
-    <div
-      className={
-        isHero
-          ? 'pointer-events-auto w-full max-w-3xl'
-          : 'pointer-events-auto w-full max-w-2xl'
-      }
-    >
-      {isHero ? (
-        <>
-          {formBlock}
-          {resultsPanel}
-        </>
-      ) : (
-        <>
-          {resultsPanel}
-          {formBlock}
-        </>
-      )}
+    <div className="pointer-events-auto w-full max-w-2xl">
+      <motion.section
+        key="ai-search-panel-shell"
+        data-testid={showResultsChrome ? 'ai-search-panel' : 'ai-search-shell'}
+        initial={isModal ? { y: 24, opacity: 0 } : false}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+        className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl shadow-neutral-900/20"
+        aria-label="Turta'ya Sor"
+      >
+        {showResultsChrome ? (
+          <>
+            {headerBlock}
+            {resultsBody}
+          </>
+        ) : null}
+        {composer}
+      </motion.section>
     </div>
   );
 }

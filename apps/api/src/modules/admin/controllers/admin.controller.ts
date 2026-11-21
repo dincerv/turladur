@@ -16,8 +16,9 @@ import {
 import { Role } from '@turta/shared-constants';
 
 import { PLATFORM_ADMIN_ROLES } from '../../../core/auth/utils/role-access';
-
+import { CurrentUser } from '../../../core/auth/decorators/current-user.decorator';
 import { Roles } from '../../../core/auth/decorators/roles.decorator';
+import { UserPayload } from '../../../core/auth/types/auth.types';
 import { SetAgencyStatusDto } from '../../identity/dto/agency.dto';
 import { AdminService } from '../services/admin.service';
 
@@ -78,6 +79,10 @@ class UpdateExperienceStatusDto {
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
+  private actorOf(user: UserPayload) {
+    return { userId: user.userId };
+  }
+
   @Get('dashboard/stats')
   @ApiOperation({ summary: 'Platform-wide admin statistics' })
   stats() {
@@ -92,8 +97,12 @@ export class AdminController {
 
   @Patch('users/:id')
   @ApiOperation({ summary: 'Update user role or active flag' })
-  updateUser(@Param('id') id: string, @Body() dto: UpdateUserDto) {
-    return this.adminService.updateUser(id, dto);
+  updateUser(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserDto,
+    @CurrentUser() user: UserPayload,
+  ) {
+    return this.adminService.updateUser(id, dto, this.actorOf(user));
   }
 
   @Get('partners')
@@ -104,8 +113,17 @@ export class AdminController {
 
   @Patch('partners/:id/status')
   @ApiOperation({ summary: 'Approve / reject / suspend partner' })
-  partnerStatus(@Param('id') id: string, @Body() dto: UpdatePartnerStatusDto) {
-    return this.adminService.setPartnerStatus(id, dto.status, dto.note);
+  partnerStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdatePartnerStatusDto,
+    @CurrentUser() user: UserPayload,
+  ) {
+    return this.adminService.setPartnerStatus(
+      id,
+      dto.status,
+      dto.note,
+      this.actorOf(user),
+    );
   }
 
   @Get('guides')
@@ -116,8 +134,17 @@ export class AdminController {
 
   @Patch('guides/:id/status')
   @ApiOperation({ summary: 'Approve / reject / suspend guide' })
-  guideStatus(@Param('id') id: string, @Body() dto: UpdatePartnerStatusDto) {
-    return this.adminService.setGuideStatus(id, dto.status, dto.note);
+  guideStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdatePartnerStatusDto,
+    @CurrentUser() user: UserPayload,
+  ) {
+    return this.adminService.setGuideStatus(
+      id,
+      dto.status,
+      dto.note,
+      this.actorOf(user),
+    );
   }
 
   @Get('tours/pending')
@@ -136,8 +163,17 @@ export class AdminController {
 
   @Patch('tours/:id/status')
   @ApiOperation({ summary: 'Publish / archive / draft a tour' })
-  tourStatus(@Param('id') id: string, @Body() dto: UpdateTourStatusDto) {
-    return this.adminService.setTourStatus(id, dto.status, dto.note);
+  tourStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateTourStatusDto,
+    @CurrentUser() user: UserPayload,
+  ) {
+    return this.adminService.setTourStatus(
+      id,
+      dto.status,
+      dto.note,
+      this.actorOf(user),
+    );
   }
 
   @Get('experiences/pending')
@@ -151,8 +187,14 @@ export class AdminController {
   experienceStatus(
     @Param('id') id: string,
     @Body() dto: UpdateExperienceStatusDto,
+    @CurrentUser() user: UserPayload,
   ) {
-    return this.adminService.setExperienceStatus(id, dto.status, dto.note);
+    return this.adminService.setExperienceStatus(
+      id,
+      dto.status,
+      dto.note,
+      this.actorOf(user),
+    );
   }
 
   @Get('agencies')
@@ -163,15 +205,29 @@ export class AdminController {
 
   @Patch('agencies/:id/approve')
   @ApiOperation({ summary: 'Approve agency (shortcut → VERIFIED)' })
-  approveAgency(@Param('id') id: string) {
-    return this.adminService.setAgencyStatus(id, 'VERIFIED');
+  approveAgency(@Param('id') id: string, @CurrentUser() user: UserPayload) {
+    return this.adminService.setAgencyStatus(
+      id,
+      'VERIFIED',
+      undefined,
+      this.actorOf(user),
+    );
   }
 
   @Patch('agencies/:id/status')
   @ApiOperation({ summary: 'Verify / reject / suspend agency' })
-  agencyStatus(@Param('id') id: string, @Body() dto: SetAgencyStatusDto) {
+  agencyStatus(
+    @Param('id') id: string,
+    @Body() dto: SetAgencyStatusDto,
+    @CurrentUser() user: UserPayload,
+  ) {
     const status = dto.status === 'APPROVED' ? 'VERIFIED' : dto.status;
-    return this.adminService.setAgencyStatus(id, status, dto.note);
+    return this.adminService.setAgencyStatus(
+      id,
+      status,
+      dto.note,
+      this.actorOf(user),
+    );
   }
 
   @Get('reservations')
@@ -180,15 +236,73 @@ export class AdminController {
     return this.adminService.listReservations({ status, q });
   }
 
+  @Get('reviews/tours')
+  @ApiOperation({ summary: 'Tour-grouped review moderation summary' })
+  reviewTours(@Query('q') q?: string) {
+    return this.adminService.listReviewTours(q);
+  }
+
+  @Get('reviews/tours/:tourId')
+  @ApiOperation({ summary: 'Reviews for a single tour' })
+  tourReviews(
+    @Param('tourId') tourId: string,
+    @Query('includeHidden') includeHidden?: string,
+  ) {
+    return this.adminService.listTourReviews(tourId, {
+      includeHidden:
+        includeHidden === '1' ||
+        includeHidden === 'true' ||
+        includeHidden === 'yes',
+    });
+  }
+
   @Get('reviews')
-  @ApiOperation({ summary: 'List recent reviews for moderation' })
+  @ApiOperation({ summary: 'List recent reviews for moderation (legacy flat)' })
   reviews(@Query('q') q?: string) {
     return this.adminService.listReviews(q);
   }
 
   @Patch('reviews/:id/hide')
   @ApiOperation({ summary: 'Hide (soft-delete) a review' })
-  hideReview(@Param('id') id: string) {
-    return this.adminService.hideReview(id);
+  hideReview(@Param('id') id: string, @CurrentUser() user: UserPayload) {
+    return this.adminService.hideReview(id, this.actorOf(user));
+  }
+
+  @Patch('reviews/:id/restore')
+  @ApiOperation({ summary: 'Restore a hidden review' })
+  restoreReview(@Param('id') id: string, @CurrentUser() user: UserPayload) {
+    return this.adminService.restoreReview(id, this.actorOf(user));
+  }
+
+  @Get('audit-logs/entity/:entityType/:entityId')
+  @ApiOperation({ summary: 'Audit timeline for a single entity' })
+  entityAudit(
+    @Param('entityType') entityType: string,
+    @Param('entityId') entityId: string,
+  ) {
+    return this.adminService.listEntityAudit(entityType, entityId);
+  }
+
+  @Get('audit-logs')
+  @ApiOperation({ summary: 'Platform admin audit log (filterable)' })
+  auditLogs(
+    @Query('actorId') actorId?: string,
+    @Query('action') action?: string,
+    @Query('entityType') entityType?: string,
+    @Query('entityId') entityId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('take') take?: string,
+  ) {
+    const takeNum = take ? Number(take) : undefined;
+    return this.adminService.listAuditLogs({
+      actorId,
+      action,
+      entityType,
+      entityId,
+      from,
+      to,
+      take: Number.isFinite(takeNum) ? takeNum : undefined,
+    });
   }
 }

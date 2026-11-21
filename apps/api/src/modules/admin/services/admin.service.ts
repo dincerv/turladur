@@ -2,10 +2,17 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '../../../generated/prisma';
 
+import { AuditService } from '../../../core/audit/audit.service';
 import { CacheService } from '../../../core/cache/cache.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { BusinessException } from '../../../shared/exceptions/business.exception';
 import { PartnerVerifiedEvent } from '../../identity/events/partner-verified.event';
+
+type AdminActor = {
+  userId: string;
+  email?: string | null;
+  name?: string | null;
+};
 
 @Injectable()
 export class AdminService {
@@ -13,7 +20,63 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly cache: CacheService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly audit: AuditService,
   ) {}
+
+  private async resolveActorLabel(actor: AdminActor): Promise<{
+    actorId: string;
+    actorEmail: string | null;
+    actorName: string | null;
+  }> {
+    if (actor.email || actor.name) {
+      return {
+        actorId: actor.userId,
+        actorEmail: actor.email ?? null,
+        actorName: actor.name ?? null,
+      };
+    }
+    const user = await this.prisma.user.findFirst({
+      where: { id: actor.userId, deletedAt: null },
+      select: { email: true, firstName: true, lastName: true },
+    });
+    const name = [user?.firstName, user?.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    return {
+      actorId: actor.userId,
+      actorEmail: user?.email ?? null,
+      actorName: name || null,
+    };
+  }
+
+  private async recordAdminAction(input: {
+    actor: AdminActor;
+    action: string;
+    actionLabel: string;
+    entityType: string;
+    entityId: string;
+    entityLabel?: string | null;
+    note?: string | null;
+    meta?: Record<string, unknown>;
+  }): Promise<void> {
+    const actor = await this.resolveActorLabel(input.actor);
+    await this.audit.record({
+      actorType: 'PLATFORM_ADMIN',
+      actorId: actor.actorId,
+      action: input.action,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      meta: {
+        actionLabel: input.actionLabel,
+        entityLabel: input.entityLabel ?? null,
+        note: input.note ?? null,
+        actorEmail: actor.actorEmail,
+        actorName: actor.actorName,
+        ...(input.meta ?? {}),
+      },
+    });
+  }
 
   async getDashboardStats() {
     const [
@@ -87,6 +150,7 @@ export class AdminService {
   async updateUser(
     userId: string,
     input: { isActive?: boolean; role?: string },
+    actor?: AdminActor,
   ) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
@@ -139,6 +203,21 @@ export class AdminService {
       },
     });
 
+    if (actor) {
+      await this.recordAdminAction({
+        actor,
+        action: 'USER_UPDATED',
+        actionLabel: 'Kullanıcı Güncellendi',
+        entityType: 'User',
+        entityId: updated.id,
+        entityLabel: updated.email,
+        meta: {
+          isActive: updated.isActive,
+          role: updated.role,
+        },
+      });
+    }
+
     return { success: true, data: updated, error: null };
   }
 
@@ -177,6 +256,7 @@ export class AdminService {
     agencyId: string,
     status: 'VERIFIED' | 'REJECTED' | 'SUSPENDED',
     note?: string,
+    actor?: AdminActor,
   ) {
     const partner = await this.prisma.agency.findFirst({
       where: { id: agencyId, deletedAt: null },
@@ -191,6 +271,7 @@ export class AdminService {
     this.assertModerationNote(status, note);
 
     const wasVerified = partner.status === 'VERIFIED';
+    const prevStatus = partner.status;
     const trimmed = note?.trim().slice(0, 500) || null;
     const updated = await this.prisma.agency.update({
       where: { id: agencyId },
@@ -210,6 +291,35 @@ export class AdminService {
 
     if (status === 'VERIFIED' && !wasVerified) {
       this.emitPartnerVerified(updated);
+    }
+
+    if (actor) {
+      const action =
+        status === 'REJECTED'
+          ? 'AGENCY_REJECTED'
+          : status === 'SUSPENDED'
+            ? 'AGENCY_SUSPENDED'
+            : prevStatus === 'SUSPENDED'
+              ? 'AGENCY_UNSUSPENDED'
+              : 'AGENCY_VERIFIED';
+      const actionLabel =
+        status === 'REJECTED'
+          ? 'Acente Reddedildi'
+          : status === 'SUSPENDED'
+            ? 'Acente Askıya Alındı'
+            : prevStatus === 'SUSPENDED'
+              ? 'Acente Askısı Kaldırıldı'
+              : 'Acente Onaylandı';
+      await this.recordAdminAction({
+        actor,
+        action,
+        actionLabel,
+        entityType: 'Agency',
+        entityId: updated.id,
+        entityLabel: updated.companyName,
+        note: trimmed,
+        meta: { fromStatus: prevStatus, toStatus: status },
+      });
     }
 
     return {
@@ -270,6 +380,7 @@ export class AdminService {
     guideId: string,
     status: 'VERIFIED' | 'REJECTED' | 'SUSPENDED',
     note?: string,
+    actor?: AdminActor,
   ) {
     const guide = await this.prisma.guide.findFirst({
       where: { id: guideId, deletedAt: null },
@@ -283,6 +394,7 @@ export class AdminService {
 
     this.assertModerationNote(status, note);
 
+    const prevStatus = guide.status;
     const trimmed = note?.trim().slice(0, 500) || null;
     const updated = await this.prisma.guide.update({
       where: { id: guideId },
@@ -299,6 +411,35 @@ export class AdminService {
               : guide.moderatedAt,
       },
     });
+
+    if (actor) {
+      const action =
+        status === 'REJECTED'
+          ? 'GUIDE_REJECTED'
+          : status === 'SUSPENDED'
+            ? 'GUIDE_SUSPENDED'
+            : prevStatus === 'SUSPENDED'
+              ? 'GUIDE_UNSUSPENDED'
+              : 'GUIDE_VERIFIED';
+      const actionLabel =
+        status === 'REJECTED'
+          ? 'Rehber Reddedildi'
+          : status === 'SUSPENDED'
+            ? 'Rehber Askıya Alındı'
+            : prevStatus === 'SUSPENDED'
+              ? 'Rehber Askısı Kaldırıldı'
+              : 'Rehber Onaylandı';
+      await this.recordAdminAction({
+        actor,
+        action,
+        actionLabel,
+        entityType: 'Guide',
+        entityId: updated.id,
+        entityLabel: `${updated.firstName} ${updated.lastName}`.trim(),
+        note: trimmed,
+        meta: { fromStatus: prevStatus, toStatus: status },
+      });
+    }
 
     return {
       success: true,
@@ -438,6 +579,7 @@ export class AdminService {
     experienceId: string,
     status: 'PUBLISHED' | 'ARCHIVED' | 'DRAFT',
     note?: string,
+    actor?: AdminActor,
   ) {
     const experience = await this.prisma.experience.findFirst({
       where: { id: experienceId, deletedAt: null },
@@ -476,6 +618,31 @@ export class AdminService {
       },
     });
 
+    if (actor) {
+      const action =
+        status === 'PUBLISHED'
+          ? 'EXPERIENCE_PUBLISHED'
+          : status === 'DRAFT'
+            ? 'EXPERIENCE_REJECTED'
+            : 'EXPERIENCE_ARCHIVED';
+      const actionLabel =
+        status === 'PUBLISHED'
+          ? 'Deneyim Onaylandı'
+          : status === 'DRAFT'
+            ? 'Deneyim Reddedildi'
+            : 'Deneyim Arşivlendi';
+      await this.recordAdminAction({
+        actor,
+        action,
+        actionLabel,
+        entityType: 'Experience',
+        entityId: updated.id,
+        entityLabel: updated.title,
+        note: trimmed,
+        meta: { toStatus: status },
+      });
+    }
+
     return {
       success: true,
       data: {
@@ -492,6 +659,7 @@ export class AdminService {
     tourId: string,
     status: 'PUBLISHED' | 'ARCHIVED' | 'DRAFT',
     note?: string,
+    actor?: AdminActor,
   ) {
     const tour = await this.prisma.tour.findFirst({
       where: { id: tourId, deletedAt: null },
@@ -549,14 +717,15 @@ export class AdminService {
       !Array.isArray(tour.extras)
         ? { ...(tour.extras as Record<string, unknown>) }
         : {};
+    const trimmed = note?.trim().slice(0, 500) || null;
     if (status === 'DRAFT') {
-      if (!note?.trim()) {
+      if (!trimmed) {
         throw new BusinessException(
           'MODERATION_NOTE_REQUIRED',
           'Red için gerekçe zorunludur',
         );
       }
-      prevExtras.moderationNote = note.trim().slice(0, 500);
+      prevExtras.moderationNote = trimmed;
       prevExtras.moderatedAt = new Date().toISOString();
     }
     if (status === 'PUBLISHED') {
@@ -574,6 +743,31 @@ export class AdminService {
 
     await this.cache.invalidatePattern('catalog:tours:search:*');
     await this.cache.del(`catalog:tour:${tourId}`);
+
+    if (actor) {
+      const action =
+        status === 'PUBLISHED'
+          ? 'TOUR_PUBLISHED'
+          : status === 'DRAFT'
+            ? 'TOUR_REJECTED'
+            : 'TOUR_ARCHIVED';
+      const actionLabel =
+        status === 'PUBLISHED'
+          ? 'Tur Onaylandı'
+          : status === 'DRAFT'
+            ? 'Tur Reddedildi'
+            : 'Tur Arşivlendi';
+      await this.recordAdminAction({
+        actor,
+        action,
+        actionLabel,
+        entityType: 'Tour',
+        entityId: updated.id,
+        entityLabel: updated.title,
+        note: trimmed,
+        meta: { toStatus: status, agencyId: updated.agencyId },
+      });
+    }
 
     return {
       success: true,
@@ -620,8 +814,9 @@ export class AdminService {
     agencyId: string,
     status: 'VERIFIED' | 'REJECTED' | 'SUSPENDED',
     note?: string,
+    actor?: AdminActor,
   ) {
-    return this.setPartnerStatus(agencyId, status, note);
+    return this.setPartnerStatus(agencyId, status, note, actor);
   }
 
   private assertModerationNote(
@@ -803,7 +998,195 @@ export class AdminService {
     };
   }
 
-  async hideReview(reviewId: string) {
+  /** Tur bazlı yorum özeti — admin moderasyon listesi. */
+  async listReviewTours(q?: string) {
+    const query = q?.trim().toLowerCase();
+    const reviews = await this.prisma.review.findMany({
+      where: { tourId: { not: null } },
+      select: {
+        tourId: true,
+        agencyId: true,
+        rating: true,
+        deletedAt: true,
+      },
+      take: 5000,
+    });
+
+    const byTour = new Map<
+      string,
+      {
+        agencyId: string;
+        reviewCount: number;
+        ratingSum: number;
+        needsReviewCount: number;
+        hiddenCount: number;
+      }
+    >();
+
+    for (const row of reviews) {
+      if (!row.tourId) continue;
+      const cur = byTour.get(row.tourId) ?? {
+        agencyId: row.agencyId,
+        reviewCount: 0,
+        ratingSum: 0,
+        needsReviewCount: 0,
+        hiddenCount: 0,
+      };
+      if (row.deletedAt) {
+        cur.hiddenCount += 1;
+      } else {
+        cur.reviewCount += 1;
+        cur.ratingSum += row.rating;
+        if (row.rating <= 2) cur.needsReviewCount += 1;
+      }
+      byTour.set(row.tourId, cur);
+    }
+
+    const tourIds = [...byTour.keys()];
+    if (tourIds.length === 0) {
+      return { success: true, data: [], error: null };
+    }
+
+    const [tours, agencies] = await Promise.all([
+      this.prisma.tour.findMany({
+        where: { id: { in: tourIds }, deletedAt: null },
+        select: { id: true, title: true, agencyId: true },
+      }),
+      this.prisma.agency.findMany({
+        where: {
+          id: {
+            in: [
+              ...new Set(
+                [...byTour.values()].map((v) => v.agencyId).filter(Boolean),
+              ),
+            ],
+          },
+        },
+        select: { id: true, companyName: true },
+      }),
+    ]);
+
+    const tourById = new Map(tours.map((t) => [t.id, t]));
+    const agencyById = new Map(agencies.map((a) => [a.id, a.companyName]));
+
+    let data = tourIds
+      .map((tourId) => {
+        const agg = byTour.get(tourId)!;
+        const tour = tourById.get(tourId);
+        const agencyName = agencyById.get(agg.agencyId) ?? null;
+        return {
+          tourId,
+          title: tour?.title ?? 'Silinmiş tur',
+          agencyId: agg.agencyId,
+          agencyName,
+          reviewCount: agg.reviewCount,
+          averageRating:
+            agg.reviewCount > 0
+              ? Math.round((agg.ratingSum / agg.reviewCount) * 10) / 10
+              : 0,
+          needsReviewCount: agg.needsReviewCount,
+          hiddenCount: agg.hiddenCount,
+        };
+      })
+      .sort(
+        (a, b) =>
+          b.reviewCount - a.reviewCount ||
+          b.needsReviewCount - a.needsReviewCount,
+      );
+
+    if (query) {
+      data = data.filter(
+        (row) =>
+          row.title.toLowerCase().includes(query) ||
+          (row.agencyName?.toLowerCase().includes(query) ?? false),
+      );
+    }
+
+    return { success: true, data: data.slice(0, 100), error: null };
+  }
+
+  async listTourReviews(tourId: string, opts?: { includeHidden?: boolean }) {
+    const tour = await this.prisma.tour.findFirst({
+      where: { id: tourId, deletedAt: null },
+      select: {
+        id: true,
+        title: true,
+        agencyId: true,
+        agency: { select: { companyName: true } },
+      },
+    });
+    if (!tour) {
+      throw new NotFoundException({
+        code: 'TOUR_NOT_FOUND',
+        message: 'Tur bulunamadı',
+      });
+    }
+
+    const rows = await this.prisma.review.findMany({
+      where: {
+        tourId,
+        ...(opts?.includeHidden ? {} : { deletedAt: null }),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+      select: {
+        id: true,
+        tourId: true,
+        agencyId: true,
+        rating: true,
+        comment: true,
+        photoUrls: true,
+        guideRating: true,
+        operatorRating: true,
+        routeRating: true,
+        foodRating: true,
+        hotelRating: true,
+        transportRating: true,
+        accommodationRating: true,
+        agencyReply: true,
+        partnerReply: true,
+        tags: true,
+        travelerContext: true,
+        deletedAt: true,
+        createdAt: true,
+      },
+    });
+
+    return {
+      success: true,
+      data: {
+        tour: {
+          id: tour.id,
+          title: tour.title,
+          agencyId: tour.agencyId,
+          agencyName: tour.agency?.companyName ?? null,
+        },
+        reviews: rows.map((row) => ({
+          id: row.id,
+          tourId: row.tourId,
+          agencyId: row.agencyId,
+          rating: row.rating,
+          comment: row.comment,
+          photoUrls: row.photoUrls ?? [],
+          guideRating: row.guideRating,
+          operatorRating: row.operatorRating,
+          routeRating: row.routeRating,
+          foodRating: row.foodRating,
+          hotelRating: row.hotelRating,
+          transportRating: row.transportRating,
+          accommodationRating: row.accommodationRating,
+          agencyReply: row.agencyReply ?? row.partnerReply,
+          tags: row.tags ?? [],
+          travelerContext: row.travelerContext,
+          hidden: Boolean(row.deletedAt),
+          createdAt: row.createdAt.toISOString(),
+        })),
+      },
+      error: null,
+    };
+  }
+
+  async hideReview(reviewId: string, actor?: AdminActor) {
     const review = await this.prisma.review.findFirst({
       where: { id: reviewId, deletedAt: null },
     });
@@ -819,10 +1202,172 @@ export class AdminService {
       data: { deletedAt: new Date() },
     });
 
+    if (actor) {
+      let entityLabel: string | null = null;
+      if (review.tourId) {
+        const tour = await this.prisma.tour.findFirst({
+          where: { id: review.tourId },
+          select: { title: true },
+        });
+        entityLabel = tour?.title ?? null;
+      }
+      await this.recordAdminAction({
+        actor,
+        action: 'REVIEW_HIDDEN',
+        actionLabel: 'Yorum Gizlendi',
+        entityType: 'Review',
+        entityId: reviewId,
+        entityLabel,
+        meta: {
+          tourId: review.tourId,
+          agencyId: review.agencyId,
+          rating: review.rating,
+        },
+      });
+    }
+
     return {
       success: true,
       data: { id: reviewId, hidden: true },
       error: null,
+    };
+  }
+
+  async restoreReview(reviewId: string, actor?: AdminActor) {
+    const review = await this.prisma.review.findFirst({
+      where: { id: reviewId, deletedAt: { not: null } },
+    });
+    if (!review) {
+      throw new NotFoundException({
+        code: 'REVIEW_NOT_FOUND',
+        message: 'Gizli yorum bulunamadı',
+      });
+    }
+
+    await this.prisma.review.update({
+      where: { id: reviewId },
+      data: { deletedAt: null },
+    });
+
+    if (actor) {
+      let entityLabel: string | null = null;
+      if (review.tourId) {
+        const tour = await this.prisma.tour.findFirst({
+          where: { id: review.tourId },
+          select: { title: true },
+        });
+        entityLabel = tour?.title ?? null;
+      }
+      await this.recordAdminAction({
+        actor,
+        action: 'REVIEW_RESTORED',
+        actionLabel: 'Yorum Yayına Alındı',
+        entityType: 'Review',
+        entityId: reviewId,
+        entityLabel,
+        meta: {
+          tourId: review.tourId,
+          agencyId: review.agencyId,
+          rating: review.rating,
+        },
+      });
+    }
+
+    return {
+      success: true,
+      data: { id: reviewId, hidden: false },
+      error: null,
+    };
+  }
+
+  async listAuditLogs(filters?: {
+    actorId?: string;
+    action?: string;
+    entityType?: string;
+    entityId?: string;
+    from?: string;
+    to?: string;
+    take?: number;
+  }) {
+    const take = Math.min(Math.max(filters?.take ?? 100, 1), 200);
+    const createdAt: Prisma.DateTimeFilter = {};
+    if (filters?.from) {
+      const from = new Date(filters.from);
+      if (!Number.isNaN(from.getTime())) createdAt.gte = from;
+    }
+    if (filters?.to) {
+      const to = new Date(filters.to);
+      if (!Number.isNaN(to.getTime())) createdAt.lte = to;
+    }
+
+    const rows = await this.prisma.auditLog.findMany({
+      where: {
+        actorType: 'PLATFORM_ADMIN',
+        ...(filters?.actorId ? { actorId: filters.actorId } : {}),
+        ...(filters?.action ? { action: filters.action } : {}),
+        ...(filters?.entityType ? { entityType: filters.entityType } : {}),
+        ...(filters?.entityId ? { entityId: filters.entityId } : {}),
+        ...(Object.keys(createdAt).length ? { createdAt } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take,
+    });
+
+    return {
+      success: true,
+      data: rows.map((row) => this.mapAuditRow(row)),
+      error: null,
+    };
+  }
+
+  async listEntityAudit(entityType: string, entityId: string) {
+    const rows = await this.prisma.auditLog.findMany({
+      where: {
+        entityType,
+        entityId,
+        actorType: 'PLATFORM_ADMIN',
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    return {
+      success: true,
+      data: rows.map((row) => this.mapAuditRow(row)),
+      error: null,
+    };
+  }
+
+  private mapAuditRow(row: {
+    id: string;
+    actorType: string;
+    actorId: string | null;
+    action: string;
+    entityType: string;
+    entityId: string | null;
+    meta: Prisma.JsonValue;
+    createdAt: Date;
+  }) {
+    const meta =
+      row.meta && typeof row.meta === 'object' && !Array.isArray(row.meta)
+        ? (row.meta as Record<string, unknown>)
+        : {};
+    return {
+      id: row.id,
+      actorId: row.actorId,
+      actorType: row.actorType,
+      actorName: typeof meta.actorName === 'string' ? meta.actorName : null,
+      actorEmail: typeof meta.actorEmail === 'string' ? meta.actorEmail : null,
+      action: row.action,
+      actionLabel:
+        typeof meta.actionLabel === 'string' ? meta.actionLabel : row.action,
+      entityType: row.entityType,
+      entityId: row.entityId,
+      entityLabel:
+        typeof meta.entityLabel === 'string' ? meta.entityLabel : null,
+      note: typeof meta.note === 'string' ? meta.note : null,
+      meta,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 }

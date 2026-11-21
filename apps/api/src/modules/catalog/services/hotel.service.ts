@@ -172,7 +172,7 @@ export class HotelService {
 
   private async ensurePartnerCapability(
     agencyId: string | undefined,
-    capability: 'TOURS' | 'TOURS' | 'TOURS',
+    capability: 'TOURS',
   ) {
     if (!agencyId) {
       throw new ForbiddenException({

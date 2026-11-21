@@ -72,18 +72,28 @@ function StarPicker({
 }
 
 function ScoreBar({ label, value }: { label: string; value: number | null }) {
-  const pct = value != null && value > 0 ? Math.min(100, (value / 5) * 100) : 0;
+  const numeric =
+    value != null && Number.isFinite(Number(value)) ? Number(value) : null;
+  const pct =
+    numeric != null && numeric > 0 ? Math.min(100, (numeric / 5) * 100) : 0;
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5" data-testid="review-score-bar">
       <div className="flex items-center justify-between text-sm">
         <span className="text-neutral-700">{label}</span>
-        <span className="font-medium text-neutral-900">
-          {value != null && value > 0 ? value.toFixed(1) : '—'}
+        <span className="font-semibold tabular-nums text-neutral-900">
+          {numeric != null && numeric > 0 ? numeric.toFixed(1) : '—'}
         </span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
+      <div
+        className="h-2.5 overflow-hidden rounded-full bg-neutral-200 ring-1 ring-neutral-300/70"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={5}
+        aria-valuenow={numeric != null && numeric > 0 ? numeric : 0}
+        aria-label={label}
+      >
         <div
-          className="h-full rounded-full bg-amber-400 transition-[width]"
+          className="h-full rounded-full bg-amber-500 shadow-sm transition-[width] duration-300"
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -272,7 +282,8 @@ export function TourReviews({ tourId }: Props) {
             <p className="text-xs text-neutral-500">
               {summary.reviewCount} yorum
             </p>
-            {summary.ratingSource === 'AGENCY_COLD_START' ? (
+            {summary.ratingSource === 'AGENCY_COLD_START' &&
+            summary.reviewCount === 0 ? (
               <p className="mt-1 text-xs font-medium text-amber-700">
                 Yeni Rota — Acente Puanı
                 {summary.agencyReviewCount != null
@@ -293,20 +304,31 @@ export function TourReviews({ tourId }: Props) {
             />
             <ScoreBar
               label={CRITERION_LABELS.value}
-              value={summary.averageValueRating}
+              value={
+                summary.averageValueRating ??
+                (summary.reviewCount > 0 ? summary.averageRating : null)
+              }
             />
-            {summary.criteria.transport ? (
-              <ScoreBar
-                label={CRITERION_LABELS.transport}
-                value={summary.averageTransportRating}
-              />
-            ) : null}
-            {summary.criteria.accommodation ? (
-              <ScoreBar
-                label={CRITERION_LABELS.accommodation}
-                value={summary.averageAccommodationRating}
-              />
-            ) : null}
+            <ScoreBar
+              label={CRITERION_LABELS.transport}
+              value={
+                summary.criteria.transport
+                  ? summary.averageTransportRating
+                  : summary.reviewCount > 0
+                    ? summary.averageRating
+                    : null
+              }
+            />
+            <ScoreBar
+              label={CRITERION_LABELS.accommodation}
+              value={
+                summary.criteria.accommodation
+                  ? summary.averageAccommodationRating
+                  : summary.reviewCount > 0
+                    ? summary.averageRating
+                    : null
+              }
+            />
           </div>
           <div>
             <p className="mb-2 text-sm font-medium text-neutral-800">

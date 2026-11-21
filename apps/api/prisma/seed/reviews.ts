@@ -68,7 +68,7 @@ export async function seedCustomerReviews(
   const tourAgg = new Map<string, ReviewAgg>();
   const agencyAgg = new Map<string, { sum: number; count: number }>();
 
-  // 5 agencies × 3 tours × up to 2 reviews = rich tour detail + profile “Yorumlarım”
+  // Her acentenin tüm demo turlarına doğrulanmış yorum — özet count ile liste tutarlı kalsın
   for (
     let agencyIndex = 0;
     agencyIndex < identity.agencies.length;
@@ -81,24 +81,33 @@ export async function seedCustomerReviews(
     const guide = identity.guides[agencyIndex];
     const bus = identity.busCompanies[agencyIndex];
 
-    for (
-      let tourIndex = 0;
-      tourIndex < Math.min(3, agencyTours.length);
-      tourIndex++
-    ) {
+    for (let tourIndex = 0; tourIndex < agencyTours.length; tourIndex++) {
       const tour = agencyTours[tourIndex];
-      const reviewsForTour = tourIndex === 0 ? 3 : 2;
+      const reviewsForTour = tourIndex === 0 ? 3 : tourIndex < 3 ? 2 : 3;
 
       for (let r = 0; r < reviewsForTour; r++) {
         const customer =
           identity.customers[
             (agencyIndex + tourIndex + r) % identity.customers.length
           ];
-        const rating = 3 + ((agencyIndex + tourIndex + r) % 3); // 3–5
-        const guideRating = Math.min(5, rating + (r % 2));
-        const transportRating = Math.max(3, rating - (r % 2));
-        const accommodationRating = rating;
-        const operatorRating = Math.min(5, rating + 1);
+        // Alt puanlar önce; genel puan 6 kategorinin yuvarlanmış ortalaması
+        const base = 3 + ((agencyIndex + tourIndex + r) % 3); // 3–5
+        const guideRating = Math.min(5, base + (r % 2));
+        const transportRating = Math.max(3, base - (r % 2));
+        const accommodationRating = base;
+        const hotelRating = base;
+        const operatorRating = Math.min(5, base + ((r + 1) % 2));
+        const routeRating = base;
+        const foodRating = Math.max(3, base - 1);
+        const rating = Math.round(
+          (guideRating +
+            operatorRating +
+            routeRating +
+            foodRating +
+            hotelRating +
+            transportRating) /
+            6,
+        );
         const bookingNumber = `SEEDREV${String(1000 + tourReviews + 1).padStart(4, '0')}`;
 
         const reservation = await prisma.reservation.create({
@@ -190,9 +199,10 @@ export async function seedCustomerReviews(
             guideRating,
             transportRating,
             accommodationRating,
+            hotelRating,
             operatorRating,
-            routeRating: rating,
-            foodRating: Math.max(3, rating - 1),
+            routeRating,
+            foodRating,
             guideFeedback: 'Rehber bilgilendiriciydi.',
             transportFeedback: 'Ulaşım zamanında ve temizdi.',
             accommodationFeedback: 'Konaklama paketle uyumluydu.',
@@ -393,6 +403,32 @@ export async function seedCustomerReviews(
         ),
         averageOperatorRating: avg(agg.operatorSum, agg.operatorCount),
         lastReviewAt: new Date(),
+      },
+    });
+  }
+
+  // Yorumu olmayan turlarda katalog sahte sayaç bırakma
+  for (const tour of catalog.tours) {
+    if (tourAgg.has(tour.id)) continue;
+    await prisma.tour.update({
+      where: { id: tour.id },
+      data: { averageRating: 0, reviewCount: 0 },
+    });
+    await prisma.tourMetrics.upsert({
+      where: { tourId: tour.id },
+      update: {
+        reviewCount: 0,
+        averageRating: 0,
+        averageGuideRating: 0,
+        averageTransportRating: 0,
+        averageAccommodationRating: 0,
+        averageOperatorRating: 0,
+        lastReviewAt: null,
+      },
+      create: {
+        tourId: tour.id,
+        reviewCount: 0,
+        averageRating: 0,
       },
     });
   }

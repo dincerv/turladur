@@ -8,6 +8,11 @@ import { ArrowLeft, ArrowRight, CheckCircle, Plus, Trash2 } from 'lucide-react';
 
 import { ImageUploadField } from '@/components/features/partner/image-upload-field';
 import {
+  RouteStopForm,
+  type RouteStopFormItem,
+} from '@/components/features/partner-dashboard/route-stop-form';
+import { ItineraryProgramForm } from '@/components/features/tour/itinerary/itinerary-program-form';
+import {
   TOUR_CREATE_CATEGORIES,
   tourCreateDatesPricingSchema,
   tourCreateGeneralSchema,
@@ -17,13 +22,19 @@ import {
   type TourCreateCategory,
   type TourCreatePickupPoint,
 } from '@/components/features/acente-tours/tour-create-schemas';
+import {
+  emptyItineraryDay,
+  itineraryDaysToExtrasArray,
+  syncItineraryDays,
+  type ItineraryDayInput,
+} from '@/lib/tours/itinerary-day';
 import { ACENTE_ROUTES } from '@/lib/panel-routes';
 import { useAuth } from '@/providers/auth-provider';
 import { ApiError } from '@/services/api-client';
 import { createPartnerTour, getPartnerProfile } from '@/services/partner-admin';
 import { revalidatePartnerTourPaths } from '@/app/(agency)/acente/tours/actions';
 
-type Step = 'general' | 'dates' | 'pickup' | 'media';
+type Step = 'general' | 'dates' | 'pickup' | 'program' | 'media';
 
 type FormState = {
   title: string;
@@ -38,6 +49,8 @@ type FormState = {
   dateEnd: string;
   capacity: number;
   pickupPoints: TourCreatePickupPoint[];
+  routeStops: RouteStopFormItem[];
+  itineraryDays: ItineraryDayInput[];
   coverUrl: string | null;
   galleryUrls: string[];
   asDraft: boolean;
@@ -83,6 +96,8 @@ const INITIAL: FormState = {
   dateEnd: isoDateOffset(32),
   capacity: 20,
   pickupPoints: [defaultPickup('Ankara')],
+  routeStops: [],
+  itineraryDays: [emptyItineraryDay(1), emptyItineraryDay(2)],
   coverUrl: null,
   galleryUrls: [],
   asDraft: false,
@@ -126,8 +141,31 @@ export function AcenteTourCreatePage() {
     if (step === 'general') return 0;
     if (step === 'dates') return 1;
     if (step === 'pickup') return 2;
-    return 3;
+    if (step === 'program') return 3;
+    return 4;
   }, [step]);
+
+  useEffect(() => {
+    setForm((prev) => {
+      const days =
+        prev.stayKind === 'DAY_TRIP' ? 1 : Number(prev.durationDays) || 1;
+      const synced = syncItineraryDays(prev.itineraryDays, days, {
+        clearAccommodation: prev.stayKind === 'DAY_TRIP' || days <= 1,
+      });
+      if (
+        synced.length === prev.itineraryDays.length &&
+        synced.every(
+          (d, i) =>
+            d.dayNumber === prev.itineraryDays[i]?.dayNumber &&
+            (d.accommodation ?? '') ===
+              (prev.itineraryDays[i]?.accommodation ?? ''),
+        )
+      ) {
+        return prev;
+      }
+      return { ...prev, itineraryDays: synced };
+    });
+  }, [form.durationDays, form.stayKind]);
 
   function validateCurrentStep(): boolean {
     if (step === 'general') {
@@ -150,6 +188,9 @@ export function AcenteTourCreatePage() {
         setErrors(zodErrorsToRecord(parsed.error));
         return false;
       }
+    } else if (step === 'program') {
+      setErrors({});
+      return true;
     } else {
       const parsed = tourCreateMediaSchema.safeParse(form);
       if (!parsed.success) {
@@ -184,11 +225,13 @@ export function AcenteTourCreatePage() {
       });
       setStep('dates');
     } else if (step === 'dates') setStep('pickup');
-    else if (step === 'pickup') setStep('media');
+    else if (step === 'pickup') setStep('program');
+    else if (step === 'program') setStep('media');
   }
 
   function goBack() {
-    if (step === 'media') setStep('pickup');
+    if (step === 'media') setStep('program');
+    else if (step === 'program') setStep('pickup');
     else if (step === 'pickup') setStep('dates');
     else if (step === 'dates') setStep('general');
     else if (
@@ -267,6 +310,12 @@ export function AcenteTourCreatePage() {
           coverUrl: form.coverUrl || undefined,
           galleryUrls: form.galleryUrls.length ? form.galleryUrls : undefined,
           asDraft: form.asDraft,
+          extras: {
+            itinerary: itineraryDaysToExtrasArray(form.itineraryDays, {
+              omitAccommodation:
+                form.stayKind === 'DAY_TRIP' || Number(form.durationDays) <= 1,
+            }),
+          },
           dates: [
             {
               startDate: form.dateStart,
@@ -284,6 +333,22 @@ export function AcenteTourCreatePage() {
             longitude: point.longitude ?? null,
             order,
           })),
+          routeStops: form.routeStops
+            .filter(
+              (stop) =>
+                stop.name.trim().length >= 2 &&
+                typeof stop.latitude === 'number' &&
+                typeof stop.longitude === 'number',
+            )
+            .map((stop, order) => ({
+              dayNumber: stop.dayNumber,
+              order,
+              name: stop.name.trim(),
+              description: stop.description?.trim() || undefined,
+              latitude: stop.latitude as number,
+              longitude: stop.longitude as number,
+              kind: stop.kind,
+            })),
         },
         accessToken,
       );
@@ -369,7 +434,7 @@ export function AcenteTourCreatePage() {
           <motion.div
             className="h-2.5 rounded-full bg-neutral-950"
             initial={false}
-            animate={{ width: `${((stepIndex + 1) / 4) * 100}%` }}
+            animate={{ width: `${((stepIndex + 1) / 5) * 100}%` }}
           />
         </div>
         <div className="mt-3 flex flex-wrap justify-between gap-2 text-sm">
@@ -378,6 +443,7 @@ export function AcenteTourCreatePage() {
               ['general', 'Genel Bilgiler'],
               ['dates', 'Tarih & Fiyat'],
               ['pickup', 'Kalkış Noktaları'],
+              ['program', 'Günlük Program'],
               ['media', 'Medya Görselleri'],
             ] as const
           ).map(([key, label], i) => (
@@ -710,7 +776,39 @@ export function AcenteTourCreatePage() {
                 <Plus className="mr-1.5 h-4 w-4" aria-hidden />
                 Nokta ekle
               </button>
+
+              <div className="border-t border-neutral-200 pt-4">
+                <RouteStopForm
+                  routeStops={form.routeStops}
+                  onChange={(routeStops) => {
+                    setIsDirty(true);
+                    setForm((prev) => ({ ...prev, routeStops }));
+                  }}
+                  maxDay={Math.max(1, Number(form.durationDays) || 14)}
+                />
+              </div>
             </div>
+          ) : null}
+
+          {step === 'program' ? (
+            <ItineraryProgramForm
+              days={form.itineraryDays}
+              durationDays={
+                form.stayKind === 'DAY_TRIP'
+                  ? 1
+                  : Math.max(1, Number(form.durationDays) || 1)
+              }
+              stayKind={form.stayKind}
+              availableImageUrls={[
+                ...(form.coverUrl ? [form.coverUrl] : []),
+                ...form.galleryUrls,
+              ]}
+              onChange={(itineraryDays) => {
+                setIsDirty(true);
+                setForm((prev) => ({ ...prev, itineraryDays }));
+              }}
+              testIdPrefix="tour-create-itinerary"
+            />
           ) : null}
 
           {step === 'media' ? (

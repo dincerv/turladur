@@ -990,6 +990,21 @@ export const agencyTourCreateSchema = z
       .max(50)
       .optional()
       .default([]),
+    routeStops: z
+      .array(
+        z.object({
+          dayNumber: z.coerce.number().int().min(1).max(60),
+          order: z.coerce.number().int().min(0).optional(),
+          name: z.string().trim().min(2).max(160),
+          description: z.string().trim().max(500).optional().or(z.literal('')),
+          latitude: z.number().finite().min(-90).max(90),
+          longitude: z.number().finite().min(-180).max(180),
+          kind: z.enum(['VISIT', 'LODGING']).optional().default('VISIT'),
+        }),
+      )
+      .max(80)
+      .optional()
+      .default([]),
     accommodation: z
       .object({
         name: z.string().trim().min(2).max(200),

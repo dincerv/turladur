@@ -237,6 +237,24 @@ export class TourService {
         });
       }
 
+      const nestedRouteStops = parsed.routeStops ?? [];
+      for (const [index, stop] of nestedRouteStops.entries()) {
+        await tx.tourRouteStop.create({
+          data: {
+            tourId: created.id,
+            dayNumber: stop.dayNumber,
+            order: stop.order ?? index,
+            name: sanitizeTourPlainText(stop.name, 160),
+            description: stop.description
+              ? sanitizeTourPlainText(stop.description, 500)
+              : undefined,
+            latitude: stop.latitude,
+            longitude: stop.longitude,
+            kind: stop.kind ?? 'VISIT',
+          },
+        });
+      }
+
       if (parsed.accommodation) {
         await tx.tourAccommodation.create({
           data: {
@@ -307,9 +325,7 @@ export class TourService {
     }
 
     const safeExtrasUpdate =
-      dto.extras !== undefined
-        ? sanitizeTourExtras(dto.extras as Record<string, unknown>)
-        : undefined;
+      dto.extras !== undefined ? sanitizeTourExtras(dto.extras) : undefined;
     if (safeExtrasUpdate) {
       data.extras = safeExtrasUpdate as Prisma.InputJsonValue;
     }
@@ -496,6 +512,29 @@ export class TourService {
         }
       }
 
+      if (dto.replaceRouteStops === true) {
+        await tx.tourRouteStop.updateMany({
+          where: { tourId, deletedAt: null },
+          data: { deletedAt: new Date() },
+        });
+        for (const [index, stop] of (dto.routeStops ?? []).entries()) {
+          await tx.tourRouteStop.create({
+            data: {
+              tourId,
+              dayNumber: stop.dayNumber,
+              order: stop.order ?? index,
+              name: sanitizeTourPlainText(stop.name, 160),
+              description: stop.description
+                ? sanitizeTourPlainText(stop.description, 500)
+                : undefined,
+              latitude: stop.latitude,
+              longitude: stop.longitude,
+              kind: stop.kind ?? 'VISIT',
+            },
+          });
+        }
+      }
+
       if (dto.accommodation) {
         const acc = {
           name: sanitizeTourPlainText(dto.accommodation.name, 200),
@@ -588,7 +627,7 @@ export class TourService {
           cancelReasonLabel: reasonLabel,
           cancelNote: note?.trim() || null,
           cancelledAt: new Date().toISOString(),
-        } as Prisma.InputJsonValue,
+        },
       },
     });
 
@@ -705,7 +744,7 @@ export class TourService {
               cancelNote: note?.trim() || null,
               cancelledAt,
               cancelledDateIds: cancelledInfos.map((d) => d.id),
-            } as Prisma.InputJsonValue,
+            },
           },
         });
       }
@@ -1644,7 +1683,7 @@ export class TourService {
       stayKind === 'OVERNIGHT' || Boolean(accommodation);
 
     const reviewCount = tour.metrics?.reviewCount ?? tour.reviewCount;
-    const coldStart = reviewCount < 3;
+    const coldStart = reviewCount === 0;
     const agencyAverageRating = tour.agency?.averageRating
       ? Number(tour.agency.averageRating.toString())
       : null;
@@ -1705,7 +1744,7 @@ export class TourService {
 
   private readExtrasRecord(extras: Prisma.JsonValue): Record<string, unknown> {
     if (extras && typeof extras === 'object' && !Array.isArray(extras)) {
-      return extras as Record<string, unknown>;
+      return extras;
     }
     return {};
   }
@@ -1766,7 +1805,7 @@ export class TourService {
         tour.extras &&
         typeof tour.extras === 'object' &&
         !Array.isArray(tour.extras)
-          ? (tour.extras as Record<string, unknown>)
+          ? tour.extras
           : {},
       price: tour.price.toString(),
       currency: tour.currency,

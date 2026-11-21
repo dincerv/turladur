@@ -217,5 +217,5 @@ export function mergeSeatNumbersIntoMetadata(
   return {
     ...base,
     seatNumbers: seatNumbers.trim(),
-  } as Prisma.InputJsonValue;
+  };
 }

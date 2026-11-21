@@ -112,6 +112,41 @@ export async function getTourPickupPoints(tourId: string) {
   );
 }
 
+export type TourRouteStop = {
+  id: string;
+  tourId: string;
+  dayNumber: number;
+  order: number;
+  name: string;
+  description: string | null;
+  latitude: number;
+  longitude: number;
+  kind: 'VISIT' | 'LODGING';
+};
+
+export async function getTourRouteStops(tourId: string, signal?: AbortSignal) {
+  return apiRequest<TourRouteStop[]>(`/catalog/tours/${tourId}/route-stops`, {
+    next: { revalidate: 60 },
+    signal,
+  });
+}
+
+export type GeoPlaceSuggestion = {
+  id: string;
+  label: string;
+  latitude: number;
+  longitude: number;
+};
+
+export async function searchGeoPlaces(q: string, signal?: AbortSignal) {
+  const query = q.trim();
+  if (query.length < 2) return [] as GeoPlaceSuggestion[];
+  return apiRequest<GeoPlaceSuggestion[]>(
+    `/catalog/geo/places?q=${encodeURIComponent(query)}`,
+    { cache: 'no-store', signal },
+  );
+}
+
 export type TourPaidExtra = {
   id: string;
   tourId: string;
@@ -244,6 +279,12 @@ export async function tryGetTourDetailBundle(
     ),
     soft(() =>
       apiRequest<TourPickupPoint[]>(`/catalog/tours/${tourId}/pickup-points`, {
+        signal,
+        cache: 'no-store',
+      }),
+    ),
+    soft(() =>
+      apiRequest<TourRouteStop[]>(`/catalog/tours/${tourId}/route-stops`, {
         signal,
         cache: 'no-store',
       }),

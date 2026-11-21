@@ -19,8 +19,8 @@ export function AboutHero() {
           </h1>
           <p className="mx-auto mb-8 max-w-prose text-lg leading-relaxed text-neutral-600">
             turta, gezginlerin acentelerin turlarını karşılaştırıp güvenle
-            rezerve ettiği bir pazaryeridir. Ofisimiz Ankara Çankaya’da, Bilkent
-            Cyberpark Dikmen Girişim Ofisi’nde.
+            rezerve ettiği bir pazaryeridir. Ofisimiz Ankara Çankaya’da, Ankara
+            Teknoloji Köprüsü Kuluçka Merkezi’nde.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <Link

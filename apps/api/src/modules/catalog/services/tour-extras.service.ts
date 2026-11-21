@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -13,8 +14,10 @@ import { PrismaService } from '../../../core/database/prisma.service';
 import {
   CreatePaidTourExtraDto,
   CreateTourPickupPointDto,
+  CreateTourRouteStopDto,
   UpdatePaidTourExtraDto,
   UpdateTourPickupPointDto,
+  UpdateTourRouteStopDto,
   UpsertTourAccommodationDto,
 } from '../dto/tour-extras.dto';
 
@@ -199,6 +202,115 @@ export class TourExtrasService {
     return {
       success: true,
       data: { id: pointId, deleted: true },
+      error: null,
+    };
+  }
+
+  async listRouteStops(tourId: string) {
+    const tour = await this.requireTour(tourId);
+    const rows = await this.prisma.tourRouteStop.findMany({
+      where: { tourId: tour.id, deletedAt: null },
+      orderBy: [{ dayNumber: 'asc' }, { order: 'asc' }],
+    });
+    return {
+      success: true,
+      data: rows.map((r) => this.toRouteStop(r)),
+      error: null,
+    };
+  }
+
+  async createRouteStop(
+    tourId: string,
+    dto: CreateTourRouteStopDto,
+    agencyId: string | undefined,
+    role: string,
+  ) {
+    const tour = await this.findOwnedTour(tourId, agencyId, role);
+    const geo = this.requireStopGeo(dto.latitude, dto.longitude);
+    const row = await this.prisma.tourRouteStop.create({
+      data: {
+        tourId: tour.id,
+        dayNumber: dto.dayNumber,
+        order: dto.order ?? 0,
+        name: dto.name.trim(),
+        description: dto.description?.trim() || undefined,
+        latitude: geo.latitude,
+        longitude: geo.longitude,
+        kind: dto.kind ?? 'VISIT',
+      },
+    });
+    return { success: true, data: this.toRouteStop(row), error: null };
+  }
+
+  async updateRouteStop(
+    tourId: string,
+    stopId: string,
+    dto: UpdateTourRouteStopDto,
+    agencyId: string | undefined,
+    role: string,
+  ) {
+    const tour = await this.findOwnedTour(tourId, agencyId, role);
+    const existing = await this.prisma.tourRouteStop.findFirst({
+      where: { id: stopId, tourId: tour.id, deletedAt: null },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'ROUTE_STOP_NOT_FOUND',
+        message: 'Gezi durağı bulunamadı',
+      });
+    }
+
+    const data: Prisma.TourRouteStopUpdateInput = {};
+    if (dto.dayNumber !== undefined) data.dayNumber = dto.dayNumber;
+    if (dto.order !== undefined) data.order = dto.order;
+    if (dto.name !== undefined) data.name = dto.name.trim();
+    if (dto.description !== undefined) {
+      data.description = dto.description?.trim() || null;
+    }
+    if (dto.kind !== undefined) data.kind = dto.kind;
+    if (dto.latitude !== undefined || dto.longitude !== undefined) {
+      const geo = this.requireStopGeo(
+        dto.latitude ?? existing.latitude,
+        dto.longitude ?? existing.longitude,
+      );
+      data.latitude = geo.latitude;
+      data.longitude = geo.longitude;
+    }
+
+    const updated = await this.prisma.tourRouteStop.update({
+      where: { id: existing.id },
+      data,
+    });
+    return { success: true, data: this.toRouteStop(updated), error: null };
+  }
+
+  async deleteRouteStop(
+    tourId: string,
+    stopId: string,
+    agencyId: string | undefined,
+    role: string,
+    deletedBy?: string,
+  ) {
+    const tour = await this.findOwnedTour(tourId, agencyId, role);
+    const existing = await this.prisma.tourRouteStop.findFirst({
+      where: { id: stopId, tourId: tour.id, deletedAt: null },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'ROUTE_STOP_NOT_FOUND',
+        message: 'Gezi durağı bulunamadı',
+      });
+    }
+    await this.prisma.tourRouteStop.update({
+      where: { id: existing.id },
+      data: {
+        deletedAt: new Date(),
+        ...(deletedBy ? { deletedBy } : {}),
+      },
+    });
+    return {
+      success: true,
+      data: { id: stopId, deleted: true },
       error: null,
     };
   }
@@ -437,6 +549,46 @@ export class TourExtrasService {
       return { latitude, longitude };
     }
     return { latitude: null, longitude: null };
+  }
+
+  private requireStopGeo(
+    latitude?: number,
+    longitude?: number,
+  ): { latitude: number; longitude: number } {
+    if (
+      isValidGeoCoordinate(latitude, longitude) &&
+      typeof longitude === 'number'
+    ) {
+      return { latitude, longitude };
+    }
+    throw new BadRequestException({
+      code: 'INVALID_COORDINATES',
+      message: 'Gezi durağı için geçerli enlem/boylam gerekli',
+    });
+  }
+
+  private toRouteStop(row: {
+    id: string;
+    tourId: string;
+    dayNumber: number;
+    order: number;
+    name: string;
+    description: string | null;
+    latitude: number;
+    longitude: number;
+    kind: string;
+  }) {
+    return {
+      id: row.id,
+      tourId: row.tourId,
+      dayNumber: row.dayNumber,
+      order: row.order,
+      name: row.name,
+      description: row.description,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      kind: row.kind,
+    };
   }
 
   private toPickup(row: {

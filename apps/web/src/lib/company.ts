@@ -2,16 +2,16 @@
 
 export const COMPANY = {
   brand: 'turta',
-  venue: 'Bilkent Cyberpark Dikmen Girişim Ofisi',
-  street: 'İlkadım Mahallesi, Yeşilvadi Caddesi No:41 İç Kapı No:14',
-  postalCode: '06450',
+  venue: 'Ankara Teknoloji Köprüsü Kuluçka Merkezi',
+  street: '',
+  postalCode: '',
   district: 'Çankaya',
   city: 'Ankara',
   country: 'Türkiye',
   hours: 'Pazartesi – Cuma: 09:00 – 18:00',
-  /** Yeşilvadi Cad. / Cyberpark Dikmen — pin for Maps embed */
-  lat: 39.887074,
-  lng: 32.842258,
+  /** Ankara Teknoloji Köprüsü Kuluçka Merkezi — Çankaya */
+  lat: 39.8915,
+  lng: 32.7805,
   emails: {
     info: 'info@turta.com.tr',
     support: 'destek@turta.com.tr',
@@ -40,19 +40,15 @@ export function getCompanyMailto(
 }
 
 export function getCompanyAddressLines(): string[] {
-  return [
-    COMPANY.venue,
-    COMPANY.street,
-    `${COMPANY.postalCode} ${COMPANY.district} / ${COMPANY.city}`,
-  ];
+  return [COMPANY.venue, `${COMPANY.district} / ${COMPANY.city}`];
 }
 
 export function getCompanyAddressOneLine(): string {
-  return getCompanyAddressLines().join(', ');
+  return `${COMPANY.venue}, ${COMPANY.district} / ${COMPANY.city}`;
 }
 
 export function getCompanyMapsQuery(): string {
-  return `${COMPANY.venue}, ${COMPANY.street}, ${COMPANY.postalCode} ${COMPANY.district} ${COMPANY.city}`;
+  return `${COMPANY.venue}, ${COMPANY.district}, ${COMPANY.city}`;
 }
 
 /** Embed with fixed lat/lng so the pin lands on the office, not a vague search. */

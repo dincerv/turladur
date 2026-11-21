@@ -15,6 +15,7 @@ import type {
   Tour,
   TourDate,
   TourOperator,
+  TourRouteStopView,
 } from './tour-detail.types';
 
 export type TourDetailUiContextValue = {
@@ -32,7 +33,12 @@ export type TourDetailUiContextValue = {
   healthPrivileges: string[];
   destinations: string[];
   galleryImages: string[];
+  galleryLightboxIndex: number | null;
+  openGalleryAt: (indexOrUrl: number | string) => void;
+  closeGallery: () => void;
+  setGalleryLightboxIndex: Dispatch<SetStateAction<number | null>>;
   activePickupPoints: NonNullable<Tour['pickupPoints']>;
+  routeStops: TourRouteStopView[];
   pickupSlideCount: number;
   pickupSlideClass: string;
   pickupSliderRef: RefObject<HTMLDivElement | null>;

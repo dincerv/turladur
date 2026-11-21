@@ -275,6 +275,8 @@ export interface Experience {
   status: ExperienceStatus;
   partnerId: string;
   agencyId?: string;
+  /** Liste kartları için düzenleyen acente adı (opsiyonel). */
+  partnerName?: string | null;
   averageRating: string;
   reviewCount: number;
   /** Free-form partner text, e.g. "18+", "7-65", "12 yaş üstü". */

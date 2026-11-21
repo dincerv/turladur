@@ -28,16 +28,16 @@ const ASSETS = {
 } as const;
 
 const SIZES = {
-  wordmark: { width: 108, height: 32, className: 'h-8 w-auto max-w-[128px]' },
-  mark: { width: 32, height: 32, className: 'h-8 w-8' },
+  wordmark: { width: 108, height: 32 },
+  mark: { width: 32, height: 32 },
 } as const;
 
-function layerClass(active: boolean, imageClass: string, onHero: boolean) {
+function layerClass(active: boolean, onHero: boolean, extra = '') {
   return [
-    imageClass,
-    'absolute left-0 top-1/2 -translate-y-1/2 transition-opacity duration-300 ease-in-out',
+    'absolute left-0 top-1/2 -translate-y-1/2 object-contain object-left transition-opacity duration-300 ease-in-out',
     active ? 'z-10 opacity-100' : 'z-0 opacity-0 pointer-events-none',
     onHero ? 'drop-shadow-[0_1px_3px_rgba(0,0,0,0.35)]' : '',
+    extra,
   ]
     .filter(Boolean)
     .join(' ');
@@ -53,8 +53,9 @@ export function BrandLogo({
   priority = false,
 }: BrandLogoProps) {
   const size = SIZES[variant];
-  const imageClass = `${size.className} object-contain object-left ${className}`;
   const onHero = surface === 'dark';
+  // style ile attr boyutunu kilitle — absolute/object-contain tek ekseni bozmasın (Next Issue)
+  const lockSize = { width: size.width, height: size.height };
 
   const content = adaptive ? (
     <span
@@ -69,7 +70,8 @@ export function BrandLogo({
         width={size.width}
         height={size.height}
         priority={priority}
-        className={layerClass(surface === 'light', imageClass, false)}
+        style={lockSize}
+        className={layerClass(surface === 'light', false, className)}
       />
       {/* En üst: beyaz (şeffaf navbar / hero) — eski text-white turta */}
       <Image
@@ -79,7 +81,8 @@ export function BrandLogo({
         width={size.width}
         height={size.height}
         priority={priority}
-        className={layerClass(surface === 'dark', imageClass, true)}
+        style={lockSize}
+        className={layerClass(surface === 'dark', true, className)}
       />
       <span className="sr-only">turta</span>
     </span>
@@ -90,7 +93,8 @@ export function BrandLogo({
       width={size.width}
       height={size.height}
       priority={priority}
-      className={`${imageClass}${onHero ? ' drop-shadow-[0_1px_3px_rgba(0,0,0,0.35)]' : ''}`}
+      style={lockSize}
+      className={`object-contain object-left ${className}${onHero ? ' drop-shadow-[0_1px_3px_rgba(0,0,0,0.35)]' : ''}`.trim()}
     />
   );
 

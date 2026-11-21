@@ -178,6 +178,16 @@ export function transformNestTourToFormData(input: {
     longitude?: number | null;
     order: number;
   }>;
+  routeStops?: Array<{
+    id: string;
+    dayNumber: number;
+    order: number;
+    name: string;
+    description: string | null;
+    latitude: number;
+    longitude: number;
+    kind: 'VISIT' | 'LODGING';
+  }>;
 }): TourFormData {
   const extras = input.extras ?? {};
   const str = (key: string) =>
@@ -305,6 +315,16 @@ export function transformNestTourToFormData(input: {
       longitude: point.longitude ?? null,
       order: point.order,
       isActive: true,
+    })),
+    routeStops: (input.routeStops ?? []).map((stop) => ({
+      id: stop.id,
+      dayNumber: stop.dayNumber,
+      order: stop.order,
+      name: stop.name,
+      description: stop.description ?? '',
+      latitude: stop.latitude,
+      longitude: stop.longitude,
+      kind: stop.kind === 'LODGING' ? 'LODGING' : 'VISIT',
     })),
     mainImage: input.coverUrl ? { url: input.coverUrl, file: null } : null,
     galleryImages: galleryUrls.map((url) => ({ url, file: null })),

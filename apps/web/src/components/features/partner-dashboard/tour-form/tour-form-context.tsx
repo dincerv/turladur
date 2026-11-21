@@ -14,6 +14,7 @@ import type {
   AgeRange,
   Destination,
   PickupPoint,
+  RouteStop,
   TourDate,
   TourFormData,
 } from './tour-form.types';
@@ -61,6 +62,7 @@ export type TourFormUiContextValue = {
   handleImageRemove: (index: number) => void;
   handlePreviewImageError: (e: SyntheticEvent<HTMLImageElement>) => void;
   handlePickupPointsChange: (points: PickupPoint[]) => void;
+  handleRouteStopsChange: (stops: RouteStop[]) => void;
   handleLanguageInputChange: (e: ChangeEvent<HTMLInputElement>) => void;
   handleAddLanguage: () => void;
   handleRemoveLanguage: (idx: number) => void;

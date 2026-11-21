@@ -70,6 +70,8 @@ export function CheckoutClient() {
   const [activityDate, setActivityDate] = useState<ActivityDate | null>(null);
 
   const [guests, setGuests] = useState<GuestForm[]>([]);
+  /** Kapalıysa fatura birincil katılımcıdan türetilir (şirketi olmayanlar için). */
+  const [wantCompanyInvoice, setWantCompanyInvoice] = useState(false);
   const [billingFullName, setBillingFullName] = useState('');
   const [billingLine1, setBillingLine1] = useState('');
   const [billingCity, setBillingCity] = useState('');
@@ -319,21 +321,49 @@ export function CheckoutClient() {
       return 'Kalkış noktası seçimi zorunlu';
     }
 
-    if (!billingFullName.trim() || billingFullName.trim().length < 2) {
-      return 'Fatura / ödeme sahibi ad soyad zorunlu';
-    }
-
-    if (!billingLine1.trim() || billingLine1.trim().length < 5) {
-      return 'Fatura adresi zorunlu';
-    }
-    if (!billingCity.trim()) {
-      return 'Fatura şehri zorunlu';
-    }
-    if (!billingCountry.trim()) {
-      return 'Fatura ülkesi zorunlu';
+    if (wantCompanyInvoice) {
+      if (!billingFullName.trim() || billingFullName.trim().length < 2) {
+        return 'Fatura / ödeme sahibi ad soyad zorunlu';
+      }
+      if (!billingLine1.trim() || billingLine1.trim().length < 5) {
+        return 'Fatura adresi zorunlu';
+      }
+      if (!billingCity.trim()) {
+        return 'Fatura şehri zorunlu';
+      }
+      if (!billingCountry.trim()) {
+        return 'Fatura ülkesi zorunlu';
+      }
     }
 
     return null;
+  };
+
+  const resolveBilling = () => {
+    const primary = guests[0];
+    if (!wantCompanyInvoice) {
+      const fullName =
+        `${primary?.firstName ?? ''} ${primary?.lastName ?? ''}`.trim() ||
+        'Misafir';
+      return {
+        fullName,
+        line1: (primary?.address ?? '').trim() || 'Adres belirtilmedi',
+        city: billingCity.trim() || 'Belirtilmedi',
+        country: billingCountry.trim() || 'Türkiye',
+        taxId: (primary?.identityNumber ?? '').replace(/\D/g, '') || undefined,
+        companyName: undefined as string | undefined,
+      };
+    }
+    return {
+      fullName: billingFullName.trim(),
+      line1: billingLine1.trim(),
+      city: billingCity.trim(),
+      country: billingCountry.trim() || 'Türkiye',
+      taxId:
+        (taxId || primary?.identityNumber || '').replace(/\D/g, '') ||
+        undefined,
+      companyName: companyName.trim() || undefined,
+    };
   };
 
   const handleStep2Next = () => {
@@ -375,6 +405,8 @@ export function CheckoutClient() {
       );
       let token = accessToken;
 
+      const billing = resolveBilling();
+
       if (!token) {
         const boot = await guestBootstrap({
           email: primary.email,
@@ -382,9 +414,9 @@ export function CheckoutClient() {
           lastName: primary.lastName,
           phone: primaryPhone,
           address: primary.address,
-          billingLine1,
-          billingCity,
-          billingCountry,
+          billingLine1: billing.line1,
+          billingCity: billing.city,
+          billingCountry: billing.country,
           identityNumber: primary.identityNumber.replace(/\D/g, ''),
         });
         token = boot.accessToken;
@@ -426,13 +458,12 @@ export function CheckoutClient() {
             address: guest.address.trim() || undefined,
           })),
           billing: {
-            fullName: billingFullName.trim(),
-            line1: billingLine1.trim(),
-            city: billingCity.trim(),
-            country: billingCountry.trim(),
-            taxId:
-              (taxId || primary.identityNumber).replace(/\D/g, '') || undefined,
-            companyName: companyName || undefined,
+            fullName: billing.fullName,
+            line1: billing.line1,
+            city: billing.city,
+            country: billing.country,
+            taxId: billing.taxId,
+            companyName: billing.companyName,
           },
           specialRequests: specialRequests.trim() || undefined,
         },
@@ -591,6 +622,8 @@ export function CheckoutClient() {
     pickupPoints,
     pickupPointId,
     setPickupPointId,
+    wantCompanyInvoice,
+    setWantCompanyInvoice,
     billingFullName,
     setBillingFullName,
     billingLine1,
@@ -650,8 +683,7 @@ export function CheckoutClient() {
 
             {isGuest ? (
               <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                Üye olmadan devam ediyorsunuz. Fatura ve tüm katılımcı bilgileri
-                alınacaktır.{' '}
+                Üye olmadan devam ediyorsunuz. Katılımcı bilgileri alınacaktır.{' '}
                 <Link href={loginCallback} className="font-semibold underline">
                   Giriş yap
                 </Link>

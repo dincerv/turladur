@@ -672,6 +672,7 @@ model Tour {
   tourExtras      TourExtra[]
   accommodation   TourAccommodation?
   pickupPoints    TourPickupPoint[]
+  routeStops      TourRouteStop[]
   tourTags        TourTag[]
   metrics         TourMetrics?
   favorites       Favorite[]
@@ -963,6 +964,38 @@ model TourPickupPoint {
 
   @@index([tourId, order])
   @@index([city])
+  @@index([deletedAt])
+  @@schema("catalog")
+}
+
+/// Tur gezi durakları (program rotası). Kalkış/biniş noktalarından ayrıdır.
+enum TourRouteStopKind {
+  VISIT
+  LODGING
+
+  @@schema("catalog")
+}
+
+model TourRouteStop {
+  id          String            @id @default(cuid())
+  tourId      String
+  tour        Tour              @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  dayNumber   Int
+  order       Int               @default(0)
+  name        String            @db.VarChar(160)
+  description String?           @db.VarChar(500)
+  latitude    Float
+  longitude   Float
+  kind        TourRouteStopKind @default(VISIT)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  createdBy   String?
+  updatedBy   String?
+  deletedBy   String?
+  deletedAt   DateTime?
+
+  @@index([tourId, dayNumber, order])
+  @@index([tourId, order])
   @@index([deletedAt])
   @@schema("catalog")
 }

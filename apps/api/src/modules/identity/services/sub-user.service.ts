@@ -274,7 +274,7 @@ export class SubUserService {
   /** Persist canonical `{ module: { read, write } }` JSON. */
   private normalizePermissionsJson(raw: unknown): Prisma.InputJsonValue {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-      return {} as Prisma.InputJsonValue;
+      return {};
     }
     const source = raw as Record<string, unknown>;
     const out: Record<string, { read: boolean; write: boolean }> = {};
@@ -289,7 +289,7 @@ export class SubUserService {
         out[key] = normalizeStaffModuleAccess(value);
       }
     }
-    return out as unknown as Prisma.InputJsonValue;
+    return out;
   }
 
   /** Users CRUD: OWNER only (+ platform). MANAGER/STAFF forbidden. */

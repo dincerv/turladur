@@ -119,6 +119,7 @@ export default function PartnerTourEditPage() {
           accommodation: bundle.accommodation,
           dates: bundle.dates,
           pickupPoints: bundle.pickupPoints,
+          routeStops: bundle.routeStops,
         });
         setFormData(transformed);
         initialSnapshot.current = JSON.stringify({
@@ -220,6 +221,33 @@ export default function PartnerTourEditPage() {
               latitude?: number | null;
               longitude?: number | null;
             }>) ?? [],
+          routeStops:
+            (data.routeStops as Array<{
+              dayNumber: number;
+              order?: number;
+              name: string;
+              description?: string;
+              latitude: number;
+              longitude: number;
+              kind?: 'VISIT' | 'LODGING';
+            }>) ??
+            data.formData.routeStops
+              ?.filter(
+                (s) =>
+                  s.name?.trim() &&
+                  typeof s.latitude === 'number' &&
+                  typeof s.longitude === 'number',
+              )
+              .map((s, index) => ({
+                dayNumber: s.dayNumber,
+                order: index,
+                name: s.name.trim(),
+                description: s.description,
+                latitude: s.latitude as number,
+                longitude: s.longitude as number,
+                kind: s.kind,
+              })) ??
+            [],
           tourType: String(data.tourType ?? data.formData.tourType ?? ''),
           region: String(data.region ?? data.formData.region ?? ''),
           features: (data.features as string[]) ?? data.formData.features,

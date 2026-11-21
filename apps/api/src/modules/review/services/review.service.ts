@@ -487,7 +487,8 @@ export class ReviewService {
     });
 
     const reviewCount = tour.metrics?.reviewCount ?? tour.reviewCount;
-    const coldStart = reviewCount < 3;
+    // Yeni Rota yalnızca turda henüz doğrulanmış yorum yokken
+    const coldStart = reviewCount === 0;
     const topTags = parseTopTags(tour.metrics?.topTags);
 
     return {
@@ -501,7 +502,18 @@ export class ReviewService {
           ).toString(),
         ),
         averageGuideRating: nullableNum(tour.metrics?.averageGuideRating),
-        averageValueRating: nullableNum(tour.metrics?.averageOperatorRating),
+        // valueRating → Review.operatorRating → TourMetrics.averageOperatorRating
+        averageValueRating:
+          nullableNum(tour.metrics?.averageOperatorRating) ??
+          (reviewCount > 0
+            ? Number(
+                (
+                  tour.metrics?.averageRating ??
+                  tour.averageRating ??
+                  0
+                ).toString(),
+              ) || null
+            : null),
         averageTransportRating: criteria.transport
           ? nullableNum(tour.metrics?.averageTransportRating)
           : null,

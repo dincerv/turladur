@@ -140,9 +140,9 @@ export class InvoiceService {
         status: 'QUEUED',
         amount: reservation.totalAmount,
         currency: reservation.currency,
-        buyerSnapshot: buyerSnapshot as Prisma.InputJsonValue,
-        sellerSnapshot: sellerSnapshot as Prisma.InputJsonValue,
-        linesSnapshot: linesSnapshot as Prisma.InputJsonValue,
+        buyerSnapshot: buyerSnapshot,
+        sellerSnapshot: sellerSnapshot,
+        linesSnapshot: linesSnapshot,
       },
     });
   }

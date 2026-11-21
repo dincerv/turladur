@@ -1,6 +1,11 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
+html {
+  /* Fixed SiteHeader (h-14 + py) altında içerik/anchor çakışmasını önle */
+  scroll-padding-top: 5.5rem;
+}
+
 :root {
   /*
    * turta brand tokens (frontend-only)
@@ -222,6 +227,20 @@ body {
 }
 .delay-400 {
   animation-delay: 400ms;
+}
+
+/*
+ * Leaflet tiles break under Tailwind preflight (`img { max-width: 100% }`).
+ * Scope resets to map shells only.
+ */
+.tour-route-map-shell .leaflet-container img,
+.tour-route-map-shell .leaflet-tile,
+.route-map .leaflet-container img,
+.route-map .leaflet-tile,
+.contact-map .leaflet-container img,
+.contact-map .leaflet-tile {
+  max-width: none !important;
+  max-height: none !important;
 }
 
 /* Routes explorer map (Leaflet) */

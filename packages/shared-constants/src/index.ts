@@ -67,6 +67,17 @@ export const TOUR_STAY_KIND_LABELS: Record<TourStayKind, string> = {
   [TourStayKind.OVERNIGHT]: 'Konaklamalı',
 };
 
+/** Tur programı gezi durağı tipi (kalkış/biniş noktalarından ayrı). */
+export enum TourRouteStopKind {
+  VISIT = 'VISIT',
+  LODGING = 'LODGING',
+}
+
+export const TOUR_ROUTE_STOP_KIND_LABELS: Record<TourRouteStopKind, string> = {
+  [TourRouteStopKind.VISIT]: 'Gezi Noktası',
+  [TourRouteStopKind.LODGING]: 'Konaklama',
+};
+
 export const TOUR_DESTINATION_SCOPE_LABELS: Record<
   TourDestinationScope,
   string

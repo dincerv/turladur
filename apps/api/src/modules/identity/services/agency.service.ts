@@ -61,7 +61,7 @@ export class AgencyService {
       : ('VERIFIED' as const);
 
     const where = {
-      deletedAt: null as null,
+      deletedAt: null,
       ...(statusFilter ? { status: statusFilter } : {}),
       ...(q
         ? {

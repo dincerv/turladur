@@ -37,7 +37,7 @@ export function TourDetailExpandableText({
     <div className={cn('min-w-0', className)}>
       <p
         className={cn(
-          'break-words text-sm leading-relaxed text-neutral-700 [overflow-wrap:anywhere]',
+          'break-words text-base leading-relaxed text-neutral-700 [overflow-wrap:anywhere]',
           !expanded && needsToggle && LINE_CLAMP[lines],
         )}
       >
@@ -47,7 +47,7 @@ export function TourDetailExpandableText({
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="mt-2 text-sm font-semibold text-neutral-950 underline-offset-2 transition-colors hover:text-neutral-700 hover:underline active:scale-[0.98]"
+          className="mt-2 text-base font-semibold text-neutral-950 underline-offset-2 transition-colors hover:text-neutral-700 hover:underline active:scale-[0.98]"
         >
           {expanded ? 'Daha az göster' : 'Devamını oku'}
         </button>

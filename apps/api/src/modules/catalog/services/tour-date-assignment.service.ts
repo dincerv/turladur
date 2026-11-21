@@ -129,9 +129,7 @@ export class TourDateAssignmentService {
     const rows = await this.prisma.tourDateAssignment.findMany({
       where: {
         deletedAt: null,
-        ...(isAdmin && !agencyId
-          ? {}
-          : { invitedByAgencyId: agencyId as string }),
+        ...(isAdmin && !agencyId ? {} : { invitedByAgencyId: agencyId }),
       },
       include: {
         guide: {

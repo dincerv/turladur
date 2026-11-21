@@ -13,6 +13,9 @@ type CompactCompareButtonProps = {
   openOnly?: boolean;
   className?: string;
   testId?: string;
+  /** Idle label — örn. ana sayfa kartında "+ Kıyasla". */
+  addLabel?: string;
+  selectedLabel?: string;
 };
 
 export function CompactCompareButton({
@@ -20,6 +23,8 @@ export function CompactCompareButton({
   openOnly = false,
   className = '',
   testId,
+  addLabel = 'Kıyasla',
+  selectedLabel = 'Seçildi',
 }: CompactCompareButtonProps) {
   const selectedCount = useTourCompareStore((state) => state.selected.length);
   const isSelected = useTourCompareStore((state) =>
@@ -93,9 +98,7 @@ export function CompactCompareButton({
       ) : (
         <GitCompareArrows className="h-3.5 w-3.5" aria-hidden />
       )}
-      <span className="sr-only sm:not-sr-only sm:inline">
-        {isSelected ? 'Seçildi' : 'Kıyasla'}
-      </span>
+      <span className="inline">{isSelected ? selectedLabel : addLabel}</span>
     </button>
   );
 }

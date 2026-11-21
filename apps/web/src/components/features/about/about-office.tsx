@@ -32,8 +32,8 @@ export function AboutOffice() {
               Ankara’dan çalışıyoruz
             </h2>
             <p className="mb-6 max-w-prose text-base leading-relaxed text-neutral-600">
-              Bilkent Cyberpark Dikmen Girişim Ofisi’ndeyiz. Ziyaret için lütfen
-              önceden randevu alın.
+              Ankara Teknoloji Köprüsü Kuluçka Merkezi’ndeyiz. Ziyaret için
+              lütfen önceden randevu alın.
             </p>
 
             <address className="mb-8 space-y-2 not-italic text-neutral-700">

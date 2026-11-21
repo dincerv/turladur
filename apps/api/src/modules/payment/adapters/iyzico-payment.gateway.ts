@@ -163,7 +163,7 @@ export class IyzicoPaymentGateway extends PaymentGateway {
           success: false,
           status: 'FAILED',
           errorMessage: result.errorMessage ?? 'İyzico 3DS başlatılamadı',
-          raw: result as Record<string, unknown>,
+          raw: result,
         };
       }
 
@@ -172,7 +172,7 @@ export class IyzicoPaymentGateway extends PaymentGateway {
         status: 'AWAITING_3DS',
         providerPaymentId: result.paymentId,
         threeDSHtmlContent: result.threeDSHtmlContent,
-        raw: result as Record<string, unknown>,
+        raw: result,
       };
     } catch (err) {
       const message =
@@ -206,7 +206,7 @@ export class IyzicoPaymentGateway extends PaymentGateway {
           success: false,
           status: 'FAILED',
           errorMessage: result.errorMessage ?? '3DS doğrulama başarısız',
-          raw: result as Record<string, unknown>,
+          raw: result,
         };
       }
 
@@ -214,7 +214,7 @@ export class IyzicoPaymentGateway extends PaymentGateway {
         success: true,
         status: 'SUCCESS',
         providerPaymentId: result.paymentId ?? input.paymentId,
-        raw: result as Record<string, unknown>,
+        raw: result,
       };
     } catch (err) {
       const message =
@@ -244,10 +244,10 @@ export class IyzicoPaymentGateway extends PaymentGateway {
         return {
           success: false,
           errorMessage: result.errorMessage ?? 'İade başarısız',
-          raw: result as Record<string, unknown>,
+          raw: result,
         };
       }
-      return { success: true, raw: result as Record<string, unknown> };
+      return { success: true, raw: result };
     } catch (err) {
       return {
         success: false,

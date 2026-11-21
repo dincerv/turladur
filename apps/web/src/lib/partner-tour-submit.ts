@@ -45,6 +45,15 @@ type SubmitPayload = {
     longitude?: number | null;
     order?: number;
   }>;
+  routeStops?: Array<{
+    dayNumber: number;
+    order?: number;
+    name: string;
+    description?: string;
+    latitude: number;
+    longitude: number;
+    kind?: 'VISIT' | 'LODGING';
+  }>;
   accommodationName?: string;
   tourType?: string;
   region?: string;
@@ -184,6 +193,22 @@ function buildCreateBody(
       longitude: point.longitude,
       order: point.order ?? index,
     })),
+    routeStops: (payload.routeStops ?? formData.routeStops ?? [])
+      .filter(
+        (stop) =>
+          stop.name?.trim() &&
+          typeof stop.latitude === 'number' &&
+          typeof stop.longitude === 'number',
+      )
+      .map((stop, index) => ({
+        dayNumber: stop.dayNumber || 1,
+        order: stop.order ?? index,
+        name: stop.name.trim(),
+        description: stop.description?.trim() || undefined,
+        latitude: stop.latitude as number,
+        longitude: stop.longitude as number,
+        kind: stop.kind ?? 'VISIT',
+      })),
     accommodation: accommodationName
       ? {
           name: accommodationName,
@@ -249,8 +274,10 @@ export async function persistPartnerTourUpdate(
       galleryUrls: body.galleryUrls?.length ? body.galleryUrls : undefined,
       extras: body.extras,
       replacePickupPoints: true,
+      replaceRouteStops: true,
       dates: body.dates,
       pickupPoints: body.pickupPoints,
+      routeStops: body.routeStops,
       accommodation: body.accommodation,
     },
     token,

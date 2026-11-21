@@ -38,7 +38,7 @@ export function Newsletter() {
     <section className="border-y border-neutral-200/60 bg-neutral-50 py-24 md:py-32">
       <div className="container mx-auto px-6">
         <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-16">
-          <div className="relative order-last h-80 w-full overflow-hidden rounded-xl border border-neutral-200/50 shadow-lg md:h-[450px] lg:order-first">
+          <div className="relative order-2 h-80 w-full overflow-hidden rounded-xl border border-neutral-200/50 shadow-lg md:h-[450px] lg:order-1">
             <Image
               src="https://images.unsplash.com/photo-1568992687947-868a62a9f521?q=80&w=1932&auto=format&fit=crop"
               alt=""
@@ -48,7 +48,7 @@ export function Newsletter() {
             />
           </div>
 
-          <div className="lg:pl-8">
+          <div className="order-1 lg:order-2 lg:pl-8">
             {submitted ? (
               <div className="py-6 text-center lg:text-left">
                 <CheckCircle className="mx-auto mb-4 h-10 w-10 text-emerald-500 lg:mx-0" />
@@ -78,10 +78,13 @@ export function Newsletter() {
                   <Mail className="mr-1.5 h-4 w-4" />
                   Özel Fırsatlar
                 </div>
-                <h2 className="mb-4 text-3xl font-bold break-words text-neutral-900 md:text-4xl">
+                <h2
+                  data-testid="newsletter-heading"
+                  className="mb-4 text-3xl font-bold break-words !text-neutral-950 md:text-4xl"
+                >
                   İndirimleri ve Haberleri Kaçırmayın
                 </h2>
-                <p className="mb-8 text-lg text-neutral-600">
+                <p className="mb-8 text-lg !text-neutral-600">
                   Yeni turlar ve kampanyalardan haberdar olmak için e-posta
                   listenize katılın.
                 </p>

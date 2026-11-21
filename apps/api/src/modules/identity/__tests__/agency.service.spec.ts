@@ -29,9 +29,9 @@ describe('AgencyService', () => {
 
   describe('legacy CRUD', () => {
     it('should return 410 for create', async () => {
-      await expect(
-        service.create({ name: 'X' } as never, 'u1'),
-      ).rejects.toBeInstanceOf(GoneException);
+      await expect(service.create({ name: 'X' }, 'u1')).rejects.toBeInstanceOf(
+        GoneException,
+      );
     });
   });
 

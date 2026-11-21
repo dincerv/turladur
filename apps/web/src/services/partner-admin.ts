@@ -381,15 +381,131 @@ export type AdminReviewRow = {
   createdAt: string;
 };
 
+export type AdminReviewTourSummary = {
+  tourId: string;
+  title: string;
+  agencyId: string;
+  agencyName: string | null;
+  reviewCount: number;
+  averageRating: number;
+  needsReviewCount: number;
+  hiddenCount: number;
+};
+
+export type AdminTourReviewDetail = {
+  id: string;
+  tourId: string | null;
+  agencyId: string;
+  rating: number;
+  comment: string | null;
+  photoUrls: string[];
+  guideRating: number | null;
+  operatorRating: number | null;
+  routeRating: number | null;
+  foodRating: number | null;
+  hotelRating: number | null;
+  transportRating: number | null;
+  accommodationRating: number | null;
+  agencyReply: string | null;
+  tags: string[];
+  travelerContext: string | null;
+  hidden: boolean;
+  createdAt: string;
+};
+
+export type AdminAuditLogRow = {
+  id: string;
+  actorId: string | null;
+  actorType: string;
+  actorName: string | null;
+  actorEmail: string | null;
+  action: string;
+  actionLabel: string;
+  entityType: string;
+  entityId: string | null;
+  entityLabel: string | null;
+  note: string | null;
+  createdAt: string;
+};
+
 export async function listAdminReviews(token: string, q?: string) {
   const qs = q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : '';
   return apiRequest<AdminReviewRow[]>(`/admin/reviews${qs}`, { token });
+}
+
+export async function listAdminReviewTours(token: string, q?: string) {
+  const qs = q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : '';
+  return apiRequest<AdminReviewTourSummary[]>(`/admin/reviews/tours${qs}`, {
+    token,
+  });
+}
+
+export async function listAdminTourReviews(
+  tourId: string,
+  token: string,
+  opts?: { includeHidden?: boolean },
+) {
+  const qs = opts?.includeHidden ? '?includeHidden=1' : '';
+  return apiRequest<{
+    tour: {
+      id: string;
+      title: string;
+      agencyId: string | null;
+      agencyName: string | null;
+    };
+    reviews: AdminTourReviewDetail[];
+  }>(`/admin/reviews/tours/${tourId}${qs}`, { token });
 }
 
 export async function hideAdminReview(id: string, token: string) {
   return apiRequest<{ id: string; hidden: boolean }>(
     `/admin/reviews/${id}/hide`,
     { method: 'PATCH', token },
+  );
+}
+
+export async function restoreAdminReview(id: string, token: string) {
+  return apiRequest<{ id: string; hidden: boolean }>(
+    `/admin/reviews/${id}/restore`,
+    { method: 'PATCH', token },
+  );
+}
+
+export async function listAdminAuditLogs(
+  token: string,
+  params?: {
+    actorId?: string;
+    action?: string;
+    entityType?: string;
+    entityId?: string;
+    from?: string;
+    to?: string;
+    take?: number;
+  },
+) {
+  const qs = new URLSearchParams();
+  if (params?.actorId) qs.set('actorId', params.actorId);
+  if (params?.action) qs.set('action', params.action);
+  if (params?.entityType) qs.set('entityType', params.entityType);
+  if (params?.entityId) qs.set('entityId', params.entityId);
+  if (params?.from) qs.set('from', params.from);
+  if (params?.to) qs.set('to', params.to);
+  if (params?.take) qs.set('take', String(params.take));
+  const q = qs.toString();
+  return apiRequest<AdminAuditLogRow[]>(
+    `/admin/audit-logs${q ? `?${q}` : ''}`,
+    { token },
+  );
+}
+
+export async function listAdminEntityAudit(
+  entityType: string,
+  entityId: string,
+  token: string,
+) {
+  return apiRequest<AdminAuditLogRow[]>(
+    `/admin/audit-logs/entity/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`,
+    { token },
   );
 }
 
@@ -590,6 +706,15 @@ export type CreatePartnerTourBody = {
     longitude?: number | null;
     order?: number;
   }>;
+  routeStops?: Array<{
+    dayNumber: number;
+    order?: number;
+    name: string;
+    description?: string;
+    latitude: number;
+    longitude: number;
+    kind?: 'VISIT' | 'LODGING';
+  }>;
   accommodation?: {
     name: string;
     image: string;
@@ -626,8 +751,10 @@ export type UpdatePartnerTourBody = {
   galleryUrls?: string[];
   extras?: Record<string, unknown>;
   replacePickupPoints?: boolean;
+  replaceRouteStops?: boolean;
   dates?: CreatePartnerTourBody['dates'];
   pickupPoints?: CreatePartnerTourBody['pickupPoints'];
+  routeStops?: CreatePartnerTourBody['routeStops'];
   accommodation?: CreatePartnerTourBody['accommodation'];
 };
 
@@ -667,6 +794,17 @@ export type PartnerTourEditBundle = {
     longitude?: number | null;
     order: number;
     isActive: boolean;
+  }>;
+  routeStops: Array<{
+    id: string;
+    tourId: string;
+    dayNumber: number;
+    order: number;
+    name: string;
+    description: string | null;
+    latitude: number;
+    longitude: number;
+    kind: 'VISIT' | 'LODGING';
   }>;
   accommodation: {
     id: string;

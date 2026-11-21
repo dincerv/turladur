@@ -52,4 +52,47 @@ describe('persona-review-engine', () => {
     expect(calm.conflictTags).toContain('gece-hayati');
     expect(calm.warnings.length).toBeGreaterThan(0);
   });
+
+  it('does not drag BUDGET score down with unrelated tagged neutrals', () => {
+    const reviews = [
+      {
+        id: '1',
+        rating: 3,
+        comment: 'Fiyat/performans dengesi iyi. Kahvaltılar doyurucuydu.',
+        createdAt: new Date('2026-01-01'),
+      },
+      {
+        id: '2',
+        rating: 5,
+        comment: 'Manzara harikaydı. Küçük grup olduğu için daha keyifliydi.',
+        createdAt: new Date('2026-01-02'),
+      },
+      {
+        id: '3',
+        rating: 5,
+        comment: 'Gün batımı molası favorimiz oldu. Teşekkürler turta.',
+        createdAt: new Date('2026-01-03'),
+      },
+      {
+        id: '4',
+        rating: 4,
+        comment: 'Çocuklarla rahat gezildi, tempo uygundu.',
+        createdAt: new Date('2026-01-04'),
+      },
+    ];
+
+    const budget = buildTourPersonaMatch({
+      tourId: 'likya',
+      persona: 'BUDGET',
+      reviews,
+    });
+
+    expect(budget.alignedTags).toContain('butce-dostu');
+    expect(budget.fitScore).toBeGreaterThanOrEqual(70);
+    expect(budget.summary).not.toMatch(/karışık sinyaller/i);
+    const budgetHighlight = budget.highlights.find((h) => h.id === '1');
+    expect(budgetHighlight?.alignment).toBe('positive');
+    const familyNeutral = budget.highlights.find((h) => h.id === '4');
+    expect(familyNeutral?.alignment).toBe('neutral');
+  });
 });

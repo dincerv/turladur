@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+import Link from 'next/link';
 import {
   searchToursClient,
   tryGetTourDateAgeRanges,
@@ -7,7 +9,8 @@ import {
 } from '@/services/catalog';
 import { getPublicApiBaseUrl } from '@/services/api-client';
 import { dedupeTourDatesByRange } from '@/lib/dedupe-tour-dates';
-import { resolveMediaUrl } from '@/lib/media';
+import { resolveMediaUrl, shouldUnoptimizeMedia } from '@/lib/media';
+import { tourPublicPath } from '@/lib/tours/tour-public-path';
 import { notFound } from 'next/navigation';
 import { parseJsonString } from '@/lib/format';
 import type { ActivityDate as BookingActivityDate } from '@/components/booking/bottom-booking-bar';
@@ -16,6 +19,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import {
   buildFallbackItinerary,
+  formatPriceTry,
   getDestinationLabel,
   sanitizePlainText,
 } from './tour-detail/tour-detail.helpers';
@@ -28,6 +32,7 @@ import { TourDetailLeftColumn } from './tour-detail/tour-detail-left-column';
 import { TourDetailSidebar } from './tour-detail/tour-detail-sidebar';
 import { TourDetailChrome } from './tour-detail/tour-detail-chrome';
 import { TourDetailSkeleton } from './tour-detail/tour-detail-skeleton';
+import { TourPhotoLightbox } from './tour-detail/tour-photo-lightbox';
 import type {
   Destination,
   ItineraryItem,
@@ -54,6 +59,9 @@ export default function TourDetailClient() {
   const [showScrollIndicator, setShowScrollIndicator] = useState(true);
   const [tourOperator, setTourOperator] = useState<TourOperator | null>(null);
   const [otherTours, setOtherTours] = useState<Tour[]>([]);
+  const [galleryLightboxIndex, setGalleryLightboxIndex] = useState<
+    number | null
+  >(null);
 
   const scrollPickupSlider = (direction: 'prev' | 'next') => {
     const el = pickupSliderRef.current;
@@ -102,14 +110,32 @@ export default function TourDetailClient() {
             }
             if (item && typeof item === 'object') {
               const row = item as Record<string, unknown>;
+              const dayNum =
+                typeof row.dayNumber === 'number' ? row.dayNumber - 1 : index;
               return [
-                `day${index}`,
+                `day${Math.max(0, dayNum)}`,
                 {
                   title: String(row.title ?? `${index + 1}. Gün`),
                   description: String(row.description ?? ''),
                   highlights: Array.isArray(row.highlights)
                     ? row.highlights
                     : [],
+                  meals:
+                    row.meals &&
+                    typeof row.meals === 'object' &&
+                    !Array.isArray(row.meals)
+                      ? row.meals
+                      : undefined,
+                  accommodation:
+                    typeof row.accommodation === 'string'
+                      ? row.accommodation
+                      : null,
+                  imageUrls: Array.isArray(row.imageUrls)
+                    ? row.imageUrls
+                    : Array.isArray(row.images)
+                      ? row.images
+                      : undefined,
+                  images: Array.isArray(row.images) ? row.images : undefined,
                   schedule: Array.isArray(row.schedule) ? row.schedule : [],
                 },
               ];
@@ -136,14 +162,14 @@ export default function TourDetailClient() {
         const loadCore = async () =>
           tryGetTourDetailBundle(tourId, abortController.signal);
 
-        let [tourPayload, dates, accommodation, pickupPoints] =
+        let [tourPayload, dates, accommodation, pickupPoints, routeStops] =
           await loadCore();
 
         // Geri tuşu / kısa süreli ağ kopması: bir kez yeniden dene
         if (!tourPayload && !cancelled && !abortController.signal.aborted) {
           await new Promise((resolve) => setTimeout(resolve, 250));
           if (!cancelled && !abortController.signal.aborted) {
-            [tourPayload, dates, accommodation, pickupPoints] =
+            [tourPayload, dates, accommodation, pickupPoints, routeStops] =
               await loadCore();
           }
         }
@@ -256,7 +282,9 @@ export default function TourDetailClient() {
               : null;
 
         const durationDays = Number(data.durationDays ?? data.duration ?? 1);
-        let itinerary = toItineraryRecord(extras.itinerary ?? data.itinerary);
+        let itinerary = toItineraryRecord(
+          extras.itineraryDays ?? extras.itinerary ?? data.itinerary,
+        );
         if (Object.keys(itinerary).length === 0) {
           itinerary = buildFallbackItinerary(
             durationDays,
@@ -341,6 +369,8 @@ export default function TourDetailClient() {
               : 'Otobüs',
           period: typeof extras.period === 'string' ? extras.period : null,
           rating: Number(data.averageRating ?? data.rating ?? 0) || null,
+          reviewCount:
+            data.reviewCount != null ? Number(data.reviewCount) : null,
           tourType:
             typeof extras.tourType === 'string'
               ? extras.tourType
@@ -433,6 +463,18 @@ export default function TourDetailClient() {
             time: point.time,
             isActive: point.isActive ?? true,
             order: point.order ?? index,
+            latitude: point.latitude ?? null,
+            longitude: point.longitude ?? null,
+          })),
+          routeStops: (routeStops ?? []).map((stop, index) => ({
+            id: stop.id,
+            dayNumber: stop.dayNumber,
+            order: stop.order ?? index,
+            name: stop.name,
+            description: stop.description,
+            latitude: stop.latitude,
+            longitude: stop.longitude,
+            kind: stop.kind === 'LODGING' ? 'LODGING' : 'VISIT',
           })),
         };
 
@@ -650,21 +692,43 @@ export default function TourDetailClient() {
   const tourReviews: OperatorReview[] = (tourOperator?.reviews || []).filter(
     (review) => review.booking.tour?.id === tour.id,
   );
-  const tourReviewCount = tourReviews.length;
+  /** Tur kendi metrikleri — acente toplamıyla karıştırma. */
+  const tourReviewCount =
+    tour.reviewCount != null && Number.isFinite(Number(tour.reviewCount))
+      ? Number(tour.reviewCount)
+      : tourReviews.length;
   const tourAverageRating =
-    tourReviewCount > 0
-      ? tourReviews.reduce((sum, review) => sum + review.rating, 0) /
-        tourReviewCount
-      : 0;
+    tour.rating != null && Number(tour.rating) > 0
+      ? Number(tour.rating)
+      : tourReviews.length > 0
+        ? tourReviews.reduce((sum, review) => sum + review.rating, 0) /
+          tourReviews.length
+        : 0;
 
   const destinations = Array.isArray(tour.destinations)
     ? tour.destinations.map(getDestinationName).filter(Boolean)
     : parseJsonString<Destination[]>(tour.destinations, []).map((d) => d.city);
 
   const galleryImages = Array.isArray(tour.images) ? tour.images : [];
+  const openGalleryAt = (indexOrUrl: number | string) => {
+    if (galleryImages.length === 0) return;
+    if (typeof indexOrUrl === 'number') {
+      const next =
+        ((indexOrUrl % galleryImages.length) + galleryImages.length) %
+        galleryImages.length;
+      setGalleryLightboxIndex(next);
+      return;
+    }
+    const found = galleryImages.findIndex((url) => url === indexOrUrl);
+    setGalleryLightboxIndex(found >= 0 ? found : 0);
+  };
+  const closeGallery = () => setGalleryLightboxIndex(null);
   const activePickupPoints = (tour.pickupPoints ?? [])
     .filter((point) => point.isActive !== false)
     .sort((a, b) => a.order - b.order);
+  const routeStops = [...(tour.routeStops ?? [])].sort(
+    (a, b) => a.dayNumber - b.dayNumber || a.order - b.order,
+  );
   const pickupSlideCount =
     (tour.meetingPoint ? 1 : 0) +
     (activePickupPoints.length > 0
@@ -692,12 +756,8 @@ export default function TourDetailClient() {
     return parsed && typeof parsed === 'object' ? parsed : {};
   })();
 
-  const displayRating =
-    tourReviewCount > 0
-      ? tourAverageRating
-      : (tour.rating ?? tourOperator?.rating ?? 0);
-  const displayReviewCount =
-    tourReviewCount > 0 ? tourReviewCount : (tourOperator?.reviewCount ?? 0);
+  const displayRating = tourReviewCount > 0 ? tourAverageRating : 0;
+  const displayReviewCount = tourReviewCount > 0 ? tourReviewCount : 0;
   const nights = Math.max(tour.duration - 1, 0);
 
   const ui: TourDetailUiContextValue = {
@@ -715,7 +775,12 @@ export default function TourDetailClient() {
     healthPrivileges,
     destinations,
     galleryImages,
+    galleryLightboxIndex,
+    openGalleryAt,
+    closeGallery,
+    setGalleryLightboxIndex,
     activePickupPoints,
+    routeStops,
     pickupSlideCount,
     pickupSlideClass,
     pickupSliderRef,
@@ -735,19 +800,89 @@ export default function TourDetailClient() {
 
   return (
     <TourDetailUiProvider value={ui}>
-      <div className="overflow-x-hidden bg-gray-50 pb-28 md:pb-0">
+      {/* overflow yok: overflow-x-* sticky sağ sütunu kırar (y ekseni auto’ya düşer) */}
+      <div className="bg-neutral-50 pb-28 md:pb-0">
         <TourDetailHero />
 
-        <div className="container mx-auto max-w-7xl px-4 py-12 sm:py-16 lg:py-20">
-          <div className="mb-12 grid grid-cols-1 items-start gap-8 md:mb-16 lg:grid-cols-3 lg:gap-10 xl:gap-12">
+        <div className="container mx-auto max-w-7xl px-4 pt-8 pb-8 sm:pb-10 lg:pb-12">
+          {/* items-stretch: sağ sütun sol kadar uzasın ki sticky kaydırma alanı oluşsun */}
+          <div className="mb-10 grid grid-cols-1 gap-6 md:mb-12 lg:grid-cols-3 lg:gap-8 xl:gap-10">
             <div className="min-w-0 lg:col-span-2">
               <TourDetailLeftColumn />
             </div>
             <TourDetailSidebar />
           </div>
+
+          {otherTours.length > 0 ? (
+            <section
+              className="mb-6 rounded-2xl border border-neutral-200/70 bg-white p-5 shadow-sm sm:p-6"
+              data-testid="tour-detail-other-tours"
+            >
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold tracking-tight text-neutral-950 sm:text-xl">
+                  Acentenin Diğer Turları
+                </h2>
+                {tour.tourOperator?.id ? (
+                  <Link
+                    href={`/tour-operator/${tour.tourOperator.id}`}
+                    className="text-sm font-medium text-neutral-700 hover:text-neutral-950"
+                  >
+                    Tümünü gör →
+                  </Link>
+                ) : null}
+              </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-5">
+                {otherTours.slice(0, 3).map((otherTour) => {
+                  const cover = otherTour.images?.[0];
+                  return (
+                    <Link
+                      key={otherTour.id}
+                      href={tourPublicPath(otherTour)}
+                      className="group overflow-hidden rounded-2xl border border-neutral-200 bg-white transition hover:border-neutral-300 hover:shadow-md"
+                    >
+                      <div className="relative aspect-[16/10] bg-neutral-100">
+                        {cover ? (
+                          <Image
+                            src={cover}
+                            alt={otherTour.name}
+                            fill
+                            sizes="(max-width: 768px) 100vw, 33vw"
+                            unoptimized={shouldUnoptimizeMedia(cover)}
+                            className="object-cover transition duration-300 group-hover:scale-105"
+                          />
+                        ) : null}
+                      </div>
+                      <div className="space-y-1 p-3.5">
+                        <h3 className="line-clamp-2 text-sm font-semibold text-neutral-900">
+                          {sanitizePlainText(otherTour.name)}
+                        </h3>
+                        <p className="text-xs text-neutral-500">
+                          {otherTour.duration} gün · Maks.{' '}
+                          {otherTour.maxParticipants || 20} kişi
+                        </p>
+                        <p className="text-sm font-bold text-neutral-950">
+                          {formatPriceTry(otherTour.price)}
+                        </p>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
         </div>
 
         <TourDetailChrome />
+
+        {galleryLightboxIndex != null && galleryImages.length > 0 ? (
+          <TourPhotoLightbox
+            images={galleryImages}
+            index={galleryLightboxIndex}
+            tourName={tour.name}
+            onClose={closeGallery}
+            onIndexChange={setGalleryLightboxIndex}
+          />
+        ) : null}
       </div>
     </TourDetailUiProvider>
   );

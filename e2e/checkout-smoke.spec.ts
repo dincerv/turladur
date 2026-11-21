@@ -119,9 +119,10 @@ test.describe('Checkout — browser smoke', () => {
       .getByTestId('checkout-guest-address-0')
       .fill('Kadikoy Istanbul Test Mahallesi');
     await page.getByTestId('phone-local-input').fill('5551112233');
-    await page.getByTestId('checkout-billing-name').fill('E2E Checkout');
-    await page.getByTestId('checkout-billing-line1').fill('Bagdat Cad. No:1');
-    await page.getByTestId('checkout-billing-city').fill('Istanbul');
+    // Kurumsal fatura kapalı: fatura birincil katılımcıdan türetilir
+    await expect(
+      page.getByTestId('checkout-want-company-invoice'),
+    ).not.toBeChecked();
 
     await page.getByTestId('checkout-guests-next').click();
     await expect(page.getByTestId('checkout-hold-banner')).toBeVisible({

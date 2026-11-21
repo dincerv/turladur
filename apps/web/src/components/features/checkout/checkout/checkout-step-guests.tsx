@@ -23,6 +23,8 @@ export function CheckoutStepGuests() {
     selectedExtraIds,
     togglePaidExtra,
     extrasTotal,
+    wantCompanyInvoice,
+    setWantCompanyInvoice,
     billingFullName,
     setBillingFullName,
     billingLine1,
@@ -299,82 +301,106 @@ export function CheckoutStepGuests() {
       ) : null}
 
       <div className="rounded-xl border border-neutral-200/70 bg-white p-6 shadow-sm sm:p-8">
-        <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-neutral-900">
-          <Building2 className="h-5 w-5" />
-          Fatura bilgileri
-          <span className="text-xs font-normal text-neutral-500">
-            (zorunlu)
-          </span>
-        </h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <label className="mb-1.5 block text-sm font-medium text-neutral-700">
-              Ödeme / fatura sahibi <span className="text-red-500">*</span>
-            </label>
-            <input
-              data-testid="checkout-billing-name"
-              value={billingFullName}
-              onChange={(e) => setBillingFullName(e.target.value)}
-              placeholder="Ad Soyad"
-              className="h-11 w-full rounded-lg border border-neutral-300 px-3 text-sm"
-              required
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="mb-1.5 block text-sm font-medium text-neutral-700">
-              Fatura adresi <span className="text-red-500">*</span>
-            </label>
-            <input
-              data-testid="checkout-billing-line1"
-              value={billingLine1}
-              onChange={(e) => setBillingLine1(e.target.value)}
-              placeholder="Fatura adresi"
-              className="h-11 w-full rounded-lg border border-neutral-300 px-3 text-sm"
-              required
-            />
-          </div>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-neutral-700">
-              Şehir <span className="text-red-500">*</span>
-            </label>
-            <input
-              data-testid="checkout-billing-city"
-              value={billingCity}
-              onChange={(e) => setBillingCity(e.target.value)}
-              placeholder="Şehir"
-              className="h-11 w-full rounded-lg border border-neutral-300 px-3 text-sm"
-              required
-            />
+            <h2 className="flex items-center gap-2 text-lg font-bold text-neutral-900">
+              <Building2 className="h-5 w-5" />
+              Fatura bilgileri
+              <span className="text-xs font-normal text-neutral-500">
+                (opsiyonel)
+              </span>
+            </h2>
+            <p className="mt-1 text-xs text-neutral-500">
+              Şirketiniz yoksa boş bırakın; fatura birincil katılımcı
+              bilgilerinden oluşturulur.
+            </p>
           </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-neutral-700">
-              Ülke <span className="text-red-500">*</span>
-            </label>
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm font-medium text-neutral-800">
             <input
-              value={billingCountry}
-              onChange={(e) => setBillingCountry(e.target.value)}
-              placeholder="Ülke"
-              className="h-11 w-full rounded-lg border border-neutral-300 px-3 text-sm"
-              required
+              type="checkbox"
+              data-testid="checkout-want-company-invoice"
+              checked={wantCompanyInvoice}
+              onChange={(e) => setWantCompanyInvoice(e.target.checked)}
+              className="h-4 w-4 rounded border-neutral-300"
             />
-          </div>
-          <input
-            value={taxId}
-            onChange={(e) =>
-              setTaxId(e.target.value.replace(/\D/g, '').slice(0, 11))
-            }
-            placeholder="Vergi / TC No (opsiyonel)"
-            className="h-11 rounded-lg border border-neutral-300 px-3 text-sm"
-            inputMode="numeric"
-            maxLength={11}
-          />
-          <input
-            value={companyName}
-            onChange={(e) => setCompanyName(e.target.value)}
-            placeholder="Firma unvanı (opsiyonel)"
-            className="h-11 rounded-lg border border-neutral-300 px-3 text-sm"
-          />
+            Kurumsal fatura istiyorum
+          </label>
         </div>
+
+        {wantCompanyInvoice ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-sm font-medium text-neutral-700">
+                Ödeme / fatura sahibi <span className="text-red-500">*</span>
+              </label>
+              <input
+                data-testid="checkout-billing-name"
+                value={billingFullName}
+                onChange={(e) => setBillingFullName(e.target.value)}
+                placeholder="Ad Soyad veya unvan"
+                className="h-11 w-full rounded-lg border border-neutral-300 px-3 text-sm"
+                required
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-sm font-medium text-neutral-700">
+                Fatura adresi <span className="text-red-500">*</span>
+              </label>
+              <input
+                data-testid="checkout-billing-line1"
+                value={billingLine1}
+                onChange={(e) => setBillingLine1(e.target.value)}
+                placeholder="Fatura adresi"
+                className="h-11 w-full rounded-lg border border-neutral-300 px-3 text-sm"
+                required
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-neutral-700">
+                Şehir <span className="text-red-500">*</span>
+              </label>
+              <input
+                data-testid="checkout-billing-city"
+                value={billingCity}
+                onChange={(e) => setBillingCity(e.target.value)}
+                placeholder="Şehir"
+                className="h-11 w-full rounded-lg border border-neutral-300 px-3 text-sm"
+                required
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-neutral-700">
+                Ülke <span className="text-red-500">*</span>
+              </label>
+              <input
+                value={billingCountry}
+                onChange={(e) => setBillingCountry(e.target.value)}
+                placeholder="Ülke"
+                className="h-11 w-full rounded-lg border border-neutral-300 px-3 text-sm"
+                required
+              />
+            </div>
+            <input
+              data-testid="checkout-billing-tax"
+              value={taxId}
+              onChange={(e) =>
+                setTaxId(e.target.value.replace(/\D/g, '').slice(0, 11))
+              }
+              placeholder="Vergi / TC No (opsiyonel)"
+              className="h-11 rounded-lg border border-neutral-300 px-3 text-sm"
+              inputMode="numeric"
+              maxLength={11}
+            />
+            <input
+              data-testid="checkout-billing-company"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="Firma unvanı (opsiyonel)"
+              className="h-11 rounded-lg border border-neutral-300 px-3 text-sm"
+            />
+          </div>
+        ) : null}
+
         <textarea
           value={specialRequests}
           onChange={(e) => setSpecialRequests(e.target.value)}

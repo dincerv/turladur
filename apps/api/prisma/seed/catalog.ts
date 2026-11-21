@@ -40,6 +40,220 @@ const SEED_CITY_COORDS: Record<
   Trabzon: { latitude: 41.0027, longitude: 39.7168 },
 };
 
+/** Demo gezi durakları — kalkış noktalarından ayrı (rota haritası). */
+const SEED_ROUTE_STOPS: Record<
+  string,
+  Array<{
+    dayNumber: number;
+    name: string;
+    description: string;
+    latitude: number;
+    longitude: number;
+    kind: 'VISIT' | 'LODGING';
+  }>
+> = {
+  Nevşehir: [
+    {
+      dayNumber: 1,
+      name: 'Uçhisar Kalesi',
+      description: 'Panoramik vadi manzarası',
+      latitude: 38.6301,
+      longitude: 34.8053,
+      kind: 'VISIT',
+    },
+    {
+      dayNumber: 1,
+      name: 'Göreme Açık Hava Müzesi',
+      description: 'Kayadan oyma kiliseler',
+      latitude: 38.6398,
+      longitude: 34.8448,
+      kind: 'VISIT',
+    },
+    {
+      dayNumber: 1,
+      name: 'Göreme Mağara Otel',
+      description: 'Gece konaklama',
+      latitude: 38.6431,
+      longitude: 34.8289,
+      kind: 'LODGING',
+    },
+    {
+      dayNumber: 2,
+      name: 'Avanos',
+      description: 'Kızılırmak ve çömlek atölyeleri',
+      latitude: 38.715,
+      longitude: 34.8467,
+      kind: 'VISIT',
+    },
+    {
+      dayNumber: 2,
+      name: 'Ürgüp',
+      description: 'Tarihi evler ve şarap mahzenleri',
+      latitude: 38.6316,
+      longitude: 34.911,
+      kind: 'VISIT',
+    },
+  ],
+  Antalya: [
+    {
+      dayNumber: 1,
+      name: 'Patara Antik Kent',
+      description: 'Sahil ve antik tiyatro — Likya başlangıcı',
+      latitude: 36.2602,
+      longitude: 29.3175,
+      kind: 'VISIT',
+    },
+    {
+      dayNumber: 1,
+      name: 'Patara Plajı',
+      description: 'Akdeniz sahil yürüyüşü ve brifing',
+      latitude: 36.2548,
+      longitude: 29.3089,
+      kind: 'VISIT',
+    },
+    {
+      dayNumber: 1,
+      name: 'Patara Butik Pansiyon',
+      description: 'İlk gece konaklama',
+      latitude: 36.2655,
+      longitude: 29.3251,
+      kind: 'LODGING',
+    },
+    {
+      dayNumber: 2,
+      name: 'Kaş Merkez',
+      description: 'Sahil patikası sonrası Kaş’a varış',
+      latitude: 36.2018,
+      longitude: 29.6411,
+      kind: 'VISIT',
+    },
+    {
+      dayNumber: 2,
+      name: 'Kaş Butik Otel',
+      description: 'İkinci ve üçüncü gece konaklama',
+      latitude: 36.1995,
+      longitude: 29.6382,
+      kind: 'LODGING',
+    },
+    {
+      dayNumber: 3,
+      name: 'Kekova Batık Kent',
+      description: 'Tekne turu ve yüzme molası',
+      latitude: 36.1862,
+      longitude: 29.8514,
+      kind: 'VISIT',
+    },
+    {
+      dayNumber: 3,
+      name: 'Simena (Kaleköy)',
+      description: 'Kale manzarası ve serbest keşif',
+      latitude: 36.1908,
+      longitude: 29.8612,
+      kind: 'VISIT',
+    },
+    {
+      dayNumber: 4,
+      name: 'Antalya Dönüş Noktası',
+      description: 'Tur kapanışı ve bırakış',
+      latitude: 36.8969,
+      longitude: 30.7133,
+      kind: 'VISIT',
+    },
+  ],
+  İstanbul: [
+    {
+      dayNumber: 1,
+      name: 'Ayasofya',
+      description: 'Tarihi yarımada başlangıcı',
+      latitude: 41.0086,
+      longitude: 28.9802,
+      kind: 'VISIT',
+    },
+    {
+      dayNumber: 1,
+      name: 'Topkapı Sarayı',
+      description: 'Osmanlı saray kompleksi',
+      latitude: 41.0115,
+      longitude: 28.9834,
+      kind: 'VISIT',
+    },
+    {
+      dayNumber: 1,
+      name: 'Kapalıçarşı',
+      description: 'Alışveriş molası',
+      latitude: 41.0107,
+      longitude: 28.9681,
+      kind: 'VISIT',
+    },
+  ],
+  Trabzon: [
+    {
+      dayNumber: 1,
+      name: 'Sümela Manastırı',
+      description: 'Maçka vadisi — kaya manastırı',
+      latitude: 40.6897,
+      longitude: 39.6583,
+      kind: 'VISIT',
+    },
+    {
+      dayNumber: 1,
+      name: 'Uzungöl',
+      description: 'Göl kenarı yürüyüş ve çay molası',
+      latitude: 40.6193,
+      longitude: 40.2947,
+      kind: 'VISIT',
+    },
+    {
+      dayNumber: 1,
+      name: 'Uzungöl Dağ Evi',
+      description: 'Gece konaklama',
+      latitude: 40.621,
+      longitude: 40.292,
+      kind: 'LODGING',
+    },
+    {
+      dayNumber: 2,
+      name: 'Ayder Yaylası',
+      description: 'Çamlıhemşin — yayla manzarası',
+      latitude: 40.953,
+      longitude: 41.124,
+      kind: 'VISIT',
+    },
+    {
+      dayNumber: 2,
+      name: 'Zilkale',
+      description: 'Fırtına vadisi kalesi',
+      latitude: 40.912,
+      longitude: 40.958,
+      kind: 'VISIT',
+    },
+    {
+      dayNumber: 2,
+      name: 'Ayder Termal Otel',
+      description: 'Yayla konaklaması',
+      latitude: 40.955,
+      longitude: 41.13,
+      kind: 'LODGING',
+    },
+    {
+      dayNumber: 3,
+      name: 'Pokut Yaylası',
+      description: 'Bulut denizinin üstünde seyir noktası',
+      latitude: 40.88,
+      longitude: 40.72,
+      kind: 'VISIT',
+    },
+    {
+      dayNumber: 3,
+      name: 'Çamlıhemşin Merkez',
+      description: 'Yöresel lezzet ve serbest zaman',
+      latitude: 41.0,
+      longitude: 41.0,
+      kind: 'VISIT',
+    },
+  ],
+};
+
 function addDays(base: Date, days: number) {
   const d = new Date(base);
   d.setUTCHours(0, 0, 0, 0);
@@ -139,7 +353,7 @@ export async function seedCatalog(
         data: {
           title: `${tmpl.title} — ${agency.companyName}`,
           slug,
-          description: `${tmpl.title} demo turu. ${tmpl.city} kalkışlı, ${tmpl.days} gün. Seed verisi — checkout için pickup ve yaş aralıkları dolu.`,
+          description: tmpl.description,
           coverUrl: cover,
           galleryUrls: gallery,
           price: tmpl.price + a * 100,
@@ -148,29 +362,34 @@ export async function seedCatalog(
           durationDays: tmpl.days,
           stayKind: tmpl.days === 1 ? 'DAY_TRIP' : 'OVERNIGHT',
           destinationScope: 'DOMESTIC',
-          departureCities: [tmpl.city],
+          departureCities: ['Ankara'],
           extras: {
-            departureCity: [tmpl.city],
+            departureCity: ['Ankara'],
             destinations: [{ city: tmpl.city, description: '' }],
             tourType: tmpl.days === 1 ? 'Günübirlik Tur' : 'Kültür Turu',
             transportation: 'Otobüs',
             maxParticipants: 24,
             region: tmpl.city,
+            originCity: 'Ankara',
             accommodationType: tmpl.days === 1 ? 'Konaklamasız' : 'Otel',
             entertainmentLevel:
-              tmpl.category === 'ADVENTURE'
+              (tmpl.category as string) === 'ADVENTURE'
                 ? 'HIGH'
                 : tmpl.category === 'CULTURAL' ||
-                    tmpl.category === 'GASTRONOMY' ||
-                    tmpl.category === 'CITY'
+                    (tmpl.category as string) === 'GASTRONOMY' ||
+                    (tmpl.category as string) === 'CITY'
                   ? 'LOW'
                   : 'MEDIUM',
+            inclusions: [...tmpl.inclusions],
+            exclusions: [...tmpl.exclusions],
+            itinerary: { ...tmpl.itinerary },
           },
           childMaxAge: 12,
           minParticipants: 2,
           featured: t === 0,
-          averageRating: 4.2 + (t % 5) * 0.1,
-          reviewCount: 2 + t,
+          // Gerçek sayılar seed/reviews.ts içinde Review kayıtlarıyla senkronlanır
+          averageRating: 0,
+          reviewCount: 0,
           agencyId: agency.id,
         },
       });
@@ -226,6 +445,24 @@ export async function seedCatalog(
             : undefined,
         },
       });
+
+      const routeStops = SEED_ROUTE_STOPS[tmpl.city];
+      if (routeStops?.length) {
+        for (const [index, stop] of routeStops.entries()) {
+          await prisma.tourRouteStop.create({
+            data: {
+              tourId: tour.id,
+              dayNumber: stop.dayNumber,
+              order: index,
+              name: stop.name,
+              description: stop.description,
+              latitude: stop.latitude,
+              longitude: stop.longitude,
+              kind: stop.kind,
+            },
+          });
+        }
+      }
 
       const extra = await prisma.tourExtra.create({
         data: {
@@ -349,12 +586,18 @@ export async function seedCatalog(
       const slug = `seed-exp-a${a + 1}-e${e + 1}`;
       const image = tmpl.imageUrl;
       const gallery = [...tmpl.gallery];
+      const variants =
+        'descriptionVariants' in tmpl ? tmpl.descriptionVariants : null;
+      const shortDescription =
+        (variants && variants[a % variants.length]) ||
+        ('description' in tmpl ? tmpl.description : null) ||
+        `${tmpl.title}: ${tmpl.location}’da yerel rehber eşliğinde unutulmaz bir deneyim.`;
       const experience = await prisma.experience.create({
         data: {
-          title: `${tmpl.title} — ${agency.companyName}`,
+          title: tmpl.title,
           slug,
-          description: `${tmpl.title} kısa açıklama.`,
-          longDescription: `${tmpl.title} detaylı seed içeriği. Konum: ${tmpl.location}.`,
+          description: shortDescription,
+          longDescription: `${tmpl.title} — ${tmpl.location}. ${shortDescription} Küçük grup temposu; rezervasyon sonrası buluşma noktası SMS ile iletilir.`,
           category: tmpl.category,
           location: tmpl.location,
           duration: tmpl.duration,

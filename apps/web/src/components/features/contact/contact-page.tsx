@@ -64,7 +64,7 @@ export default function ContactPageContent() {
               yapalım
             </h1>
             <p className="mb-8 text-lg leading-relaxed text-neutral-600">
-              Ofisimiz Bilkent Cyberpark Dikmen Girişim Ofisi’nde. Tur,
+              Ofisimiz Ankara Teknoloji Köprüsü Kuluçka Merkezi’nde. Tur,
               rezervasyon veya acente ortaklığı için form ya da e-posta yeterli.
             </p>
             <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">

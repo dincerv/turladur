@@ -111,7 +111,11 @@ export class ExperienceService {
       this.prisma.experience.count({ where }),
       this.prisma.experience.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [
+          { featured: 'desc' },
+          { popularityRate: 'desc' },
+          { createdAt: 'desc' },
+        ],
         skip: (page - 1) * limit,
         take: limit,
         select: {
@@ -131,6 +135,11 @@ export class ExperienceService {
           imageUrl: true,
           featured: true,
           popularityRate: true,
+          agency: {
+            select: {
+              companyName: true,
+            },
+          },
         },
       }),
     ]);
@@ -650,6 +659,7 @@ export class ExperienceService {
     imageUrl?: string | null;
     featured?: boolean;
     popularityRate?: number;
+    agency?: { companyName: string } | null;
   }): SharedExperience {
     return {
       id: row.id,
@@ -663,6 +673,9 @@ export class ExperienceService {
       status: row.status as SharedExperience['status'],
       partnerId: row.agencyId,
       agencyId: row.agencyId,
+      ...(row.agency?.companyName?.trim()
+        ? { partnerName: row.agency.companyName.trim() }
+        : {}),
       averageRating: row.averageRating.toString(),
       reviewCount: row.reviewCount,
       ageRestriction: row.ageRestriction ?? null,

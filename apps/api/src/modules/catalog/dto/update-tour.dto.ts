@@ -26,6 +26,7 @@ import {
   CreateTourAccommodationNestedDto,
   CreateTourDateNestedDto,
   CreateTourPickupNestedDto,
+  CreateTourRouteStopNestedDto,
 } from './create-tour.dto';
 
 export class UpdateTourDto {
@@ -112,6 +113,12 @@ export class UpdateTourDto {
   @IsBoolean()
   replacePickupPoints?: boolean;
 
+  /** When true → soft-delete existing route stops then recreate from routeStops. */
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  replaceRouteStops?: boolean;
+
   @ApiPropertyOptional({ type: [CreateTourDateNestedDto] })
   @IsOptional()
   @IsArray()
@@ -125,6 +132,13 @@ export class UpdateTourDto {
   @ValidateNested({ each: true })
   @Type(() => CreateTourPickupNestedDto)
   pickupPoints?: CreateTourPickupNestedDto[];
+
+  @ApiPropertyOptional({ type: [CreateTourRouteStopNestedDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateTourRouteStopNestedDto)
+  routeStops?: CreateTourRouteStopNestedDto[];
 
   @ApiPropertyOptional({ type: CreateTourAccommodationNestedDto })
   @IsOptional()

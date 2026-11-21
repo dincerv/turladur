@@ -1,13 +1,12 @@
 'use client';
 
 import { Plus, X } from 'lucide-react';
-import dynamic from 'next/dynamic';
+import { ItineraryProgramForm } from '@/components/features/tour/itinerary/itinerary-program-form';
+import { syncItineraryDays } from '@/lib/tours/itinerary-day';
 import { TOUR_OPTIONS } from './tour-form.constants';
 import { useTourFormUi } from './tour-form-context';
 
-const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
-
-/** Split from tour-form.tsx (Faz 7) — Detaylar step; UI unchanged. */
+/** Split from tour-form.tsx (Faz 7) — Detaylar step; zengin günlük program. */
 export function TourFormDetailsStep() {
   const {
     formData,
@@ -24,12 +23,13 @@ export function TourFormDetailsStep() {
     handleRemoveExclude,
     handleRemoveHealthPrivilege,
     handleRemoveFeature,
-    handleItineraryChange,
-    handleAddItineraryDay,
-    handleRemoveItineraryDay,
-    handleItineraryImageAdd,
-    handleItineraryImageRemove,
   } = useTourFormUi();
+
+  const durationDays = Math.max(1, Number(formData.duration) || 1);
+  const stayKind =
+    formData.stayKind === 'DAY_TRIP' || formData.tourType === 'Günübirlik Tur'
+      ? 'DAY_TRIP'
+      : 'OVERNIGHT';
 
   return (
     <div className="space-y-6 bg-white shadow rounded-lg p-6">
@@ -404,106 +404,27 @@ export function TourFormDetailsStep() {
       </div>
 
       {/* Program */}
-      <div>
-        <label className="block text-sm font-medium text-gray-900">
-          Program
-        </label>
-        <div className="mt-4 space-y-4">
-          {formData.itinerary.map((day, index) => (
-            <div
-              key={index}
-              className="flex flex-col gap-4 p-4 bg-white rounded-lg border border-gray-200 shadow-md mb-4"
-            >
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={day.title}
-                  onChange={(e) =>
-                    handleItineraryChange(index, 'title', e.target.value)
-                  }
-                  className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-gray-900 text-lg font-semibold"
-                  placeholder="Gün başlığı"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRemoveItineraryDay(index)}
-                  className="p-2 text-gray-500 hover:text-red-500"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
-                  Gün Açıklaması
-                </label>
-                <div
-                  data-color-mode="light"
-                  className="border border-gray-300 rounded-lg overflow-hidden"
-                >
-                  <MDEditor
-                    value={day.description}
-                    onChange={(val) =>
-                      handleItineraryChange(index, 'description', val || '')
-                    }
-                    height={180}
-                    preview="edit"
-                    hideToolbar={false}
-                    textareaProps={{
-                      placeholder:
-                        'Bu günün detaylarını açıklayın... Markdown formatında yazabilirsiniz.',
-                      style: { fontSize: '14px' },
-                    }}
-                  />
-                </div>
-              </div>
-              {/* Fotoğraf ekleme alanı */}
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-1">
-                  Gün Fotoğrafları
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={(e) =>
-                    handleItineraryImageAdd(index, e.target.files)
-                  }
-                  className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none"
-                />
-                {day.images && day.images.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-3">
-                    {day.images.map((img, imgIdx) => (
-                      <div key={imgIdx} className="relative group w-24 h-24">
-                        <img
-                          src={img.url}
-                          alt="itinerary-img"
-                          className="object-cover w-full h-full rounded-lg border"
-                        />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleItineraryImageRemove(index, imgIdx)
-                          }
-                          className="absolute top-1 right-1 bg-white rounded-full p-1 shadow-sm opacity-80 hover:opacity-100"
-                        >
-                          <X className="h-4 w-4 text-gray-500" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={handleAddItineraryDay}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50"
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            Gün Ekle
-          </button>
-        </div>
+      <div className="mt-2">
+        <ItineraryProgramForm
+          days={syncItineraryDays(formData.itinerary, durationDays, {
+            clearAccommodation: stayKind === 'DAY_TRIP',
+          })}
+          durationDays={durationDays}
+          stayKind={stayKind}
+          availableImageUrls={[
+            ...(formData.mainImage?.url ? [formData.mainImage.url] : []),
+            ...formData.galleryImages
+              .map((img) => img.url)
+              .filter((url): url is string => Boolean(url)),
+            ...formData.images
+              .map((img) => img.url)
+              .filter((url): url is string => Boolean(url)),
+          ]}
+          onChange={(itinerary) =>
+            setFormData((prev) => ({ ...prev, itinerary }))
+          }
+          testIdPrefix="partner-tour-itinerary"
+        />
       </div>
     </div>
   );

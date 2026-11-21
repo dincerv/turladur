@@ -63,6 +63,8 @@ export interface Tour {
   transportation: string | null;
   period: string | null;
   rating: number | null;
+  /** Doğrulanmış tur yorumu sayısı (acente toplamı değil). */
+  reviewCount?: number | null;
   tourType: string | null;
   accommodationType: string | null;
   difficultyLevel: string | null;
@@ -96,16 +98,43 @@ export interface Tour {
     time: string;
     isActive: boolean;
     order: number;
+    latitude?: number | null;
+    longitude?: number | null;
   }[];
+  routeStops?: TourRouteStopView[];
 }
+
+/** Gezi durağı (tur rotası) — kalkış/biniş noktalarından ayrı. */
+export type TourRouteStopView = {
+  id: string;
+  dayNumber: number;
+  order: number;
+  name: string;
+  description?: string | null;
+  latitude: number;
+  longitude: number;
+  kind: 'VISIT' | 'LODGING';
+};
+
+export type ItineraryMealStatus = 'INCLUDED' | 'EXCLUDED' | 'FREE_TIME';
+
+export type ItineraryMealsView = {
+  breakfast?: ItineraryMealStatus | null;
+  lunch?: ItineraryMealStatus | null;
+  dinner?: ItineraryMealStatus | null;
+};
 
 export type ItineraryItem = {
   title?: string;
   description?: string;
   activities?: string[];
   highlights?: string[];
-  meals?: string[];
-  accommodation?: string;
+  /** Legacy string chips or structured öğün durumu. */
+  meals?: string[] | ItineraryMealsView;
+  accommodation?: string | null;
+  /** Güne atanmış galeri fotoğraf URL’leri. */
+  imageUrls?: string[];
+  images?: string[] | { url?: string }[];
   schedule?: { time?: string; activity?: string }[];
   distance?: string;
   duration?: string;

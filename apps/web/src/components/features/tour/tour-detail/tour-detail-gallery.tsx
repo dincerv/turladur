@@ -1,67 +1,45 @@
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   Image as PhotoIcon,
-  X as XMarkIcon,
 } from 'lucide-react';
 import { shouldUnoptimizeMedia } from '@/lib/media';
 import { cn } from '@/lib/utils';
 import { sanitizePlainText } from './tour-detail.helpers';
+import { useTourDetailUi } from './tour-detail-context';
 
 type TourDetailGalleryProps = {
   images: string[];
   tourName: string;
   destinationLabels?: string[];
+  /** Hero: yüzen mini önizleme + lightbox. Section: mozaik galeri. */
+  variant?: 'section' | 'hero';
 };
 
-/** Desktop mosaic + mobile swipe gallery with lightbox. */
+/** Desktop mosaic / hero mini thumbs — lightbox bağlam üzerinden açılır. */
 export function TourDetailGallery({
   images,
   tourName,
   destinationLabels = [],
+  variant = 'section',
 }: TourDetailGalleryProps) {
+  const { openGalleryAt } = useTourDetailUi();
   const safeName = sanitizePlainText(tourName) || 'Tur';
   const list = images.filter((src): src is string => Boolean(src));
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [failedThumbs, setFailedThumbs] = useState<Record<string, true>>({});
   const mobileTrackRef = useRef<HTMLDivElement>(null);
 
   const openAt = useCallback(
     (index: number) => {
       if (list.length === 0) return;
-      setLightboxIndex(index);
+      openGalleryAt(index);
     },
-    [list.length],
+    [list.length, openGalleryAt],
   );
-
-  const closeLightbox = useCallback(() => setLightboxIndex(null), []);
-
-  const go = useCallback(
-    (delta: number) => {
-      if (lightboxIndex == null || list.length === 0) return;
-      setLightboxIndex((lightboxIndex + delta + list.length) % list.length);
-    },
-    [lightboxIndex, list.length],
-  );
-
-  useEffect(() => {
-    if (lightboxIndex == null) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closeLightbox();
-      if (event.key === 'ArrowRight') go(1);
-      if (event.key === 'ArrowLeft') go(-1);
-    };
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [lightboxIndex, closeLightbox, go]);
 
   const scrollMobile = (direction: 'prev' | 'next') => {
     const el = mobileTrackRef.current;
@@ -78,7 +56,7 @@ export function TourDetailGallery({
     'Tur Lokasyonu';
 
   const placeholders = Array.from({ length: 4 }, (_, i) => i);
-  /** Max 3 tiles so desktop mosaic always fills without gaps. */
+  /** Max 5 tiles: 1 hero + up to 4 side (2×2) when enough photos. */
   const mosaic =
     list.length === 0
       ? []
@@ -86,11 +64,66 @@ export function TourDetailGallery({
         ? list.slice(0, 1)
         : list.length === 2
           ? list.slice(0, 2)
-          : list.slice(0, 3);
+          : list.length <= 4
+            ? list.slice(0, 3)
+            : list.slice(0, 5);
   const extraCount = Math.max(0, list.length - mosaic.length);
+  const isHero = variant === 'hero';
+  const tileRadius = isHero ? 'rounded-2xl' : 'rounded-xl';
+  const previewThumbs = list.length > 1 ? list.slice(1, 3) : [];
+
+  if (isHero) {
+    return (
+      <div className="w-full min-w-0" data-testid="tour-detail-gallery">
+        {list.length > 1 ? (
+          <div className="flex items-end justify-end gap-2 sm:gap-2.5">
+            {previewThumbs.map((image, index) => {
+              const absoluteIndex = index + 1;
+              const thumbKey = `${absoluteIndex}:${image}`;
+              if (failedThumbs[thumbKey]) return null;
+              return (
+                <button
+                  key={thumbKey}
+                  type="button"
+                  onClick={() => openAt(absoluteIndex)}
+                  className="group relative h-14 w-14 overflow-hidden rounded-xl border border-white/30 bg-slate-800/80 shadow-md backdrop-blur-md transition hover:border-white/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:h-16 sm:w-16 md:h-[72px] md:w-[72px]"
+                  aria-label={`${safeName} fotoğraf ${absoluteIndex + 1}`}
+                >
+                  <Image
+                    src={image}
+                    alt=""
+                    fill
+                    sizes="72px"
+                    unoptimized={shouldUnoptimizeMedia(image)}
+                    className="object-cover object-center transition duration-300 group-hover:scale-105"
+                    onError={() =>
+                      setFailedThumbs((prev) => ({ ...prev, [thumbKey]: true }))
+                    }
+                  />
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => openAt(0)}
+              className="inline-flex h-14 items-center gap-1.5 rounded-xl border border-white/30 bg-white/15 px-3 text-xs font-semibold text-white shadow-md backdrop-blur-md transition hover:bg-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:h-16 sm:px-3.5 sm:text-sm md:h-[72px]"
+            >
+              <PhotoIcon className="h-4 w-4 shrink-0 opacity-90" />
+              <span className="whitespace-nowrap">
+                Tüm fotoğraflar ({list.length})
+              </span>
+            </button>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full min-w-0 overflow-hidden">
+    <div
+      className="w-full min-w-0 overflow-hidden"
+      data-testid="tour-detail-gallery"
+    >
       <div className="mb-3 flex items-center justify-between gap-3 sm:mb-4">
         <h2 className="flex min-w-0 items-center text-lg font-semibold text-gray-900 sm:text-xl">
           <PhotoIcon className="mr-2 h-5 w-5 shrink-0 text-neutral-950 sm:mr-2.5 sm:h-6 sm:w-6" />
@@ -122,7 +155,10 @@ export function TourDetailGallery({
               key={image ?? `ph-${index}`}
               type="button"
               onClick={() => image && openAt(index)}
-              className="relative aspect-[4/3] w-[min(100%,280px)] shrink-0 snap-center overflow-hidden rounded-xl bg-neutral-200 shadow-sm"
+              className={cn(
+                'relative aspect-[4/3] w-[min(100%,280px)] shrink-0 snap-center overflow-hidden bg-neutral-200 shadow-sm',
+                tileRadius,
+              )}
               aria-label={
                 image ? `${safeName} fotoğraf ${index + 1}` : 'Fotoğraf yok'
               }
@@ -171,14 +207,18 @@ export function TourDetailGallery({
       {/* Desktop — main + side mosaic (fixed height, no empty cells) */}
       <div className="hidden md:block">
         {list.length === 0 ? (
-          <div className="grid h-[300px] grid-cols-2 gap-2 lg:h-[360px] sm:gap-3">
+          <div className="grid h-[320px] grid-cols-2 gap-2 sm:gap-3 lg:h-[420px]">
             {placeholders.slice(0, 2).map((index) => (
               <div
                 key={index}
-                className="relative h-full overflow-hidden rounded-xl bg-neutral-200"
+                className={cn(
+                  'relative h-full overflow-hidden bg-neutral-100',
+                  tileRadius,
+                )}
               >
-                <div className="flex h-full w-full items-center justify-center">
-                  <PhotoIcon className="h-9 w-9 text-neutral-400" />
+                <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-neutral-400">
+                  <PhotoIcon className="h-9 w-9" />
+                  <span className="text-xs font-medium">Fotoğraf yok</span>
                 </div>
               </div>
             ))}
@@ -187,7 +227,10 @@ export function TourDetailGallery({
           <button
             type="button"
             onClick={() => openAt(0)}
-            className="group relative h-[300px] w-full overflow-hidden rounded-xl bg-neutral-200 lg:h-[360px]"
+            className={cn(
+              'group relative h-[320px] w-full overflow-hidden bg-neutral-200 lg:h-[420px]',
+              tileRadius,
+            )}
           >
             <Image
               src={mosaic[0]}
@@ -200,13 +243,16 @@ export function TourDetailGallery({
             />
           </button>
         ) : mosaic.length === 2 ? (
-          <div className="grid h-[300px] grid-cols-2 gap-2 lg:h-[360px] sm:gap-3">
+          <div className="grid h-[320px] grid-cols-2 gap-2 sm:gap-3 lg:h-[420px]">
             {mosaic.map((image, index) => (
               <button
                 key={`${image}-${index}`}
                 type="button"
                 onClick={() => openAt(index)}
-                className="group relative h-full min-h-0 overflow-hidden rounded-xl bg-neutral-200"
+                className={cn(
+                  'group relative h-full min-h-0 overflow-hidden bg-neutral-200',
+                  tileRadius,
+                )}
               >
                 <Image
                   src={image}
@@ -221,10 +267,63 @@ export function TourDetailGallery({
               </button>
             ))}
           </div>
+        ) : mosaic.length >= 5 ? (
+          <div className="grid h-[320px] grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-2 sm:gap-3 lg:h-[420px]">
+            <button
+              type="button"
+              onClick={() => openAt(0)}
+              className={cn(
+                'group relative min-h-0 min-w-0 overflow-hidden bg-neutral-200 shadow-sm',
+                tileRadius,
+              )}
+            >
+              <Image
+                src={mosaic[0]}
+                alt={`${safeName} - 1`}
+                fill
+                sizes="(max-width: 1280px) 45vw, 480px"
+                priority
+                unoptimized={shouldUnoptimizeMedia(mosaic[0])}
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+            </button>
+            <div className="grid grid-cols-2 grid-rows-2 gap-2 sm:gap-3">
+              {mosaic.slice(1, 5).map((image, index) => {
+                const absoluteIndex = index + 1;
+                const showExtra = absoluteIndex === 4 && extraCount > 0;
+                return (
+                  <button
+                    key={`${image}-${absoluteIndex}`}
+                    type="button"
+                    onClick={() => openAt(absoluteIndex)}
+                    className={cn(
+                      'group relative min-h-0 min-w-0 overflow-hidden bg-neutral-200 shadow-sm',
+                      tileRadius,
+                    )}
+                  >
+                    <Image
+                      src={image}
+                      alt={`${safeName} - ${absoluteIndex + 1}`}
+                      fill
+                      sizes="(max-width: 1280px) 18vw, 200px"
+                      loading="lazy"
+                      unoptimized={shouldUnoptimizeMedia(image)}
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    {showExtra ? (
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-sm font-semibold text-white">
+                        +{extraCount} fotoğraf
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         ) : (
-          <div className="grid h-[300px] grid-cols-[minmax(0,2fr)_minmax(0,1fr)] grid-rows-2 gap-2 lg:h-[360px] sm:gap-3">
+          <div className="grid h-[320px] grid-cols-[minmax(0,2fr)_minmax(0,1fr)] grid-rows-2 gap-2 sm:gap-3 lg:h-[420px]">
             {mosaic.map((image, index) => {
-              const isHero = index === 0;
+              const mainTile = index === 0;
               const showExtra = index === mosaic.length - 1 && extraCount > 0;
               return (
                 <button
@@ -232,8 +331,9 @@ export function TourDetailGallery({
                   type="button"
                   onClick={() => openAt(index)}
                   className={cn(
-                    'group relative min-h-0 min-w-0 overflow-hidden rounded-xl bg-neutral-200 shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2',
-                    isHero ? 'row-span-2' : 'row-span-1',
+                    'group relative min-h-0 min-w-0 overflow-hidden bg-neutral-200 shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2',
+                    tileRadius,
+                    mainTile ? 'row-span-2' : 'row-span-1',
                   )}
                 >
                   <Image
@@ -241,7 +341,7 @@ export function TourDetailGallery({
                     alt={`${safeName} - ${index + 1}`}
                     fill
                     sizes={
-                      isHero
+                      mainTile
                         ? '(max-width: 1280px) 45vw, 480px'
                         : '(max-width: 1280px) 22vw, 240px'
                     }
@@ -270,68 +370,6 @@ export function TourDetailGallery({
           </div>
         )}
       </div>
-
-      {lightboxIndex != null && list[lightboxIndex] ? (
-        <div
-          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Fotoğraf görüntüleyici"
-          onClick={closeLightbox}
-        >
-          <button
-            type="button"
-            onClick={closeLightbox}
-            className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 active:scale-95"
-            aria-label="Kapat"
-          >
-            <XMarkIcon className="h-5 w-5" />
-          </button>
-          {list.length > 1 ? (
-            <>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  go(-1);
-                }}
-                className="absolute left-3 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 active:scale-95 md:left-6"
-                aria-label="Önceki"
-              >
-                <ChevronLeftIcon className="h-6 w-6" />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  go(1);
-                }}
-                className="absolute right-3 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 active:scale-95 md:right-6"
-                aria-label="Sonraki"
-              >
-                <ChevronRightIcon className="h-6 w-6" />
-              </button>
-            </>
-          ) : null}
-          <div
-            className="relative h-[min(80vh,720px)] w-full max-w-5xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Image
-              src={list[lightboxIndex]}
-              alt={`${safeName} - ${lightboxIndex + 1}`}
-              fill
-              sizes="100vw"
-              priority
-              unoptimized={shouldUnoptimizeMedia(list[lightboxIndex])}
-              className="object-contain"
-            />
-          </div>
-          <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-sm text-white/80">
-            {lightboxIndex + 1} / {list.length}
-          </p>
-        </div>
-      ) : null}
     </div>
   );
 }

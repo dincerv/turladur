@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { AdminAuditTimeline } from '@/components/features/admin/admin-audit-timeline';
 import {
   getAdminTourPreview,
   type AdminTourPreview,
@@ -129,6 +130,11 @@ export default function AdminTourPreviewPage() {
                 Son red notu: {tour.moderationNote}
               </div>
             ) : null}
+            <AdminAuditTimeline
+              entityType="Tour"
+              entityId={tour.id}
+              title="Bu turun işlem geçmişi"
+            />
             {gallery.length ? (
               <div>
                 <h3 className="mb-2 text-sm font-semibold text-neutral-900">

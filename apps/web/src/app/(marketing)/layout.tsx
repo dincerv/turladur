@@ -10,7 +10,7 @@ export default function MarketingLayout({
   return (
     <>
       <SiteHeader />
-      <main className="min-h-screen pb-28">{children}</main>
+      <main className="min-h-screen scroll-pt-20 pb-0 pt-0">{children}</main>
       <Footer />
       <AiSearchExperience />
     </>

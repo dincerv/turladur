@@ -23,8 +23,10 @@ import { UserPayload } from '../../../core/auth/types/auth.types';
 import {
   CreatePaidTourExtraDto,
   CreateTourPickupPointDto,
+  CreateTourRouteStopDto,
   UpdatePaidTourExtraDto,
   UpdateTourPickupPointDto,
+  UpdateTourRouteStopDto,
   UpsertTourAccommodationDto,
 } from '../dto/tour-extras.dto';
 import { TourExtrasService } from '../services/tour-extras.service';
@@ -134,6 +136,70 @@ export class TourExtrasController {
     return this.tourExtrasService.deletePickupPoint(
       tourId,
       pointId,
+      user.agencyId,
+      user.role,
+      resolveActorId(user),
+    );
+  }
+
+  @Public()
+  @Get('route-stops')
+  @ApiOperation({ summary: 'List tour route / itinerary stops' })
+  listRouteStops(@Param('tourId') tourId: string) {
+    return this.tourExtrasService.listRouteStops(tourId);
+  }
+
+  @Post('route-stops')
+  @ApiBearerAuth()
+  @Roles(...AGENCY_SELLER_ROLES)
+  @RequireStaffPermissions('tours')
+  @ApiOperation({ summary: 'Add tour route stop' })
+  createRouteStop(
+    @Param('tourId') tourId: string,
+    @Body() dto: CreateTourRouteStopDto,
+    @CurrentUser() user: UserPayload,
+  ) {
+    return this.tourExtrasService.createRouteStop(
+      tourId,
+      dto,
+      user.agencyId,
+      user.role,
+    );
+  }
+
+  @Patch('route-stops/:stopId')
+  @ApiBearerAuth()
+  @Roles(...AGENCY_SELLER_ROLES)
+  @RequireStaffPermissions('tours')
+  @ApiOperation({ summary: 'Update tour route stop' })
+  updateRouteStop(
+    @Param('tourId') tourId: string,
+    @Param('stopId') stopId: string,
+    @Body() dto: UpdateTourRouteStopDto,
+    @CurrentUser() user: UserPayload,
+  ) {
+    return this.tourExtrasService.updateRouteStop(
+      tourId,
+      stopId,
+      dto,
+      user.agencyId,
+      user.role,
+    );
+  }
+
+  @Delete('route-stops/:stopId')
+  @ApiBearerAuth()
+  @Roles(...AGENCY_SELLER_ROLES)
+  @RequireStaffPermissions('tours')
+  @ApiOperation({ summary: 'Soft-delete tour route stop' })
+  deleteRouteStop(
+    @Param('tourId') tourId: string,
+    @Param('stopId') stopId: string,
+    @CurrentUser() user: UserPayload,
+  ) {
+    return this.tourExtrasService.deleteRouteStop(
+      tourId,
+      stopId,
       user.agencyId,
       user.role,
       resolveActorId(user),

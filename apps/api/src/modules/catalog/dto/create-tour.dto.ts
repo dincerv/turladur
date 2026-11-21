@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   TourCategory,
   TourDestinationScope,
+  TourRouteStopKind,
   TourStayKind,
 } from '@turta/shared-constants';
 import { Type } from 'class-transformer';
@@ -16,6 +17,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  Max,
   MaxLength,
   Min,
   MinLength,
@@ -149,6 +151,56 @@ export class CreateTourAccommodationNestedDto {
   type!: string;
 }
 
+export class CreateTourRouteStopNestedDto {
+  @ApiProperty({ example: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(60)
+  dayNumber!: number;
+
+  @ApiPropertyOptional({ example: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  order?: number;
+
+  @ApiProperty({ example: 'Göreme Açık Hava Müzesi' })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(160)
+  name!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  description?: string;
+
+  @ApiProperty({ example: 38.6398 })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude!: number;
+
+  @ApiProperty({ example: 34.8448 })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude!: number;
+
+  @ApiPropertyOptional({
+    enum: TourRouteStopKind,
+    default: TourRouteStopKind.VISIT,
+  })
+  @IsOptional()
+  @IsEnum(TourRouteStopKind)
+  kind?: TourRouteStopKind;
+}
+
 export class CreateTourDto {
   @ApiProperty({ example: 'Kapadokya Balon Turu' })
   @IsString()
@@ -238,6 +290,13 @@ export class CreateTourDto {
   @ValidateNested({ each: true })
   @Type(() => CreateTourPickupNestedDto)
   pickupPoints?: CreateTourPickupNestedDto[];
+
+  @ApiPropertyOptional({ type: [CreateTourRouteStopNestedDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateTourRouteStopNestedDto)
+  routeStops?: CreateTourRouteStopNestedDto[];
 
   @ApiPropertyOptional({ type: CreateTourAccommodationNestedDto })
   @IsOptional()

@@ -19,8 +19,15 @@ import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   Plane as PaperAirplaneIcon,
+  Sparkles,
 } from 'lucide-react';
 import { DEFAULT_DEPARTURE_CITIES } from '@/lib/departure-cities';
+
+import { requestOpenAiSearch } from '@/components/features/ai-search/ai-search-bridge';
+
+function openTurtaAiSearch() {
+  requestOpenAiSearch();
+}
 
 type DepartureCityOption = {
   city: string;
@@ -93,7 +100,7 @@ export function Hero({ variant = 'default' }: HeroProps) {
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [selectedDepartureCity, setSelectedDepartureCity] = useState<
     string | null
-  >(null);
+  >('Ankara');
   const [departureCityOptions] = useState<DepartureCityOption[]>(
     (DEFAULT_DEPARTURE_CITIES as readonly string[]).map((city) => ({
       city,
@@ -190,9 +197,11 @@ export function Hero({ variant = 'default' }: HeroProps) {
 
     if (destination) {
       params.set('q', destination);
+      params.set('destination', destination);
     }
 
     if (selectedDepartureCity) {
+      params.set('origin', selectedDepartureCity);
       params.set('departureCity', selectedDepartureCity);
     }
 
@@ -368,8 +377,8 @@ export function Hero({ variant = 'default' }: HeroProps) {
           >
             {(
               [
-                { id: 'location', label: 'Konum' },
                 { id: 'departure', label: 'Kalkış' },
+                { id: 'location', label: 'Konum' },
                 { id: 'dates', label: 'Tarihler' },
                 { id: 'guests', label: 'Misafirler' },
               ] as const
@@ -757,18 +766,18 @@ export function Hero({ variant = 'default' }: HeroProps) {
     <div className="w-full animate-slideUp delay-200 relative z-20">
       <div className="mx-4 bg-white rounded-2xl shadow-lg border border-neutral-100/80 px-5 py-4 text-left">
         {renderMobileSearchRow({
-          icon: MapPinIcon,
-          label: 'Nereye gitmek istersin?',
-          value: formatDestinationDisplay(),
-          hasValue: !!(selectedLocation || searchQuery.trim()),
-          onClick: () => openSearchModal('location'),
-        })}
-        {renderMobileSearchRow({
           icon: PaperAirplaneIcon,
           label: 'Nereden?',
           value: formatDepartureDisplay(),
           hasValue: !!selectedDepartureCity,
           onClick: () => openSearchModal('departure'),
+        })}
+        {renderMobileSearchRow({
+          icon: MapPinIcon,
+          label: 'Nereye gitmek istersin?',
+          value: formatDestinationDisplay(),
+          hasValue: !!(selectedLocation || searchQuery.trim()),
+          onClick: () => openSearchModal('location'),
         })}
         {renderMobileSearchRow({
           icon: CalendarDaysIcon,
@@ -793,15 +802,55 @@ export function Hero({ variant = 'default' }: HeroProps) {
           <MagnifyingGlassIcon className="w-5 h-5" />
           Keşfet
         </Link>
+        <button
+          type="button"
+          data-testid="home-hero-turta-ask-mobile"
+          onClick={openTurtaAiSearch}
+          className="mt-2.5 w-full inline-flex items-center justify-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm font-medium text-neutral-800 transition hover:bg-neutral-100"
+        >
+          <Sparkles className="h-4 w-4 text-amber-500" aria-hidden />✨ Ne
+          aradığını yaz, Turta&apos;ya Sor
+        </button>
       </div>
     </div>
   );
 
+  const renderTurtaAskCta = () => (
+    <button
+      type="button"
+      data-testid="home-hero-turta-ask"
+      onClick={openTurtaAiSearch}
+      className="group mt-3 inline-flex w-full max-w-3xl items-center justify-center gap-2 rounded-full border border-white/35 bg-white/15 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-black/10 backdrop-blur-md transition hover:bg-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 md:mt-4"
+    >
+      <Sparkles
+        className="h-4 w-4 text-amber-200 transition group-hover:scale-110"
+        aria-hidden
+      />
+      <span>✨ Ne aradığını yaz, Turta&apos;ya Sor</span>
+    </button>
+  );
+
   const renderDesktopSearchBar = () => (
-    <div className="w-full max-w-3xl mx-auto animate-slideUp delay-200">
-      <div className="w-full grid grid-cols-[1fr_auto_1fr_auto_1fr_auto] items-center bg-white/95 backdrop-blur-sm rounded-full shadow-lg p-2 text-left border border-neutral-200/30 hover:shadow-xl transition-shadow duration-300">
+    <div className="w-full max-w-4xl mx-auto animate-slideUp delay-200 flex flex-col items-center">
+      <div
+        data-testid="home-hero-search-bar"
+        className="w-full grid grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr_auto] items-center bg-white/95 backdrop-blur-sm rounded-full shadow-lg p-2 text-left border border-neutral-200/30 hover:shadow-xl transition-shadow duration-300"
+      >
         <button
           type="button"
+          data-testid="home-hero-origin"
+          onClick={() => openSearchModal('departure')}
+          className="flex-1 flex items-center pl-3 pr-2 min-w-0 text-left"
+        >
+          <PaperAirplaneIcon className="w-4 h-4 text-neutral-950 mr-2 flex-shrink-0" />
+          <span className="text-neutral-700 text-sm truncate font-medium">
+            {selectedDepartureCity || 'Nereden?'}
+          </span>
+        </button>
+        <div className="hidden md:block h-6 border-l border-neutral-200 mx-1" />
+        <button
+          type="button"
+          data-testid="home-hero-destination"
           onClick={() => openSearchModal('location')}
           className="flex-1 flex items-center pl-3 pr-2 min-w-0 text-left"
         >
@@ -810,7 +859,7 @@ export function Hero({ variant = 'default' }: HeroProps) {
             {selectedLocation || searchQuery || 'Nereye?'}
           </span>
         </button>
-        <div className="hidden md:block h-6 border-l border-neutral-200 mx-1"></div>
+        <div className="hidden md:block h-6 border-l border-neutral-200 mx-1" />
         <button
           type="button"
           onClick={() => openSearchModal('dates')}
@@ -823,7 +872,7 @@ export function Hero({ variant = 'default' }: HeroProps) {
               : 'Tarihler'}
           </span>
         </button>
-        <div className="hidden md:block h-6 border-l border-neutral-200 mx-1"></div>
+        <div className="hidden md:block h-6 border-l border-neutral-200 mx-1" />
         <button
           type="button"
           onClick={() => openSearchModal('guests')}
@@ -843,11 +892,13 @@ export function Hero({ variant = 'default' }: HeroProps) {
           <MagnifyingGlassIcon className="w-4 h-4 text-white" />
         </button>
       </div>
+      {renderTurtaAskCta()}
     </div>
   );
 
   return (
     <section
+      data-testid={isRoutesVariant ? 'routes-hero' : 'home-hero'}
       className={`relative mt-0 w-full overflow-hidden flex ${
         isRoutesVariant
           ? 'min-h-[650px] h-[85vh] max-h-[900px] items-center justify-center'
@@ -901,7 +952,7 @@ export function Hero({ variant = 'default' }: HeroProps) {
           <p className="text-sm leading-relaxed md:text-xl max-w-2xl mx-auto text-white/85 md:text-white/90 font-light px-1 md:px-2">
             {isRoutesVariant
               ? 'Kapadokya, Likya Yolu, Pamukkale ve daha fazlası için tur seçeneklerini inceleyin.'
-              : "Türkiye'nin dört bir yanındaki turları ve deneyimleri kolayca bulun, karşılaştırın ve rezerve edin."}
+              : 'Ankara çıkışlı turları ve yakın çevre deneyimlerini kolayca bulun, karşılaştırın ve rezerve edin.'}
           </p>
         </div>
 

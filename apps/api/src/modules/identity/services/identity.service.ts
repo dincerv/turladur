@@ -645,7 +645,7 @@ export class IdentityService {
       billingState: user.billingState ?? null,
       billingPostalCode: user.billingPostalCode ?? null,
       billingCountry: user.billingCountry ?? null,
-      role: user.role as SharedUser['role'],
+      role: user.role,
       partnerId: null,
       permissions,
       isActive: user.isActive,

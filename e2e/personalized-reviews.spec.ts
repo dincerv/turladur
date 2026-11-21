@@ -71,6 +71,10 @@ test.describe('Personalized persona reviews', () => {
       timeout: 45_000,
     });
 
+    await expect(page.getByTestId('persona-fit-placeholder')).toBeVisible();
+    await expect(page.getByTestId('persona-fit-score')).toHaveCount(0);
+
+    await page.getByTestId('persona-chip-CALM').click();
     await expect(page.getByTestId('persona-fit-score')).toBeVisible({
       timeout: 20_000,
     });

@@ -114,6 +114,7 @@ export const defaultFormData: TourFormData = {
   meetingPoint: '',
   meetingTime: '',
   pickupPoints: [],
+  routeStops: [],
   mainImage: null,
   galleryImages: [],
 };

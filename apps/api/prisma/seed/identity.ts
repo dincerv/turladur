@@ -1,6 +1,11 @@
 import * as bcrypt from 'bcrypt';
 import type { PrismaClient } from '../../src/generated/prisma';
-import { AGENCY_CITIES, COUNT, DEMO_PASSWORD } from './constants';
+import {
+  AGENCY_CITIES,
+  AGENCY_PROFILES,
+  COUNT,
+  DEMO_PASSWORD,
+} from './constants';
 
 export type SeedIdentity = {
   passwordHash: string;
@@ -100,15 +105,17 @@ export async function seedIdentity(
 
   const agencies: SeedIdentity['agencies'] = [];
   for (let i = 1; i <= COUNT; i++) {
-    const city = AGENCY_CITIES[i - 1];
+    const profile = AGENCY_PROFILES[i - 1];
+    const city = profile.city;
+    const companyName = profile.name;
     const taxNumber = `222222222${i}`;
     const contactEmail = `owner${pad(i)}@agency.demo.turta.com`;
     const agency = await prisma.agency.create({
       data: {
         id: `seed-agency-${pad(i)}`,
-        companyName: `${city} Demo Acente ${pad(i)}`,
+        companyName,
         taxNumber,
-        legalTitle: `${city} Demo Acente ${pad(i)} A.Ş.`,
+        legalTitle: `${companyName} A.Ş.`,
         address: `Atatürk Cad. No:${i} ${city}`,
         city,
         country: 'Türkiye',
@@ -119,7 +126,7 @@ export async function seedIdentity(
         capabilities: ['TOURS'],
         verifiedAt: new Date(),
         tursabBelgeNo: `A-${1000 + i}`,
-        tursabUnvan: `${city} Demo Acente ${pad(i)} A.Ş.`,
+        tursabUnvan: `${companyName} A.Ş.`,
         tursabCity: city,
         tursabVerificationStatus: 'VERIFIED',
         tursabVerifiedAt: new Date(),
@@ -131,7 +138,7 @@ export async function seedIdentity(
     const owner = await prisma.agencyStaff.create({
       data: {
         agencyId: agency.id,
-        name: `${city} Sahip`,
+        name: `${companyName} Sahip`,
         email: contactEmail,
         passwordHash,
         role: 'AGENCY_OWNER',
@@ -141,7 +148,7 @@ export async function seedIdentity(
     const adminStaff = await prisma.agencyStaff.create({
       data: {
         agencyId: agency.id,
-        name: `${city} Admin`,
+        name: `${companyName} Admin`,
         email: `admin${pad(i)}@agency.demo.turta.com`,
         passwordHash,
         role: 'AGENCY_ADMIN',
@@ -151,7 +158,7 @@ export async function seedIdentity(
     const staff = await prisma.agencyStaff.create({
       data: {
         agencyId: agency.id,
-        name: `${city} Personel`,
+        name: `${companyName} Personel`,
         email: `staff${pad(i)}@agency.demo.turta.com`,
         passwordHash,
         role: 'AGENCY_STAFF',

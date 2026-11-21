@@ -3,6 +3,7 @@
 import { ImageIcon, Plus, X } from 'lucide-react';
 import { DatePicker } from '@/components/booking/date-picker';
 import { PickupPointForm } from '@/components/features/partner-dashboard/pickup-point-form';
+import { RouteStopForm } from '@/components/features/partner-dashboard/route-stop-form';
 import { IMAGE_PLACEHOLDER } from '@/lib/partner-tour-helpers';
 import {
   AVAILABLE_TAGS,
@@ -37,6 +38,7 @@ export function TourFormBasicStep() {
     handleImageRemove,
     handlePreviewImageError,
     handlePickupPointsChange,
+    handleRouteStopsChange,
     handleLanguageInputChange,
     handleAddLanguage,
     handleRemoveLanguage,
@@ -879,6 +881,14 @@ export function TourFormBasicStep() {
         <PickupPointForm
           pickupPoints={formData.pickupPoints}
           onChange={handlePickupPointsChange}
+        />
+      </div>
+
+      <div className="space-y-6 rounded-lg bg-white p-6 shadow">
+        <RouteStopForm
+          routeStops={formData.routeStops}
+          onChange={handleRouteStopsChange}
+          maxDay={Math.max(1, Number(formData.duration) || 14)}
         />
       </div>
 

@@ -18,6 +18,7 @@ const NAV = [
   { href: '/admin/guides', label: 'Rehberler' },
   { href: '/admin/tours', label: 'Onay' },
   { href: '/admin/reviews', label: 'Yorumlar' },
+  { href: '/admin/audit', label: 'İşlem Geçmişi' },
   { href: '/admin/content', label: 'İçerik Yönetimi' },
 ];
 

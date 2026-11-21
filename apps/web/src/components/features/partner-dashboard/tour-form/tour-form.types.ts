@@ -49,6 +49,17 @@ export interface PickupPoint {
   isActive: boolean;
 }
 
+export interface RouteStop {
+  id?: string;
+  dayNumber: number;
+  order: number;
+  name: string;
+  description?: string;
+  latitude: number | null;
+  longitude: number | null;
+  kind: 'VISIT' | 'LODGING';
+}
+
 export interface Destination {
   city: string;
   description?: string;
@@ -74,8 +85,16 @@ export interface TourFormData {
   /** Health conditions this tour can accommodate (operator-selected). */
   healthPrivileges: string[];
   itinerary: {
+    dayNumber?: number;
     title: string;
     description: string;
+    highlights?: string[];
+    meals?: {
+      breakfast?: 'INCLUDED' | 'EXCLUDED' | 'FREE_TIME' | null;
+      lunch?: 'INCLUDED' | 'EXCLUDED' | 'FREE_TIME' | null;
+      dinner?: 'INCLUDED' | 'EXCLUDED' | 'FREE_TIME' | null;
+    };
+    accommodation?: string | null;
     images?: { url: string; file: File | null }[];
   }[];
   status: 'active' | 'draft' | 'archived';
@@ -102,6 +121,7 @@ export interface TourFormData {
   meetingPoint: string;
   meetingTime: string;
   pickupPoints: PickupPoint[];
+  routeStops: RouteStop[];
   mainImage: ImageFile | null;
   galleryImages: GalleryImageFile[];
 }

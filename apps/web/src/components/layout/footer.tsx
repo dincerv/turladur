@@ -16,9 +16,7 @@ export function Footer({ className = '' }: FooterProps) {
   const addressLines = getCompanyAddressLines();
 
   return (
-    <footer
-      className={`bg-neutral-900 pt-16 pb-8 text-neutral-400 ${className}`}
-    >
+    <footer className={`bg-zinc-950 pt-16 pb-8 text-neutral-400 ${className}`}>
       <div className="container mx-auto px-6">
         <div className="mb-16 grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-12">
           <div className="lg:col-span-4">

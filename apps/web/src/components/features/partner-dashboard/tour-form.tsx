@@ -26,6 +26,7 @@ import type {
   GalleryImageFile,
   ImageFile,
   PickupPoint,
+  RouteStop,
   TourDate,
   TourFormData,
   TourFormProps,
@@ -137,6 +138,7 @@ export function TourForm({
         meetingPoint: initialData.meetingPoint || '',
         meetingTime: initialData.meetingTime || '',
         pickupPoints: initialData.pickupPoints || [],
+        routeStops: initialData.routeStops || [],
         nights: initialData.nights || '',
         mainImage: initialData.mainImage || null,
         galleryImages: initialData.galleryImages || [],
@@ -687,9 +689,16 @@ export function TourForm({
         excludes: formData.excludes,
         healthPrivileges: formData.healthPrivileges,
         features: formData.features,
-        itinerary: formData.itinerary.map((day) => ({
+        itinerary: formData.itinerary.map((day, index) => ({
+          dayNumber: day.dayNumber ?? index + 1,
           title: day.title,
           description: day.description,
+          highlights: day.highlights ?? [],
+          meals: day.meals ?? null,
+          accommodation:
+            formData.stayKind === 'DAY_TRIP' || Number(formData.duration) <= 1
+              ? null
+              : day.accommodation?.trim() || null,
           images: day.images?.map((image) => image.url).filter(Boolean) ?? [],
         })),
         featured: false,
@@ -795,6 +804,22 @@ export function TourForm({
             longitude: point.longitude ?? null,
             order: index,
           })),
+        routeStops: formData.routeStops
+          .filter(
+            (stop) =>
+              stop.name?.trim() &&
+              typeof stop.latitude === 'number' &&
+              typeof stop.longitude === 'number',
+          )
+          .map((stop, index) => ({
+            dayNumber: stop.dayNumber || 1,
+            order: index,
+            name: stop.name.trim(),
+            description: stop.description?.trim() || '',
+            latitude: stop.latitude as number,
+            longitude: stop.longitude as number,
+            kind: stop.kind || 'VISIT',
+          })),
         startDate: formData.startDate,
         endDate: formData.endDate,
         discount: formData.discount,
@@ -855,6 +880,16 @@ export function TourForm({
       ...prev,
       pickupPoints: points.map((point, index) => ({
         ...point,
+        order: index,
+      })),
+    }));
+  };
+
+  const handleRouteStopsChange = (stops: RouteStop[]) => {
+    setFormData((prev) => ({
+      ...prev,
+      routeStops: stops.map((stop, index) => ({
+        ...stop,
         order: index,
       })),
     }));
@@ -1419,6 +1454,7 @@ export function TourForm({
     handleImageRemove,
     handlePreviewImageError,
     handlePickupPointsChange,
+    handleRouteStopsChange,
     handleLanguageInputChange,
     handleAddLanguage,
     handleRemoveLanguage,

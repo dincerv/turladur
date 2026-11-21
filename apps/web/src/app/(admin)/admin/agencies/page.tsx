@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import { AdminAuditTimeline } from '@/components/features/admin/admin-audit-timeline';
 import { ModerationNoteDialog } from '@/components/features/admin/moderation-note-dialog';
 import { listAdminPartners, setPartnerStatus } from '@/services/partner-admin';
 import { useAuth } from '@/providers/auth-provider';
@@ -37,6 +38,7 @@ export default function AdminAgenciesPage() {
     id: string;
     action: 'REJECTED' | 'SUSPENDED';
   } | null>(null);
+  const [timelineId, setTimelineId] = useState<string | null>(null);
 
   async function reload(status = statusFilter) {
     if (!accessToken) return;
@@ -73,7 +75,9 @@ export default function AdminAgenciesPage() {
       setDialog(null);
       setSuccess(
         status === 'VERIFIED'
-          ? 'Partner onaylandı'
+          ? partners.find((p) => p.id === id)?.status === 'SUSPENDED'
+            ? 'Partner askısı kaldırıldı'
+            : 'Partner onaylandı'
           : status === 'REJECTED'
             ? 'Partner reddedildi'
             : 'Partner askıya alındı',
@@ -159,65 +163,84 @@ export default function AdminAgenciesPage() {
               key={row.id}
               data-testid={`admin-partner-row-${row.id}`}
               data-status={status}
-              className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"
+              className="px-4 py-3 text-sm"
             >
-              <div>
-                <p className="font-medium">{row.companyName}</p>
-                <p className="text-xs text-neutral-500">
-                  {row.contactEmail} · {row.status}
-                </p>
-                {row.moderationNote ? (
-                  <p className="mt-1 text-xs text-amber-700">
-                    Not: {row.moderationNote}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="font-medium">{row.companyName}</p>
+                  <p className="text-xs text-neutral-500">
+                    {row.contactEmail} · {row.status}
                   </p>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {canApprove ? (
+                  {row.moderationNote ? (
+                    <p className="mt-1 text-xs text-amber-700">
+                      Not: {row.moderationNote}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    data-testid={`admin-partner-approve-${row.id}`}
-                    disabled={busy || !accessToken}
-                    className="rounded-lg bg-emerald-600 px-2 py-1 text-xs text-white disabled:opacity-50"
-                    onClick={() => {
-                      if (
-                        !window.confirm(`${row.companyName} onaylansın mı?`)
-                      ) {
-                        return;
+                    data-testid={`admin-partner-history-${row.id}`}
+                    className="rounded-lg border px-2 py-1 text-xs text-neutral-700"
+                    onClick={() =>
+                      setTimelineId((cur) => (cur === row.id ? null : row.id))
+                    }
+                  >
+                    {timelineId === row.id ? 'Geçmişi gizle' : 'Geçmiş'}
+                  </button>
+                  {canApprove ? (
+                    <button
+                      type="button"
+                      data-testid={`admin-partner-approve-${row.id}`}
+                      disabled={busy || !accessToken}
+                      className="rounded-lg bg-emerald-600 px-2 py-1 text-xs text-white disabled:opacity-50"
+                      onClick={() => {
+                        if (
+                          !window.confirm(`${row.companyName} onaylansın mı?`)
+                        ) {
+                          return;
+                        }
+                        void applyStatus(row.id, 'VERIFIED');
+                      }}
+                    >
+                      {status === 'SUSPENDED' ? 'Askıyı kaldır' : 'Onayla'}
+                    </button>
+                  ) : null}
+                  {canReject ? (
+                    <button
+                      type="button"
+                      data-testid={`admin-partner-reject-${row.id}`}
+                      disabled={busy || !accessToken}
+                      className="rounded-lg border px-2 py-1 text-xs disabled:opacity-50"
+                      onClick={() =>
+                        setDialog({ id: row.id, action: 'REJECTED' })
                       }
-                      void applyStatus(row.id, 'VERIFIED');
-                    }}
-                  >
-                    Onayla
-                  </button>
-                ) : null}
-                {canReject ? (
-                  <button
-                    type="button"
-                    data-testid={`admin-partner-reject-${row.id}`}
-                    disabled={busy || !accessToken}
-                    className="rounded-lg border px-2 py-1 text-xs disabled:opacity-50"
-                    onClick={() =>
-                      setDialog({ id: row.id, action: 'REJECTED' })
-                    }
-                  >
-                    Red
-                  </button>
-                ) : null}
-                {canSuspend ? (
-                  <button
-                    type="button"
-                    data-testid={`admin-partner-suspend-${row.id}`}
-                    disabled={busy || !accessToken}
-                    className="rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 disabled:opacity-50"
-                    onClick={() =>
-                      setDialog({ id: row.id, action: 'SUSPENDED' })
-                    }
-                  >
-                    Askıya al
-                  </button>
-                ) : null}
+                    >
+                      Red
+                    </button>
+                  ) : null}
+                  {canSuspend ? (
+                    <button
+                      type="button"
+                      data-testid={`admin-partner-suspend-${row.id}`}
+                      disabled={busy || !accessToken}
+                      className="rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 disabled:opacity-50"
+                      onClick={() =>
+                        setDialog({ id: row.id, action: 'SUSPENDED' })
+                      }
+                    >
+                      Askıya al
+                    </button>
+                  ) : null}
+                </div>
               </div>
+              {timelineId === row.id ? (
+                <AdminAuditTimeline
+                  entityType="Agency"
+                  entityId={row.id}
+                  title="Bu acentenin işlem geçmişi"
+                />
+              ) : null}
             </li>
           );
         })}

@@ -44,9 +44,11 @@ import type {
   RouteSelectionSource,
 } from './routes-explorer.types';
 
-const OSM_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-const OSM_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>';
+import {
+  ESRI_STREET_ATTRIBUTION,
+  ESRI_STREET_TILE_URL,
+  resolveSafeMapTile,
+} from '@/components/features/tour/tour-detail/tour-route-map.helpers';
 
 function escapeHtml(value: string): string {
   return value
@@ -57,22 +59,12 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-const customTileUrl = process.env.NEXT_PUBLIC_MAP_TILE_URL?.trim();
-const customAttribution = process.env.NEXT_PUBLIC_MAP_TILE_ATTRIBUTION?.trim();
-
-/**
- * Tile keys are always public in the browser; quota safety comes from
- * restricting the key to our domains at the tile provider, not from hiding it.
- * Leaflet renders attribution as HTML, so the env value is escaped.
- */
-const TILE_URL =
-  customTileUrl && /^https:\/\//i.test(customTileUrl)
-    ? customTileUrl
-    : OSM_TILE_URL;
-const TILE_ATTRIBUTION =
-  TILE_URL === OSM_TILE_URL
-    ? OSM_ATTRIBUTION
-    : escapeHtml(customAttribution || 'Harita verileri');
+/** Anahtarsız Esri Street (Carto filigranlı; OSM rate-limit boşluklu). */
+const resolvedTile = resolveSafeMapTile('esri');
+const TILE_URL = resolvedTile.url || ESRI_STREET_TILE_URL;
+const TILE_ATTRIBUTION = escapeHtml(
+  resolvedTile.attribution || ESRI_STREET_ATTRIBUTION,
+);
 
 const FIT_PADDING: PointExpression = [32, 32];
 const MAX_FIT_ZOOM = 13;

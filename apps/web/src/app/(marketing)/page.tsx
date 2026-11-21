@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 
-import { CTA } from '@/components/features/home/cta';
+import { AgencyCtaStrip } from '@/components/features/home/agency-cta-strip';
 import { Destinations } from '@/components/features/home/destinations';
 import { Hero } from '@/components/features/home/hero';
-import { HotDeals } from '@/components/features/home/hot-deals';
+import {
+  HotDeals,
+  pickShowcaseActivities,
+  pickShowcaseTours,
+} from '@/components/features/home/hot-deals';
 import { MobileOfferPopup } from '@/components/features/home/mobile-offer-popup';
 import { Newsletter } from '@/components/features/home/newsletter';
 import { Stats } from '@/components/features/home/stats';
@@ -28,15 +32,15 @@ export default async function HomePage() {
   let activities: Awaited<ReturnType<typeof searchExperiences>>['data'] = [];
 
   try {
-    const result = await searchTours({ limit: 12 });
-    tours = result.data ?? [];
+    const result = await searchTours({ limit: 48, sortBy: 'rating' });
+    tours = pickShowcaseTours(result.data ?? [], 8);
   } catch {
     tours = [];
   }
 
   try {
-    const result = await searchExperiences({ limit: 12 });
-    activities = result.data ?? [];
+    const result = await searchExperiences({ limit: 48 });
+    activities = pickShowcaseActivities(result.data ?? [], 8);
   } catch {
     activities = [];
   }
@@ -54,9 +58,9 @@ export default async function HomePage() {
         <Hero />
       </Suspense>
       <Destinations />
-      <CTA />
       <HotDeals initialTours={tours} initialActivities={activities} />
       <Stats />
+      <AgencyCtaStrip />
       <Newsletter />
       <MobileOfferPopup />
     </>

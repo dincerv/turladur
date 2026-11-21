@@ -56,6 +56,21 @@ export function getDestinationLabel(destination: TourDestination): string {
   return destination?.city ?? '';
 }
 
+/** Tur başlığıyla aynı destinasyon etiketlerini meta satırından çıkar. */
+export function metaDestinations(
+  tourName: string,
+  destinations: string[],
+): string[] {
+  const title = tourName.trim().toLocaleLowerCase('tr-TR');
+  return destinations
+    .map((d) => d.trim())
+    .filter(Boolean)
+    .filter((d) => {
+      const label = d.toLocaleLowerCase('tr-TR');
+      return label !== title && !title.includes(label);
+    });
+}
+
 export function buildFallbackItinerary(
   durationDays: number,
   destinationNames: string[],

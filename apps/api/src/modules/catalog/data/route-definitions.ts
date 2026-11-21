@@ -1,4 +1,4 @@
-/** Curated destination routes (legacy lib/routes.ts parity). */
+/** Curated destination routes — faz-1 Ankara çıkışlı vitrin odaklı. */
 
 export type RouteCategory =
   'historical' | 'nature' | 'beach' | 'gastronomy' | 'family';
@@ -10,6 +10,8 @@ export interface RouteDefinition {
   longDescription: string;
   image: string;
   location: string;
+  /** Homepage badge / cluster label (optional). */
+  clusterLabel?: string;
   bestTimeToVisit: string;
   weather: string;
   transportation: string;
@@ -68,24 +70,32 @@ export const ROUTE_CATEGORY_LABELS: Record<
   },
 };
 
+/** Ana sayfa Popüler Rotalar sırası (Ankara çıkışlı 4 küme). */
+export const HOMEPAGE_ROUTE_IDS = [
+  'kapadokya',
+  'amasra-safranbolu',
+  'gap-mezopotamya',
+  'abant-yedigoller',
+] as const;
+
 export const ROUTE_DEFINITIONS: RouteDefinition[] = [
   {
     id: 'kapadokya',
     name: 'Kapadokya',
+    clusterLabel: 'Hafta Sonu Kaçamağı',
     description:
-      'Peri bacaları, yeraltı şehirleri ve balon turlarıyla unutulmaz bir deneyim.',
-    longDescription: `Kapadokya, Türkiye'nin en etkileyici doğal ve tarihi bölgelerinden biridir. Peri bacaları, yeraltı şehirleri, antik kiliseler ve vadileriyle benzersiz bir deneyim sunar.
+      "Peri bacaları, yeraltı şehirleri ve balon turlarıyla Ankara'dan 3 saat mesafede unutulmaz bir hafta sonu kaçamağı.",
+    longDescription: `Kapadokya, Ankara çıkışlı gezginler için en yakın “wow” destinasyonlarından biridir. Peri bacaları, yeraltı şehirleri ve vadileriyle kısa mesafede yoğun bir deneyim sunar.
 
-Balon turları, at turları, yürüyüş rotaları ve şarap tadımları gibi birçok aktivite seçeneği bulunmaktadır. Bölge, her mevsim farklı güzellikler sunar ve fotoğraf tutkunları için ideal bir destinasyondur.`,
+Balon izleme, vadi yürüyüşleri ve Göreme çevresi kültür noktaları hafta sonu programlarına ideal uyum sağlar.`,
     image:
       'https://images.unsplash.com/photo-1641128324972-af3212f0f6bd?auto=format&fit=crop&w=2070&q=80',
-    location: 'Nevşehir, Türkiye',
+    location: 'Nevşehir',
     bestTimeToVisit: 'Nisan - Ekim',
     weather: 'Yazları sıcak (25-35°C), kışları soğuk (-5-5°C)',
-    transportation:
-      "Nevşehir Havalimanı'na uçuş veya Kayseri Havalimanı'na uçuş + 1 saat transfer",
-    duration: '3-4 gün',
-    highlights: ['Balon Turu', 'Yeraltı Şehirleri', 'Şarap Tadımı', 'At Turu'],
+    transportation: "Ankara'dan karayolu ile yaklaşık 3 saat",
+    duration: '2-3 gün',
+    highlights: ['Balon İzleme', 'Göreme', 'Uçhisar', 'Vadiler'],
     category: 'nature',
     matchKeywords: [
       'kapadokya',
@@ -97,8 +107,92 @@ Balon turları, at turları, yürüyüş rotaları ve şarap tadımları gibi bi
       'avanos',
       'derinkuyu',
       'nevşehir',
-      'nevesehir',
       'peri bac',
+      'soğanlı',
+    ],
+  },
+  {
+    id: 'amasra-safranbolu',
+    name: 'Amasra & Safranbolu',
+    clusterLabel: 'Batı Karadeniz',
+    description:
+      'Tarihi konaklar, Amasra kalesi ve Karadeniz mutfağıyla günübirlik ve 1 gecelik turlar için ideal Batı Karadeniz rotası.',
+    longDescription: `Safranbolu’nun UNESCO dokusu ve Amasra’nın deniz-kale silüeti, Ankara’dan kısa sürede ulaşılabilen klasik bir kültür-deniz birleşimidir.
+
+Günübirlik veya 1 gecelik programlarla konak sokakları, liman ve yöresel lezzetler dengeli bir tempoda sunulur.`,
+    image:
+      'https://images.pexels.com/photos/1482193/pexels-photo-1482193.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    location: 'Bartın & Karabük',
+    bestTimeToVisit: 'Mayıs - Ekim',
+    weather: 'Nemli Karadeniz iklimi',
+    transportation: "Ankara'dan karayolu ile yaklaşık 4-5 saat",
+    duration: '1-2 gün',
+    highlights: ['Safranbolu', 'Amasra Kalesi', 'Konaklar', 'Balık'],
+    category: 'historical',
+    matchKeywords: [
+      'amasra',
+      'safranbolu',
+      'bartın',
+      'bartin',
+      'karabük',
+      'karabuk',
+      'batı karadeniz',
+    ],
+  },
+  {
+    id: 'gap-mezopotamya',
+    name: 'GAP & Mezopotamya',
+    clusterLabel: 'Kültür Rotaları',
+    description:
+      "Mardin, Göbeklitepe, Şanlıurfa ve Halfeti'yi kapsayan konaklamalı kültür turları.",
+    longDescription: `GAP hattı; Mardin taş mimarisi, Urfa’nın inanç ve kültür dokusu, Göbeklitepe ve Halfeti ile Ankara çıkışlı konaklamalı kültür severlere hitap eder.
+
+Bayram ve bahar dönemlerinde 4–6 günlük programlar en çok tercih edilir.`,
+    image:
+      'https://images.unsplash.com/photo-1489749798305-4fea3ae63d43?auto=format&fit=crop&w=1600&q=80',
+    location: 'Mardin & Şanlıurfa',
+    bestTimeToVisit: 'Mart - Mayıs, Eylül - Kasım',
+    weather: 'Yazları sıcak, ilkbahar/sonbahar ılıman',
+    transportation: "Ankara'dan otobüs veya uçuş + bölge transferi",
+    duration: '4-6 gün',
+    highlights: ['Mardin', 'Göbeklitepe', 'Şanlıurfa', 'Halfeti'],
+    category: 'historical',
+    matchKeywords: [
+      'gap',
+      'mardin',
+      'şanlıurfa',
+      'sanliurfa',
+      'urfa',
+      'göbeklitepe',
+      'gobeklitepe',
+      'halfeti',
+      'mezopotamya',
+    ],
+  },
+  {
+    id: 'abant-yedigoller',
+    name: 'Abant & Yedigöller',
+    clusterLabel: 'Doğa & Günübirlik',
+    description:
+      "Ankara'dan hafta sonu nefes almak isteyenler için göl manzaralı doğa ve yürüyüş rotaları.",
+    longDescription: `Abant Gölü ve Yedigöller, Ankara’ya en yakın doğa kaçışlarından biridir. Göl çevresi yürüyüşleri, orman havası ve piknik molaları günübirlik programlara çok uygundur.`,
+    image:
+      'https://images.unsplash.com/photo-1439066615861-d1af74d74000?auto=format&fit=crop&w=1600&q=80',
+    location: 'Bolu',
+    bestTimeToVisit: 'Mayıs - Ekim',
+    weather: 'Serin orman iklimi',
+    transportation: "Ankara'dan karayolu ile yaklaşık 2-2.5 saat",
+    duration: '1 gün',
+    highlights: ['Abant Gölü', 'Yedigöller', 'Doğa yürüyüşü', 'Fotoğraf'],
+    category: 'nature',
+    matchKeywords: [
+      'abant',
+      'yedigöller',
+      'yedigoller',
+      'bolu',
+      'göl',
+      'gol',
+      'doğa',
     ],
   },
   {
@@ -106,14 +200,14 @@ Balon turları, at turları, yürüyüş rotaları ve şarap tadımları gibi bi
     name: 'Likya Yolu',
     description:
       'Antik Likya uygarlığının izlerini takip eden, deniz manzaralı yürüyüş rotası.',
-    longDescription: `Likya Yolu, Akdeniz kıyısı boyunca uzanan dünyanın en güzel yürüyüş rotalarından biridir. Antik Likya kentlerinin kalıntıları, turkuaz koylar ve çam ormanları arasında unutulmaz bir trekking deneyimi sunar.`,
+    longDescription: `Likya Yolu, Akdeniz kıyısı boyunca uzanan dünyanın en güzel yürüyüş rotalarından biridir. Ankara çıkışlı konaklamalı programlarla Kaş–Patara–Fethiye hattı birleştirilebilir.`,
     image:
       'https://images.unsplash.com/photo-1593238739364-18cfde30e522?auto=format&fit=crop&w=2070&q=80',
-    location: 'Antalya - Muğla, Türkiye',
+    location: 'Antalya & Muğla',
     bestTimeToVisit: 'Mart - Mayıs, Eylül - Kasım',
     weather: 'Ilıman Akdeniz iklimi',
-    transportation: 'Antalya veya Dalaman Havalimanı + kara transferi',
-    duration: '7-8 gün',
+    transportation: 'Ankara’dan otobüs/uçuş + kara transferi',
+    duration: '5-7 gün',
     highlights: [
       'Antik Kentler',
       'Deniz Manzarası',
@@ -130,122 +224,33 @@ Balon turları, at turları, yürüyüş rotaları ve şarap tadımları gibi bi
       'fethiye',
       'olimpos',
       'olympos',
-      'demre',
-      'kumluca',
       'patara',
-      'xanthos',
+      'ege',
     ],
   },
   {
-    id: 'pamukkale',
-    name: 'Pamukkale & Hierapolis',
-    description: 'Travertenler ve antik havuzuyla dünyaca ünlü doğa harikası.',
-    longDescription: `Pamukkale, beyaz traverten terasları ve üzerindeki Hierapolis antik kentiyle UNESCO Dünya Mirası Listesi'nde yer alan eşsiz bir destinasyondur.`,
-    image:
-      'https://images.unsplash.com/photo-1720974613560-e65ad8b37ca9?auto=format&fit=crop&w=2070&q=80',
-    location: 'Denizli, Türkiye',
-    bestTimeToVisit: 'Mart - Kasım',
-    weather: 'Yazları sıcak, kışları ılıman',
-    transportation: 'Denizli Çardak Havalimanı veya İzmir/Antalya + kara yolu',
-    duration: '1-2 gün',
-    highlights: [
-      'Travertenler',
-      'Antik Havuz',
-      'Hierapolis',
-      'Kleopatra Havuzu',
-    ],
-    category: 'historical',
-    matchKeywords: [
-      'pamukkale',
-      'hierapolis',
-      'denizli',
-      'traverten',
-      'kleopatra',
-    ],
-  },
-  {
-    id: 'efes',
-    name: 'Efes Antik Kenti',
-    description: "Roma İmparatorluğu'nun en önemli antik kentlerinden biri.",
-    longDescription: `Efes, dünyanın en iyi korunmuş antik kentlerinden biridir. Celsus Kütüphanesi, Büyük Tiyatro ve Artemis Tapınağı kalıntılarıyla tarih meraklılarının vazgeçilmez durağıdır.`,
-    image:
-      'https://images.unsplash.com/photo-1700855553036-47b91c5f4aaa?auto=format&fit=crop&w=2070&q=80',
-    location: 'Selçuk, İzmir',
-    bestTimeToVisit: 'Mart - Kasım',
-    weather: 'Ilıman Ege iklimi',
-    transportation: 'İzmir Adnan Menderes Havalimanı + 1 saat transfer',
-    duration: '1 gün',
-    highlights: [
-      'Celsus Kütüphanesi',
-      'Büyük Tiyatro',
-      'Hadrian Tapınağı',
-      'Antik Agora',
-    ],
-    category: 'historical',
-    matchKeywords: [
-      'efes',
-      'ephesus',
-      'selçuk',
-      'selcuk',
-      'meryem ana',
-      'artemis',
-    ],
-  },
-  {
-    id: 'fethiye-oludeniz',
-    name: 'Fethiye - Ölüdeniz',
-    description: 'Muhteşem koylar ve plajlarla çevrili doğa cenneti.',
-    longDescription: `Fethiye ve Ölüdeniz, turkuaz suları, Kelebekler Vadisi ve yamaç paraşütü imkânlarıyla Akdeniz'in en popüler tatil rotalarından biridir.`,
-    image:
-      'https://images.unsplash.com/photo-1719451642957-172abf017863?auto=format&fit=crop&w=2070&q=80',
-    location: 'Muğla, Türkiye',
-    bestTimeToVisit: 'Mayıs - Ekim',
-    weather: 'Sıcak yazlar, ılıman kışlar',
-    transportation: 'Dalaman Havalimanı + 1 saat transfer',
-    duration: '2-3 gün',
-    highlights: [
-      'Ölüdeniz Plajı',
-      'Kelebekler Vadisi',
-      'Paragliding',
-      'Tekne Turu',
-    ],
-    category: 'beach',
-    matchKeywords: [
-      'fethiye',
-      'ölüdeniz',
-      'oludeniz',
-      'kelebekler vadisi',
-      'babadag',
-      'babadağ',
-    ],
-  },
-  {
-    id: 'istanbul',
-    name: 'İstanbul - Tarihi Yarımada',
+    id: 'dogu-karadeniz',
+    name: 'Doğu Karadeniz Yaylaları',
     description:
-      'Medeniyetlerin buluşma noktasında binlerce yıllık tarih ve kültür.',
-    longDescription: `İstanbul, iki kıtayı birleştiren eşsiz şehir. Ayasofya, Topkapı Sarayı, Kapalıçarşı ve Boğaz manzarasıyla dünyanın en çok ziyaret edilen kültür rotalarından biridir.`,
+      'Uzungöl, Ayder ve sisli yaylalarla Ankara çıkışlı konaklamalı doğa rotası.',
+    longDescription: `Doğu Karadeniz yaylaları; Uzungöl ve Ayder başta olmak üzere sis, çay ve yeşil yamaçlarla unutulmaz bir doğa deneyimi sunar.`,
     image:
-      'https://images.unsplash.com/photo-1589561454226-796a8aa89b05?auto=format&fit=crop&w=2070&q=80',
-    location: 'İstanbul, Türkiye',
-    bestTimeToVisit: 'Nisan - Haziran, Eylül - Kasım',
-    weather: 'Ilıman, nemli',
-    transportation: 'İstanbul Havalimanı veya Sabiha Gökçen Havalimanı',
-    duration: '3-4 gün',
-    highlights: ['Ayasofya', 'Topkapı Sarayı', 'Kapalıçarşı', 'Boğaz Turu'],
-    category: 'historical',
+      'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1600&q=80',
+    location: 'Trabzon & Rize',
+    bestTimeToVisit: 'Haziran - Eylül',
+    weather: 'Yağışlı ve serin',
+    transportation: 'Ankara’dan otobüs veya uçuş + transfer',
+    duration: '4-6 gün',
+    highlights: ['Uzungöl', 'Ayder', 'Yaylalar', 'Doğa'],
+    category: 'nature',
     matchKeywords: [
-      'istanbul',
-      'İstanbul',
-      'ayasofya',
-      'topkapı',
-      'topkapi',
-      'kapalıçarşı',
-      'kapalicarsi',
-      'boğaz',
-      'bogaz',
-      'tarihi yarımada',
-      'sultanahmet',
+      'uzungöl',
+      'uzungol',
+      'ayder',
+      'trabzon',
+      'rize',
+      'yayla',
+      'karadeniz',
     ],
   },
 ];
